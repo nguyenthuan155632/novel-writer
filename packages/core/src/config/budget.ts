@@ -1,0 +1,8 @@
+export const BUDGET_GUARDRAILS = {
+  PER_CHAPTER_HARD_CAP_USD: 0.05,
+  PER_STORY_DAILY_CAP_USD: 5.0,
+  PER_STORY_MONTHLY_CAP_USD: 50.0,
+  ALERT_THRESHOLD_PERCENT: 80,
+} as const;
+
+export type BudgetGuardrails = typeof BUDGET_GUARDRAILS;
