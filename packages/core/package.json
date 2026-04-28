@@ -10,7 +10,8 @@
     "./config/*": "./src/config/*.ts",
     "./logger": "./src/logger.ts",
     "./trace": "./src/trace.ts",
-    "./types/*": "./src/types/*.ts"
+    "./types/*": "./src/types/*.ts",
+    "./utils/*": "./src/utils/*.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

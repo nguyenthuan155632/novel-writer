@@ -11,3 +11,7 @@ export type Logger = typeof rootLogger;
 export function child(bindings: Record<string, unknown>): Logger {
   return rootLogger.child(bindings);
 }
+
+export function createLogger(name: string): Logger {
+  return rootLogger.child({ component: name });
+}
