@@ -1,0 +1,27 @@
+{
+  "name": "@novel/api",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "build": "tsc",
+    "start": "node dist/server.js",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@novel/core": "workspace:*",
+    "@novel/db": "workspace:*",
+    "@novel/ai": "workspace:*",
+    "fastify": "5.4.0",
+    "fastify-plugin": "5.0.1",
+    "zod": "3.25.76"
+  },
+  "devDependencies": {
+    "typescript": "5.9.3",
+    "tsx": "4.21.0",
+    "vitest": "3.2.4",
+    "@types/node": "24.12.2"
+  }
+}
