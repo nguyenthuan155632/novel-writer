@@ -20,7 +20,7 @@ export interface CompletionRequest {
   maxOutputTokens?: number;
   responseSchema?: JsonSchema;
   cacheBreakpoints?: number[];
-  metadata?: { agentRole?: string; promptVersion?: string; traceId?: string };
+  metadata?: { agentRole?: string; promptVersion?: string; traceId?: string; storyId?: string };
 }
 
 export interface CompletionUsage {

@@ -1,6 +1,6 @@
 import type { LLMProvider } from '../providers/types.ts';
 import { BibleSchema, bibleJsonSchema, type Bible } from '../schemas/bible.ts';
-import { getPrompt } from '../prompts/registry.ts';
+import { getPrompt, type PromptTemplate } from '../prompts/registry.ts';
 import type { BibleGeneratorInput } from '../prompts/bible-generator.v1.ts';
 
 export interface GenerateBibleParams {
@@ -18,7 +18,7 @@ export interface GenerateBibleResult {
 }
 
 export async function generateBible(params: GenerateBibleParams): Promise<GenerateBibleResult> {
-  const tmpl = getPrompt('bible_generator', 'v1');
+  const tmpl = getPrompt('bible_generator', 'v1') as PromptTemplate;
   const userContent = tmpl.render(params.input as unknown as Record<string, unknown>);
 
   const res = await params.provider.complete({
@@ -30,7 +30,7 @@ export async function generateBible(params: GenerateBibleParams): Promise<Genera
       agentRole: tmpl.agentRole,
       promptVersion: tmpl.version,
       traceId: params.traceId,
-      ...(params.storyId ? { storyId: params.storyId } : {}),
+      storyId: params.storyId,
     },
   });
 

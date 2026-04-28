@@ -45,7 +45,7 @@ export class LoggedLLMProvider implements LLMProvider {
         cachedInputTokens: usage.cachedInputTokens,
         estimatedCostUsd: cost.toFixed(6),
         traceId: meta.traceId,
-        storyId: (meta as Record<string, string | undefined>).storyId,
+        storyId: meta.storyId,
         chapterId: (meta as Record<string, string | undefined>).chapterId,
       };
       try {
