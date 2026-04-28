@@ -1,0 +1,29 @@
+{
+  "name": "@novel/ai",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./providers/*": "./src/providers/*.ts",
+    "./agents/*": "./src/agents/*.ts",
+    "./schemas/*": "./src/schemas/*.ts",
+    "./prompts/*": "./src/prompts/*.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@novel/core": "workspace:*",
+    "@novel/db": "workspace:*",
+    "zod": "3.25.76"
+  },
+  "devDependencies": {
+    "typescript": "5.9.3",
+    "vitest": "3.2.4",
+    "@types/node": "24.12.2"
+  }
+}
