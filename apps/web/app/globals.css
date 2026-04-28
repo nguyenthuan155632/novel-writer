@@ -1,0 +1,12 @@
+* { box-sizing: border-box; }
+body { color: #1a1a1a; background: #fafafa; }
+button { padding: 8px 14px; border-radius: 6px; border: 1px solid #888; cursor: pointer; background: #fff; }
+button:hover { background: #f0f0f0; }
+button.primary { background: #1a4ed8; color: white; border-color: #1a4ed8; }
+button.primary:hover { background: #143fa6; }
+button:disabled { opacity: 0.5; cursor: not-allowed; }
+input, textarea, select { padding: 8px 10px; border-radius: 6px; border: 1px solid #ccc; width: 100%; font: inherit; }
+label { display: block; font-weight: 600; margin-bottom: 4px; margin-top: 12px; }
+.error { color: #b91c1c; }
+.muted { color: #666; }
+.card { background: white; border: 1px solid #e5e5e5; padding: 16px; border-radius: 8px; }
