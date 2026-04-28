@@ -2,12 +2,14 @@ import Fastify from 'fastify';
 import logger from './plugins/logger.ts';
 import errorHandler from './plugins/error-handler.ts';
 import healthRoute from './routes/health.ts';
+import storiesRoute from './routes/stories.ts';
 
 export function buildServer() {
   const app = Fastify({ logger: false });
   app.register(logger);
   app.register(errorHandler);
   app.register(healthRoute);
+  app.register(storiesRoute);
   return app;
 }
 
