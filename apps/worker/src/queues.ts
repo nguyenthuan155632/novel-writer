@@ -7,6 +7,8 @@ export type GenerateChapterJob = {
   arcId: string;
   importance?: 'normal' | 'important';
   traceId: string;
+  mode?: 'safe' | 'semi_auto' | 'full_auto';
+  retryAttempt?: number;
 };
 
 export type RefreshArcSummaryJob = {
