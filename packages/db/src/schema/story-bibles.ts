@@ -12,7 +12,7 @@ export const storyBibles = pgTable('story_bibles', {
   forbiddenRules: text('forbidden_rules').notNull(),
   endingDirection: text('ending_direction'),
   compactSummary: text('compact_summary'),
-  styleFewShots: jsonb('style_few_shots').$type<string[]>().default([]).notNull(),
+  styleFewShots: jsonb('style_few_shots').$type<{ excerpt: string; sourceChapter?: number }[]>().default([]).notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
 });
