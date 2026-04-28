@@ -38,4 +38,22 @@ describe('bible routes', () => {
     expect(fetched.statusCode).toBe(200);
     expect(JSON.parse(fetched.body).id).toBe(bible.id);
   });
+
+  it('PUT updates bible and bumps version', async () => {
+    const created = await app.inject({
+      method: 'POST', url: '/api/stories',
+      payload: { title: 'EditTest', premise: 'A'.repeat(50) },
+    });
+    const story = JSON.parse(created.body);
+    await app.inject({ method: 'POST', url: `/api/stories/${story.id}/bible` });
+
+    const upd = await app.inject({
+      method: 'PUT', url: `/api/stories/${story.id}/bible`,
+      payload: { worldRules: 'EDITED'.repeat(20), styleGuide: 'edited-style'.repeat(10) },
+    });
+    expect(upd.statusCode).toBe(200);
+    const updated = JSON.parse(upd.body);
+    expect(updated.version).toBe(2);
+    expect(updated.worldRules).toMatch(/^(EDITED)+$/);
+  });
 });
