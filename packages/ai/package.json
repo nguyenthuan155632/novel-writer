@@ -10,7 +10,8 @@
     "./providers/*": "./src/providers/*.ts",
     "./agents/*": "./src/agents/*.ts",
     "./schemas/*": "./src/schemas/*.ts",
-    "./prompts/*": "./src/prompts/*.ts"
+    "./prompts/*": "./src/prompts/*.ts",
+    "./llm-call-logger": "./src/llm-call-logger.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
