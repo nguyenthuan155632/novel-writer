@@ -1,0 +1,79 @@
+import { describe, it, expect } from 'vitest';
+import { WriterAgent, parseTitleAndContent } from '../../src/agents/writer.ts';
+import { MockProvider } from '../../src/providers/mock.ts';
+import '../../src/prompts/writer.v1.ts';
+
+describe('parseTitleAndContent', () => {
+  it('parses TITLE: prefix format', () => {
+    const result = parseTitleAndContent('TITLE: Chương 1\n\nNội dung chương...');
+    expect(result.title).toBe('Chương 1');
+    expect(result.content).toBe('Nội dung chương...');
+  });
+
+  it('parses TITLE: with extra whitespace', () => {
+    const result = parseTitleAndContent('  TITLE:   Chương 2  \n\nNội dung');
+    expect(result.title).toBe('Chương 2');
+    expect(result.content).toBe('Nội dung');
+  });
+
+  it('falls back to first line as title when no TITLE: prefix', () => {
+    const result = parseTitleAndContent('Chương 3\nNội dung chương');
+    expect(result.title).toBe('Chương 3');
+    expect(result.content).toBe('Nội dung chương');
+  });
+
+  it('returns "Vô đề" when content is empty', () => {
+    const result = parseTitleAndContent('');
+    expect(result.title).toBe('Vô đề');
+  });
+});
+
+describe('WriterAgent', () => {
+  it('writes chapter and parses title/content', async () => {
+    const provider = new MockProvider({
+      responder: {
+        kind: 'fixed',
+        content: 'TITLE: Sương Mù Đỏ\n\nLam Trach bước vào rừng...',
+      },
+    });
+    const agent = new WriterAgent({ provider });
+
+    const result = await agent.write({
+      serializedContext: 'context-data',
+      cacheKey: 'cache-key-1',
+      chapterNumber: 5,
+      storyId: 'story-1',
+      traceId: 'trace-1',
+    });
+
+    expect(result.title).toBe('Sương Mù Đỏ');
+    expect(result.content).toContain('Lam Trach bước vào rừng');
+    expect(result.usage.inputTokens).toBeGreaterThan(0);
+    expect(result.cost).toBe(0);
+
+    const calls = provider.getCalls();
+    expect(calls).toHaveLength(1);
+    expect(calls[0]!.metadata!.agentRole).toBe('writer');
+    expect(calls[0]!.metadata!.promptVersion).toBe('v1');
+  });
+
+  it('sends system and user messages', async () => {
+    const provider = new MockProvider({
+      responder: { kind: 'fixed', content: 'TITLE: Test\n\nBody' },
+    });
+    const agent = new WriterAgent({ provider });
+
+    await agent.write({
+      serializedContext: 'my-context',
+      cacheKey: 'k',
+      chapterNumber: 1,
+      storyId: 's1',
+      traceId: 't1',
+    });
+
+    const call = provider.getCalls()[0]!;
+    expect(call.messages).toHaveLength(2);
+    expect(call.messages[0]!.role).toBe('system');
+    expect(call.messages[1]!.role).toBe('user');
+  });
+});
