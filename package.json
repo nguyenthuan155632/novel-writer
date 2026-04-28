@@ -1,0 +1,26 @@
+{
+  "name": "novel-writer",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "pnpm -r --parallel --stream dev",
+    "build": "pnpm -r build",
+    "lint": "pnpm -r lint",
+    "test": "pnpm -r test",
+    "typecheck": "pnpm -r typecheck",
+    "db:generate": "pnpm --filter @novel/db generate",
+    "db:migrate": "pnpm --filter @novel/db migrate",
+    "db:studio": "pnpm --filter @novel/db studio"
+  },
+  "devDependencies": {
+    "typescript": "5.9.3",
+    "@types/node": "24.12.2",
+    "vitest": "3.3.0",
+    "tsx": "4.21.0"
+  },
+  "packageManager": "pnpm@9.15.0"
+}
