@@ -102,7 +102,6 @@ const plugin: FastifyPluginCallback = (app, _opts, done) => {
     const FewShotsSchema = z.object({
       fewShots: z
         .array(z.string().min(20).max(2000))
-        .min(1)
         .max(5),
     });
 
