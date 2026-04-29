@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { buildLoggedProvider } from '../../src/lib/llm-provider.ts';
 import {
   buildLiveProvider,
   getActiveProvider,
@@ -61,5 +62,27 @@ describe('provider switcher', () => {
     delete process.env.OPENROUTER_API_KEY;
 
     expect(() => buildLiveProvider()).toThrow(/OPENROUTER_API_KEY is required/);
+  });
+});
+
+describe('buildLoggedProvider', () => {
+  it('uses the selected live provider under the logger wrapper', () => {
+    setActiveProvider('openrouter');
+    process.env.OPENROUTER_API_KEY = 'openrouter-key';
+    process.env.DATABASE_URL = 'postgres://user:pass@localhost:1/db';
+
+    const provider = buildLoggedProvider();
+
+    expect(provider.name).toBe('logged(openrouter)');
+  });
+
+  it('uses mock provider when a mock response is supplied', () => {
+    setActiveProvider('openrouter');
+    delete process.env.OPENROUTER_API_KEY;
+    process.env.DATABASE_URL = 'postgres://user:pass@localhost:1/db';
+
+    const provider = buildLoggedProvider({ mockResponse: '{"ok":true}' });
+
+    expect(provider.name).toBe('logged(mock)');
   });
 });
