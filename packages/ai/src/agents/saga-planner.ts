@@ -4,7 +4,7 @@ import { eq, and } from 'drizzle-orm';
 import { MODEL_CONFIG } from '@novel/core';
 import type { LLMProvider } from '../providers/types.ts';
 import type { Logger } from './packet-generator.js';
-import { SagaPlannerOutputSchema, SAGA_PLANNER_JSON_SCHEMA, type SagaPlannerOutput } from '../schemas/saga.ts';
+import { SagaPlannerOutputSchema, type SagaPlannerOutput } from '../schemas/saga.ts';
 import { sagaPlannerPromptV1 } from '../prompts/saga-planner.v1.ts';
 import type { SagaPlannerInput, SagaPlannerResult } from './saga-planner.types.ts';
 
@@ -27,9 +27,8 @@ export class SagaPlannerAgent {
       model: MODEL_CONFIG.routes.saga_planner,
       messages: [
         { role: 'system', content: built.system },
-        { role: 'user', content: built.user },
+        { role: 'user', content: `${built.user}\n\nReturn ONLY valid JSON matching this shape:\n{\n  "sagas": [{ "index": 0, "title": "...", "premise": "...", "startChapter": 1, "endChapter": 100, "expectedTurningPoints": ["...", "..."] }],\n  "plantedSeeds": [{ "seedKey": "...", "description": "...", "plantWindowStart": 1, "plantWindowEnd": 20, "payoffChapter": 60, "importance": "minor" }]\n}` },
       ],
-      responseSchema: SAGA_PLANNER_JSON_SCHEMA,
       temperature: 0.7,
       metadata: {
         agentRole: sagaPlannerPromptV1.agentRole,
@@ -40,7 +39,7 @@ export class SagaPlannerAgent {
 
     let parsed: SagaPlannerOutput;
     try {
-      parsed = SagaPlannerOutputSchema.parse(JSON.parse(response.content));
+      parsed = SagaPlannerOutputSchema.parse(JSON.parse(extractJson(response.content)));
     } catch (err) {
       log.error({ err, raw: response.content.slice(0, 500) }, 'saga planner parse failed');
       throw err;
@@ -136,4 +135,10 @@ export class SagaPlannerAgent {
 
     return { sagasUpserted, seedsUpserted };
   }
+}
+
+function extractJson(content: string): string {
+  const trimmed = content.trim();
+  const fenced = trimmed.match(/^```(?:json)?\s*([\s\S]*?)\s*```$/i);
+  return fenced?.[1]?.trim() ?? trimmed;
 }

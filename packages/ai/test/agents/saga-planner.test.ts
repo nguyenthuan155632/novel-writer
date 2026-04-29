@@ -41,6 +41,29 @@ describe('SagaPlannerAgent.plan', () => {
     expect(r.promptVersion).toBe('v1');
   });
 
+  it('does not send responseSchema because Google rejects the large planner schema', async () => {
+    const provider = new MockProvider({
+      responder: { kind: 'fixed', content: VALID_OUTPUT },
+    });
+    const agent = new SagaPlannerAgent({ provider, logger: silentLogger });
+
+    await agent.plan({ storyId: 's', bibleCompact: 'b', targetChapters: 500 });
+
+    expect(provider.getCalls()[0]!.responseSchema).toBeUndefined();
+  });
+
+  it('parses JSON returned inside a markdown code fence', async () => {
+    const provider = new MockProvider({
+      responder: { kind: 'fixed', content: `\`\`\`json\n${VALID_OUTPUT}\n\`\`\`` },
+    });
+    const agent = new SagaPlannerAgent({ provider, logger: silentLogger });
+
+    const r = await agent.plan({ storyId: 's', bibleCompact: 'b', targetChapters: 500 });
+
+    expect(r.output.sagas).toHaveLength(5);
+    expect(r.output.plantedSeeds).toHaveLength(10);
+  });
+
   it('throws when LLM returns malformed JSON', async () => {
     const provider = new MockProvider({
       responder: { kind: 'fixed', content: JSON.stringify({ sagas: [], plantedSeeds: [] }) },

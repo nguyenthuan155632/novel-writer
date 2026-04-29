@@ -20,6 +20,7 @@ export default async function StoryLayout({
         <nav style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
           <Link href={`/stories/${id}` as any}>Overview</Link>
           <Link href={`/stories/${id}/bible` as any}>Bible</Link>
+          <Link href={`/stories/${id}/sagas` as any}>Sagas</Link>
           <Link href={`/stories/${id}/chapters` as any}>Chapters</Link>
           <Link href={`/stories/${id}/pending` as any}>Pending Updates</Link>
           <Link href={`/stories/${id}/settings` as any}>Settings</Link>

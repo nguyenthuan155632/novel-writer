@@ -12,18 +12,18 @@ export function PlanSagasButton({ storyId }: { storyId: string }) {
       <button
         disabled={loading}
         onClick={async () => {
-          if (!confirm('This calls the Pro model and costs ~$0.04. Continue?')) return;
+          if (!confirm('This calls the Pro model. Continue?')) return;
           setLoading(true);
           setError(null);
           try {
-            await planSagas(storyId);
+            await planSagas(storyId, { resetSeeds: true });
             router.refresh();
           } catch (e: any) { setError(e.message); }
           finally { setLoading(false); }
         }}
         className="rounded bg-purple-600 px-4 py-2 text-white disabled:opacity-50"
       >
-        {loading ? 'Planning…' : 'Plan sagas (Pro)'}
+        {loading ? 'Planning…' : 'Plan sagas'}
       </button>
       {error && <span className="ml-2 text-red-600 text-sm">{error}</span>}
     </div>

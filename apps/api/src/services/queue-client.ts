@@ -40,6 +40,15 @@ export async function enqueueGenerateChapter(data: {
 }): Promise<{ jobId: string }> {
   const queue = getGenerateChapterQueue();
   const jobId = `gen-${data.storyId}-${data.chapterNumber}`;
+  const existingJob = await queue.getJob(jobId);
+
+  if (existingJob) {
+    const state = await existingJob.getState();
+    if (state === 'failed') {
+      await existingJob.remove();
+    }
+  }
+
   const job = await queue.add('generate-chapter', data, {
     jobId,
     removeOnComplete: { age: 86400, count: 1000 },

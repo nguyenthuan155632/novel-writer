@@ -1,7 +1,7 @@
 export const MODEL_CONFIG = {
   routes: {
-    bible_generator: process.env.BIBLE_MODEL ?? 'google/gemini-2.5-flash',
-    saga_planner: process.env.SAGA_PLANNER_MODEL ?? 'google/gemini-2.5-flash',
+    bible_generator: process.env.BIBLE_MODEL ?? 'google/gemini-2.5-pro',
+    saga_planner: process.env.SAGA_PLANNER_MODEL ?? 'google/gemini-2.5-pro',
     arc_planner: process.env.ARC_PLANNER_MODEL ?? 'google/gemini-2.5-flash',
     packet_generator: process.env.PACKET_MODEL ?? 'google/gemini-2.5-flash-lite',
     writer: process.env.WRITER_MODEL ?? 'google/gemini-2.5-flash-lite',

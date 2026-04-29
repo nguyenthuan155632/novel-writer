@@ -4,7 +4,7 @@ import IORedis from 'ioredis';
 export type GenerateChapterJob = {
   storyId: string;
   chapterNumber: number;
-  arcId: string;
+  arcId?: string;
   importance?: 'normal' | 'important';
   traceId: string;
   mode?: 'safe' | 'semi_auto' | 'full_auto';

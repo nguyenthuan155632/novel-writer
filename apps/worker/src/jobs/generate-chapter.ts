@@ -27,6 +27,7 @@ import {
   type CanonSnapshot,
   getStoryBible,
   getArcById,
+  getArcForChapter,
   getActiveCharacters,
   getOpenThreadsForStory,
   getPlantedSeedsForStory,
@@ -265,6 +266,15 @@ export async function executeGenerateChapterPipeline(
 
   log.info({ mode }, 'starting generate-chapter pipeline');
 
+  const arc = data.arcId
+    ? await getArcById(db, data.arcId)
+    : await getArcForChapter(db, data.storyId, data.chapterNumber);
+  const resolvedArcId = arc?.id;
+
+  if (!resolvedArcId) {
+    throw new Error(`No arc found for story ${data.storyId} chapter ${data.chapterNumber}`);
+  }
+
   const [existing] = await db
     .select()
     .from(chapters)
@@ -292,7 +302,7 @@ export async function executeGenerateChapterPipeline(
   } else {
     const [inserted] = await db.insert(chapters).values({
       storyId: data.storyId,
-      arcId: data.arcId,
+      arcId: resolvedArcId,
       chapterNumber: data.chapterNumber,
       status: 'generating',
     }).returning({ id: chapters.id });
@@ -301,7 +311,6 @@ export async function executeGenerateChapterPipeline(
 
   try {
     const bible = await getStoryBible(db, data.storyId);
-    const arc = await getArcById(db, data.arcId);
     const activeCharacters = await getActiveCharacters(db, data.storyId, data.chapterNumber);
     const openThreads = await getOpenThreadsForStory(db, data.storyId);
     const allSeeds = await getPlantedSeedsForStory(db, data.storyId);
@@ -372,7 +381,7 @@ export async function executeGenerateChapterPipeline(
     await db.insert(chapterPackets).values({
       storyId: data.storyId,
       chapterId,
-      arcId: data.arcId,
+      arcId: resolvedArcId,
       chapterNumber: data.chapterNumber,
       goal: packetResult.packet.goal,
       requiredEvents: packetResult.packet.requiredEvents.map(e => e.description),
@@ -390,7 +399,7 @@ export async function executeGenerateChapterPipeline(
       db,
       storyId: data.storyId,
       chapterNumber: data.chapterNumber,
-      arcId: data.arcId,
+      arcId: resolvedArcId,
       chapterId,
       packet: packetResult.packet,
       embeddingService,

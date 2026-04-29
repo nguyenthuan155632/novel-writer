@@ -1,4 +1,5 @@
 import { apiFetch } from '@/lib/api-client';
+import { RegenerateButton } from './regenerate-button';
 
 interface ChapterDetail {
   id: string;
@@ -42,6 +43,9 @@ export default async function ChapterDetailPage({
       <p className="muted">
         Status: {chapter.status} · Words: {chapter.wordCount} · Validation: {chapter.validationStatus} · Packet: {chapter.packetAuditStatus}
       </p>
+      {chapter.status === 'failed' && (
+        <RegenerateButton storyId={id} chapterNumber={chapter.chapterNumber} />
+      )}
       {chapter.summary && (
         <details open style={{ marginBottom: 16 }}>
           <summary><strong>Summary</strong></summary>

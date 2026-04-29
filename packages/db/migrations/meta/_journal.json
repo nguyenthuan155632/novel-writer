@@ -8,6 +8,27 @@
       "when": 1777386371346,
       "tag": "0000_simple_venus",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1777447515000,
+      "tag": "0001_arcs_planning_columns",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1777448304000,
+      "tag": "0002_sagas_planning_columns",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1777527015000,
+      "tag": "0003_planted_seeds_planning_columns",
+      "breakpoints": true
     }
   ]
 }

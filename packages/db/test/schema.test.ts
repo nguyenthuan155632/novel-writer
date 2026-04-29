@@ -1,6 +1,6 @@
 import { describe, it, expect, afterAll } from 'vitest';
 import { getDb, getSqlClient } from '../src/client.ts';
-import { stories, storyBibles } from '../src/schema/index.ts';
+import { arcs, sagas, stories, storyBibles } from '../src/schema/index.ts';
 import { eq } from 'drizzle-orm';
 
 const TEST_DB_URL = process.env.TEST_DATABASE_URL ?? 'postgresql://novel:novel@localhost:5432/novel_factory';
@@ -37,6 +37,41 @@ describe('schema smoke', () => {
     await db.delete(stories).where(eq(stories.id, story.id));
     const remaining = await db.select().from(storyBibles).where(eq(storyBibles.storyId, story.id));
     expect(remaining).toHaveLength(0);
+  });
+
+  it('can insert and query arc planning columns', async () => {
+    const storyRows = await db.insert(stories).values({ title: 'Arc Test', premise: 'Y' }).returning();
+    const story = storyRows[0]!;
+
+    const sagaRows = await db.insert(sagas).values({
+      storyId: story.id,
+      sagaNumber: 0,
+      title: 'Main Saga',
+      premise: 'A focused saga premise',
+      expectedTurningPoints: ['opening turn', 'closing turn'],
+    }).returning();
+    const saga = sagaRows[0]!;
+
+    const arcRows = await db.insert(arcs).values({
+      storyId: story.id,
+      sagaId: saga.id,
+      title: 'Opening Arc',
+      premise: 'A focused opening arc premise',
+      expectedChanges: ['hero accepts the call'],
+      seedsToResolveInArc: ['seed-1'],
+    }).returning();
+    const arc = arcRows[0]!;
+
+    const found = await db.select().from(arcs).where(eq(arcs.id, arc.id));
+    expect(found[0]!.premise).toBe('A focused opening arc premise');
+    expect(found[0]!.expectedChanges).toEqual(['hero accepts the call']);
+    expect(found[0]!.seedsToResolveInArc).toEqual(['seed-1']);
+
+    const foundSaga = await db.select().from(sagas).where(eq(sagas.id, saga.id));
+    expect(foundSaga[0]!.premise).toBe('A focused saga premise');
+    expect(foundSaga[0]!.expectedTurningPoints).toEqual(['opening turn', 'closing turn']);
+
+    await db.delete(stories).where(eq(stories.id, story.id));
   });
 
   afterAll(async () => {

@@ -19,7 +19,9 @@ export default async function SagasPage({ params }: { params: Promise<{ id: stri
               <Link href={`/stories/${id}/sagas/${s.id}` as any} className="font-semibold text-blue-700">
                 {s.sagaNumber + 1}. {s.title}
               </Link>
-              <span className="text-gray-500">ch {s.startChapter}–{s.endChapter}</span>
+              {/* Space */}
+              &nbsp;&nbsp;
+              <span className="text-gray-500">Chapters {s.startChapter}–{s.endChapter}</span>
             </div>
             <p className="text-sm mt-1 text-gray-700">{s.premise}</p>
           </li>

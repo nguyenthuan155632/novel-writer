@@ -1,8 +1,8 @@
 import type { FastifyPluginCallback } from 'fastify';
 import { z } from 'zod';
 import { getDb } from '@novel/db';
-import { chapters } from '@novel/db/schema';
-import { eq, and, asc } from 'drizzle-orm';
+import { arcs, chapters, sagas, storyBibles } from '@novel/db/schema';
+import { eq, and, asc, desc, gte, isNull, lte, or } from 'drizzle-orm';
 import {
   enqueueGenerateChapter,
   getGenerateChapterStatus,
@@ -21,6 +21,43 @@ const PostGenerateBody = z.object({
   chapterNumber: z.number().int().positive(),
   mode: z.enum(['safe', 'semi_auto', 'full_auto']).default('safe'),
 });
+
+async function getMissingPlanningSteps(
+  db: ReturnType<typeof getDb>,
+  storyId: string,
+  chapterNumber: number,
+): Promise<Array<'bible' | 'saga' | 'arc'>> {
+  const missing: Array<'bible' | 'saga' | 'arc'> = [];
+
+  const [bible] = await db.select({ id: storyBibles.id })
+    .from(storyBibles)
+    .where(eq(storyBibles.storyId, storyId))
+    .orderBy(desc(storyBibles.version))
+    .limit(1);
+  if (!bible) missing.push('bible');
+
+  const [saga] = await db.select({ id: sagas.id })
+    .from(sagas)
+    .where(and(
+      eq(sagas.storyId, storyId),
+      lte(sagas.startChapter, chapterNumber),
+      or(isNull(sagas.endChapter), gte(sagas.endChapter, chapterNumber)),
+    ))
+    .limit(1);
+  if (!saga) missing.push('saga');
+
+  const [arc] = await db.select({ id: arcs.id })
+    .from(arcs)
+    .where(and(
+      eq(arcs.storyId, storyId),
+      lte(arcs.startChapter, chapterNumber),
+      or(isNull(arcs.endChapter), gte(arcs.endChapter, chapterNumber)),
+    ))
+    .limit(1);
+  if (!arc) missing.push('arc');
+
+  return missing;
+}
 
 const plugin: FastifyPluginCallback = (app, _opts, done) => {
   app.get('/api/stories/:storyId/chapters', async (req, reply) => {
@@ -55,6 +92,16 @@ const plugin: FastifyPluginCallback = (app, _opts, done) => {
   app.post('/api/stories/:storyId/chapters/generate', async (req, reply) => {
     const { storyId } = ChapterParams.parse(req.params);
     const body = PostGenerateBody.parse(req.body);
+    const db = getDb();
+    const missing = await getMissingPlanningSteps(db, storyId, body.chapterNumber);
+    if (missing.length > 0) {
+      return reply.code(409).send({
+        error: 'planning_required',
+        missing,
+        chapterNumber: body.chapterNumber,
+      });
+    }
+
     const { jobId } = await enqueueGenerateChapter({
       storyId,
       chapterNumber: body.chapterNumber,
