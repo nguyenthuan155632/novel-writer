@@ -17,9 +17,28 @@ export type RefreshArcSummaryJob = {
   traceId: string;
 };
 
+export type GenerateBatchJob = {
+  batchId: string;
+  storyId: string;
+  startChapter: number;
+  endChapter: number;
+  mode: 'safe' | 'semi_auto' | 'full_auto';
+  traceId: string;
+};
+
+export type HighStakesReviewJob = {
+  storyId: string;
+  chapterId: string;
+  chapterNumber: number;
+  triggerReason: 'arc_end' | 'critical_severity' | 'manual';
+  traceId: string;
+};
+
 export const QUEUE_NAMES = {
   generateChapter: 'generate-chapter',
   refreshArcSummary: 'refresh-arc-summary',
+  generateBatch: 'generate-batch',
+  highStakesReview: 'high-stakes-review',
 } as const;
 
 export function createConnection(): IORedis {
