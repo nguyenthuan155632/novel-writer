@@ -14,7 +14,9 @@
     "typecheck": "pnpm -r typecheck",
     "db:generate": "pnpm --filter @novel/db generate",
     "db:migrate": "pnpm --filter @novel/db migrate",
-    "db:studio": "pnpm --filter @novel/db studio"
+    "db:studio": "pnpm --filter @novel/db studio",
+    "smoke:generate-chapter": "pnpm --filter @novel/api tsx scripts/smoke-generate-chapter.ts",
+    "smoke:bible": "pnpm --filter @novel/api tsx scripts/smoke-bible.ts"
   },
   "devDependencies": {
     "typescript": "5.9.3",

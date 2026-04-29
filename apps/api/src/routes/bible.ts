@@ -17,7 +17,7 @@ const UpdateBibleSchema = z.object({
   forbiddenRules: z.string().min(20).optional(),
   endingDirection: z.string().min(20).optional(),
   compactSummary: z.string().min(50).max(2000).optional(),
-  styleFewShots: z.array(z.string()).optional(),
+  styleFewShots: z.array(z.object({ excerpt: z.string(), sourceChapter: z.number().optional() })).optional(),
 });
 
 const plugin: FastifyPluginCallback = (app, _opts, done) => {

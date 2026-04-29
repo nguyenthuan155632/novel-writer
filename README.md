@@ -40,6 +40,11 @@ To run a one-off live smoke against OpenRouter (costs real money):
 pnpm --filter @novel/api tsx scripts/smoke-bible.ts <storyId>
 ```
 
+To enqueue a chapter generation job (requires Redis + worker):
+```bash
+pnpm smoke:generate-chapter <storyId> <chapterNumber>
+```
+
 ## Tests
 
 ```bash

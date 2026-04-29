@@ -4,6 +4,8 @@ import errorHandler from './plugins/error-handler.ts';
 import healthRoute from './routes/health.ts';
 import storiesRoute from './routes/stories.ts';
 import bibleRoute from './routes/bible.ts';
+import chaptersRoute from './routes/chapters.ts';
+import pendingUpdatesRoute from './routes/pending-updates.ts';
 
 export function buildServer() {
   const app = Fastify({ logger: false });
@@ -12,6 +14,8 @@ export function buildServer() {
   app.register(healthRoute);
   app.register(storiesRoute);
   app.register(bibleRoute);
+  app.register(chaptersRoute);
+  app.register(pendingUpdatesRoute);
   return app;
 }
 

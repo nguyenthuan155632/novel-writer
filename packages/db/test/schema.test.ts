@@ -9,21 +9,23 @@ describe('schema smoke', () => {
   const db = getDb(TEST_DB_URL);
 
   it('can insert and query a story', async () => {
-    const [inserted] = await db.insert(stories).values({
+    const inserted = await db.insert(stories).values({
       title: 'Test Story',
       premise: 'A test premise',
     }).returning();
-    expect(inserted.id).toMatch(/^[0-9a-f-]{36}$/);
+    const row = inserted[0]!;
+    expect(row.id).toMatch(/^[0-9a-f-]{36}$/);
 
-    const found = await db.select().from(stories).where(eq(stories.id, inserted.id));
+    const found = await db.select().from(stories).where(eq(stories.id, row.id));
     expect(found).toHaveLength(1);
-    expect(found[0].title).toBe('Test Story');
+    expect(found[0]!.title).toBe('Test Story');
 
-    await db.delete(stories).where(eq(stories.id, inserted.id));
+    await db.delete(stories).where(eq(stories.id, row.id));
   });
 
   it('cascade-deletes story bible when story removed', async () => {
-    const [story] = await db.insert(stories).values({ title: 'X', premise: 'Y' }).returning();
+    const storyRows = await db.insert(stories).values({ title: 'X', premise: 'Y' }).returning();
+    const story = storyRows[0]!;
     await db.insert(storyBibles).values({
       storyId: story.id,
       worldRules: 'r',

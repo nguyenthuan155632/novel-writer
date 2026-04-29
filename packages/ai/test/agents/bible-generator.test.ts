@@ -30,8 +30,8 @@ describe('generateBible', () => {
     expect(r.bible.world_rules).toMatch(/^A+$/);
     expect(r.usage.inputTokens).toBeGreaterThan(0);
     expect(recorder).toHaveBeenCalledTimes(1);
-    expect(recorder.mock.calls[0][0].agentRole).toBe('bible_generator');
-    expect(recorder.mock.calls[0][0].promptVersion).toBe('v1');
+    expect(recorder.mock.calls[0]![0].agentRole).toBe('bible_generator');
+    expect(recorder.mock.calls[0]![0].promptVersion).toBe('v1');
   });
 
   it('throws ZodError on invalid JSON', async () => {

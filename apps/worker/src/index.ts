@@ -12,7 +12,7 @@ const generateChapterWorker = new Worker<GenerateChapterJob>(
     const { runGenerateChapterJob } = await import('./jobs/generate-chapter.js');
     return runGenerateChapterJob(job.data, { logger: log.child({ jobId: job.id, traceId: job.data.traceId }) });
   },
-  { connection, concurrency: 1 }
+  { connection: connection as any, concurrency: 1 }
 );
 
 const refreshArcSummaryWorker = new Worker<RefreshArcSummaryJob>(
@@ -21,7 +21,7 @@ const refreshArcSummaryWorker = new Worker<RefreshArcSummaryJob>(
     const { runRefreshArcSummaryJob } = await import('./jobs/refresh-arc-summary.js');
     return runRefreshArcSummaryJob(job.data, { logger: log.child({ jobId: job.id, traceId: job.data.traceId }) });
   },
-  { connection, concurrency: 1 }
+  { connection: connection as any, concurrency: 1 }
 );
 
 generateChapterWorker.on('failed', (job, err) => log.error({ jobId: job?.id, err }, 'generate-chapter failed'));

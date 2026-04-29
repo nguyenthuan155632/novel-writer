@@ -18,8 +18,10 @@ export default async function StoryLayout({
       <aside>
         <h3 style={{ marginTop: 0 }}>{story.title}</h3>
         <nav style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-          <Link href={`/stories/${id}`}>Overview</Link>
-          <Link href={`/stories/${id}/bible`}>Bible</Link>
+          <Link href={`/stories/${id}` as any}>Overview</Link>
+          <Link href={`/stories/${id}/bible` as any}>Bible</Link>
+          <Link href={`/stories/${id}/chapters` as any}>Chapters</Link>
+          <Link href={`/stories/${id}/pending` as any}>Pending Updates</Link>
         </nav>
         <p style={{ marginTop: 16 }}><Link href="/">← All stories</Link></p>
       </aside>

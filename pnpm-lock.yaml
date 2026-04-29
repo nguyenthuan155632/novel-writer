@@ -32,6 +32,9 @@ importers:
       '@novel/db':
         specifier: workspace:*
         version: link:../../packages/db
+      bullmq:
+        specifier: 5.56.4
+        version: 5.56.4
       drizzle-orm:
         specifier: 0.39.3
         version: 0.39.3(postgres@3.4.5)
@@ -41,6 +44,9 @@ importers:
       fastify-plugin:
         specifier: 5.0.1
         version: 5.0.1
+      ioredis:
+        specifier: 5.8.1
+        version: 5.8.1
       zod:
         specifier: 3.25.76
         version: 3.25.76
@@ -97,6 +103,9 @@ importers:
       bullmq:
         specifier: 5.76.2
         version: 5.76.2
+      drizzle-orm:
+        specifier: 0.39.3
+        version: 0.39.3(postgres@3.4.5)
       ioredis:
         specifier: 5.4.1
         version: 5.4.1
@@ -128,6 +137,12 @@ importers:
       '@novel/db':
         specifier: workspace:*
         version: link:../db
+      drizzle-orm:
+        specifier: 0.39.3
+        version: 0.39.3(postgres@3.4.5)
+      pino:
+        specifier: 10.3.1
+        version: 10.3.1
       zod:
         specifier: 3.25.76
         version: 3.25.76
@@ -754,6 +769,9 @@ packages:
     cpu: [x64]
     os: [win32]
 
+  '@ioredis/commands@1.4.0':
+    resolution: {integrity: sha512-aFT2yemJJo+TZCmieA7qnYGQooOS7QfNmYrzGtsYd3g9j5iDP8AimYYAesf79ohjbLG12XxC4nG5DyEnC88AsQ==}
+
   '@ioredis/commands@1.5.1':
     resolution: {integrity: sha512-JH8ZL/ywcJyR9MmJ5BNqZllXNZQqQbnVZOqpPQqE1vHiFgAw4NHbvE0FOduNU8IX9babitBT46571OnPTT0Zcw==}
 
@@ -1058,6 +1076,9 @@ packages:
   buffer-from@1.1.2:
     resolution: {integrity: sha512-E+XQCRwSbaaiChtv6k6Dwgc+bx+Bs6vuKJHHl5kox/BaKbhiXzqQOwK4cO22yElGp2OCmjwVhT3HmxgyPGnJfQ==}
 
+  bullmq@5.56.4:
+    resolution: {integrity: sha512-5wSHd0oXs2jS6P+6tay/01Iz0cWRK8iYcscKtpS/GewEq0bJZwbkMZc77GJVOT9SP+UQuXA2y+pQTdCQJel7kQ==}
+
   bullmq@5.76.2:
     resolution: {integrity: sha512-kkNU6TPAjqV3Ep0kIaYhT79Z2IMoA7vadqjmr/zvmPicg0K/cOAecqZTihD726LbI043yPU0MBv/nMQmd5rNIg==}
     engines: {node: '>=12.22.0'}
@@ -1318,6 +1339,10 @@ packages:
 
   ioredis@5.4.1:
     resolution: {integrity: sha512-2YZsvl7jopIa1gaePkeMtd9rAcSjOOjPtpcLlOeusyO+XH2SK5ZcT+UCrElPP+WVIInh2TzeI4XW9ENaSLVVHA==}
+    engines: {node: '>=12.22.0'}
+
+  ioredis@5.8.1:
+    resolution: {integrity: sha512-Qho8TgIamqEPdgiMadJwzRMW3TudIg6vpg4YONokGDudy4eqRIJtDbVX72pfLBcWxvbn3qm/40TyGUObdW4tLQ==}
     engines: {node: '>=12.22.0'}
 
   ipaddr.js@2.3.0:
@@ -1634,6 +1659,10 @@ packages:
 
   undici-types@7.16.0:
     resolution: {integrity: sha512-Zz+aZWSj8LE6zoxD+xrjh4VfkIG8Ya6LvYkZqtUQGJPZjYl53ypCaUwWqo7eI0x66KBGeRo+mlBEkMSeSZ38Nw==}
+
+  uuid@9.0.1:
+    resolution: {integrity: sha512-b+1eJOlsR9K8HJpow9Ok3fiWOWSIcIzXodvv0rQjVoOVNpWMpxf1wZNpt4y9h10odCNrqnYp1OBzRktckBe3sA==}
+    hasBin: true
 
   vite-node@3.2.4:
     resolution: {integrity: sha512-EbKSKh+bh1E1IFxeO0pg1n4dvoOTt0UDiXMd/qn++r98+jPO1xtJilvXldeuQ8giIB5IkpjCgMleHMNEsGH6pg==}
@@ -2051,6 +2080,8 @@ snapshots:
   '@img/sharp-win32-x64@0.33.5':
     optional: true
 
+  '@ioredis/commands@1.4.0': {}
+
   '@ioredis/commands@1.5.1': {}
 
   '@ioredis/commands@1.7.0': {}
@@ -2272,6 +2303,18 @@ snapshots:
       fastq: 1.20.1
 
   buffer-from@1.1.2: {}
+
+  bullmq@5.56.4:
+    dependencies:
+      cron-parser: 4.9.0
+      ioredis: 5.8.1
+      msgpackr: 1.11.5
+      node-abort-controller: 3.1.1
+      semver: 7.7.4
+      tslib: 2.8.1
+      uuid: 9.0.1
+    transitivePeerDependencies:
+      - supports-color
 
   bullmq@5.76.2:
     dependencies:
@@ -2546,6 +2589,20 @@ snapshots:
   ioredis@5.4.1:
     dependencies:
       '@ioredis/commands': 1.7.0
+      cluster-key-slot: 1.1.2
+      debug: 4.4.3
+      denque: 2.1.0
+      lodash.defaults: 4.2.0
+      lodash.isarguments: 3.1.0
+      redis-errors: 1.2.0
+      redis-parser: 3.0.0
+      standard-as-callback: 2.1.0
+    transitivePeerDependencies:
+      - supports-color
+
+  ioredis@5.8.1:
+    dependencies:
+      '@ioredis/commands': 1.4.0
       cluster-key-slot: 1.1.2
       debug: 4.4.3
       denque: 2.1.0
@@ -2885,6 +2942,8 @@ snapshots:
   typescript@5.9.3: {}
 
   undici-types@7.16.0: {}
+
+  uuid@9.0.1: {}
 
   vite-node@3.2.4(@types/node@24.12.2)(tsx@4.21.0):
     dependencies:

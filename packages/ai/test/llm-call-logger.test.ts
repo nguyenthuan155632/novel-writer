@@ -17,7 +17,7 @@ describe('LoggedLLMProvider', () => {
     });
 
     expect(recorder).toHaveBeenCalledTimes(1);
-    const row = recorder.mock.calls[0][0];
+    const row = recorder.mock.calls[0]![0];
     expect(row.model).toBe('google/gemini-2.5-flash-lite');
     expect(row.agentRole).toBe('writer');
     expect(row.promptVersion).toBe('writer.v1');
@@ -42,8 +42,8 @@ describe('LoggedLLMProvider', () => {
     })).rejects.toThrow('boom');
 
     expect(recorder).toHaveBeenCalledTimes(1);
-    const row = recorder.mock.calls[0][0];
-    expect(row.inputTokens).toBe(0);
-    expect(row.outputTokens).toBe(0);
+    const failRow = recorder.mock.calls[0]![0];
+    expect(failRow.inputTokens).toBe(0);
+    expect(failRow.outputTokens).toBe(0);
   });
 });
