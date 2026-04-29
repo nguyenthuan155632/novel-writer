@@ -33,6 +33,7 @@ export default async function BiblePage({ params }: { params: Promise<{ id: stri
   return (
     <div>
       <h1>Bible <span className="muted">v{bible.version}</span></h1>
+      <a href={`/stories/${id}/bible/few-shots`} className="text-blue-600 underline text-sm">Edit style few-shots →</a>
       <details style={{ marginBottom: 16 }}>
         <summary>Re-generate (sẽ tạo bible mới — version cũ vẫn được giữ)</summary>
         <div style={{ marginTop: 8 }}><GenerateButton storyId={id} /></div>
