@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { ArcPlannerAgent } from '../../src/agents/arc-planner.ts';
 import { MockProvider } from '../../src/providers/mock.ts';
 import type { Logger } from '../../src/agents/packet-generator.ts';
@@ -14,9 +14,16 @@ const VALID_OUTPUT = JSON.stringify({
   })),
 });
 
+let selectCallCount = 0;
 vi.mock('@novel/db', () => ({
   getDb: () => ({
-    select: () => ({ from: () => ({ where: () => ({ limit: async () => [{ id: 'sa', startChapter: 1, endChapter: 100, title: 'S', premise: 'p', expectedTurningPoints: ['t1', 't2'] }] }) }) }),
+    select: () => {
+      selectCallCount++;
+      if (selectCallCount === 1) {
+        return { from: () => ({ where: () => ({ limit: async () => [{ id: 'sa', startChapter: 1, endChapter: 100, title: 'S', premise: 'p', expectedTurningPoints: ['t1', 't2'] }] }) }) };
+      }
+      return { from: () => ({ where: async () => [] }) };
+    },
     transaction: async (fn: Function) => fn({ insert: async () => {}, update: async () => {}, select: () => ({ from: () => ({ where: () => ({ limit: async () => [] }) }) }) }),
   }),
 }));
@@ -27,6 +34,7 @@ vi.mock('@novel/db/schema', () => ({
 
 describe('ArcPlannerAgent.plan (mocked db)', () => {
   it('parses output via Zod', async () => {
+    selectCallCount = 0;
     const provider = new MockProvider({ responder: { kind: 'fixed', content: VALID_OUTPUT } });
     const agent = new ArcPlannerAgent({ provider, logger: silentLogger });
     const r = await agent.plan({ storyId: 's', sagaId: 'sa', currentState: 'state' });
