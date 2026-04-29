@@ -109,6 +109,8 @@ export const MODEL_HINTS = [
   'google/gemini-2.5-flash-lite',
   'google/gemini-2.5-flash',
   'google/gemini-2.5-pro',
+  'deepseek/deepseek-v3.2',
+  'deepseek/deepseek-v4-pro',
 ];
 
 export function modelFor(role: AgentRole): string {
