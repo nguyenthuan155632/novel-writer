@@ -44,8 +44,11 @@ export async function enqueueGenerateChapter(data: {
 
   if (existingJob) {
     const state = await existingJob.getState();
-    if (state === 'failed') {
+    if (state === 'failed' || state === 'completed') {
       await existingJob.remove();
+    } else {
+      // Keep generation idempotent while a run is still queued/running.
+      return { jobId };
     }
   }
 

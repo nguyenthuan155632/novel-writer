@@ -3,7 +3,7 @@ import { sagas, arcs } from '@novel/db/schema';
 import { eq, and, asc, sql } from 'drizzle-orm';
 import type { Logger } from 'pino';
 import { ArcSummaryCompactorAgent } from '@novel/ai';
-import { OpenRouterProvider } from '@novel/ai/providers/openrouter';
+import { OpenCodeProvider } from '@novel/ai/providers/opencode';
 import { LoggedLLMProvider, makeDrizzleRecorder } from '@novel/ai/llm-call-logger';
 
 export interface RefreshSagaSummaryJobData {
@@ -31,7 +31,10 @@ export async function runRefreshSagaSummaryJob(data: RefreshSagaSummaryJobData, 
     return { status: 'skipped' as const };
   }
 
-  const baseProvider = new OpenRouterProvider({ apiKey: process.env.OPENROUTER_API_KEY ?? '' });
+  const baseProvider = new OpenCodeProvider({
+    apiKey: process.env.OPENCODE_API_KEY ?? '',
+    baseUrl: process.env.OPENCODE_BASE_URL,
+  });
   const provider = new LoggedLLMProvider({ inner: baseProvider, recordCall: makeDrizzleRecorder(db) });
   const agent = new ArcSummaryCompactorAgent({ provider, logger: log as any });
 

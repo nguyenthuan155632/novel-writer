@@ -37,7 +37,7 @@ import {
   OpenRouterEmbeddingService,
   MockEmbeddingService,
 } from '@novel/ai';
-import { OpenRouterProvider } from '@novel/ai/providers/openrouter';
+import { OpenCodeProvider } from '@novel/ai/providers/opencode';
 import { LoggedLLMProvider, makeDrizzleRecorder } from '@novel/ai/llm-call-logger';
 import type { LLMProvider, CompletionUsage } from '@novel/ai/providers/types';
 import { estimateCostUsd } from '@novel/core';
@@ -484,8 +484,18 @@ export async function executeGenerateChapterPipeline(
         if (criticalLlmIssues.length > 0) {
           log.warn({ criticalLlmIssues }, 'LLM validator found critical/high issues');
           if (mode === 'safe') {
+            const pausedWordCount = writerResult.content.trim()
+              ? writerResult.content.trim().split(/\s+/).length
+              : 0;
             await db.update(chapters)
-              .set({ status: 'paused_pending_updates', updatedAt: new Date() })
+              .set({
+                title: writerResult.title,
+                content: writerResult.content,
+                status: 'paused_pending_updates',
+                wordCount: pausedWordCount,
+                contextCacheKey: context.meta.hotHash,
+                updatedAt: new Date(),
+              })
               .where(eq(chapters.id, chapterId));
             return {
               chapterId,
@@ -641,11 +651,25 @@ export async function runGenerateChapterJob(
   const { getDb } = await import('@novel/db');
 
   const db = getDb();
-  const baseProvider = new OpenRouterProvider({
-    apiKey: process.env.OPENROUTER_API_KEY ?? '',
+  const baseProvider = new OpenCodeProvider({
+    apiKey: process.env.OPENCODE_API_KEY ?? '',
+    baseUrl: process.env.OPENCODE_BASE_URL,
   });
   const recorder = makeDrizzleRecorder(db);
-  const provider = new LoggedLLMProvider({ inner: baseProvider, recordCall: recorder });
+  const logLlmPrompts =
+    process.env.LOG_LLM_PROMPTS === '1' || process.env.LOG_LLM_PROMPTS === 'true';
+  const provider = new LoggedLLMProvider({
+    inner: baseProvider,
+    recordCall: recorder,
+    ...(logLlmPrompts
+      ? {
+          logPrompts: {
+            log: (bindings, msg) =>
+              ctx.logger.child({ component: 'llm_prompt', storyId: bindings.storyId }).info(bindings, msg),
+          },
+        }
+      : {}),
+  });
   const embeddingService = new OpenRouterEmbeddingService({
     apiKey: process.env.OPENROUTER_API_KEY ?? '',
     logger: ctx.logger as any,

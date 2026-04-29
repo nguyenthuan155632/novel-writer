@@ -27,8 +27,8 @@ vi.mock('@novel/ai', () => ({
   getRecentSummaries: vi.fn().mockResolvedValue([]),
 }));
 
-vi.mock('@novel/ai/providers/openrouter', () => ({
-  OpenRouterProvider: class {},
+vi.mock('@novel/ai/providers/opencode', () => ({
+  OpenCodeProvider: class {},
 }));
 
 vi.mock('@novel/ai/llm-call-logger', () => ({

@@ -43,7 +43,7 @@ export default async function ChapterDetailPage({
       <p className="muted">
         Status: {chapter.status} · Words: {chapter.wordCount} · Validation: {chapter.validationStatus} · Packet: {chapter.packetAuditStatus}
       </p>
-      {chapter.status === 'failed' && (
+      {(chapter.status === 'failed' || chapter.status === 'paused_pending_updates') && (
         <RegenerateButton storyId={id} chapterNumber={chapter.chapterNumber} />
       )}
       {chapter.summary && (

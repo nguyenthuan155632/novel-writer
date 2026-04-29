@@ -15,11 +15,13 @@ export function RegenerateButton({
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
   const [missingPlanning, setMissingPlanning] = useState<string[]>([]);
 
   async function handleRegenerate() {
     setLoading(true);
     setError(null);
+    setSuccess(null);
     setMissingPlanning([]);
 
     try {
@@ -27,7 +29,7 @@ export function RegenerateButton({
         method: 'POST',
         body: JSON.stringify({ chapterNumber, mode: 'safe' }),
       });
-      router.push(`/stories/${storyId}/chapters` as any);
+      setSuccess('Re-generation queued. Refreshing chapter status...');
       router.refresh();
     } catch (e) {
       const message = (e as Error).message;
@@ -48,6 +50,7 @@ export function RegenerateButton({
       <button className="primary" type="button" onClick={handleRegenerate} disabled={loading}>
         {loading ? 'Re-enqueuing...' : 'Re-generate Chapter'}
       </button>
+      {success && <p style={{ color: 'var(--color-success, #0a7f3f)' }}>{success}</p>}
       {error && <p className="error">{error}</p>}
       {missingPlanning.length > 0 && (
         <div className="card" style={{ marginTop: 12 }}>

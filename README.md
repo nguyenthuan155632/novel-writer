@@ -5,8 +5,8 @@ Single-user local app that generates 500–1000 chapter Vietnamese xianxia / fan
 ## What it does
 
 - Takes a one-line premise → produces a full bible, sagas, arcs, and chapters
-- Default model: `google/gemini-2.5-flash-lite` via OpenRouter (configurable per story)
-- Target cost: ≤ $0.05 / chapter; observed ~$0.007 / chapter
+- Default model: `kimi-k2.6` via OpenCode Go (configurable per story)
+- Target cost: ≤ $0.05 / chapter; actual cost depends on the configured provider/model
 - Uses a 3-tier context cache (HOT / WARM / COLD), a canon DB, and 12 specialized agents
 
 ## Stack
@@ -14,7 +14,7 @@ Single-user local app that generates 500–1000 chapter Vietnamese xianxia / fan
 - pnpm workspaces: `apps/{api,web,worker}` + `packages/{ai,core,db}`
 - Fastify (API) · Next.js 15 App Router (web) · BullMQ + Redis (worker)
 - PostgreSQL 16 + pgvector · Drizzle ORM
-- LLM gateway: OpenRouter (default), Google Direct (for explicit caching)
+- LLM gateway: OpenCode Go (default), OpenRouter (available provider), Google Direct (for explicit caching)
 
 ## Getting started
 
@@ -35,7 +35,8 @@ pnpm dev   # api + web + worker concurrently
 
 Env vars (copy `.env.example` → `.env`):
 
-- `OPENROUTER_API_KEY` — required for LLM calls
+- `OPENCODE_API_KEY` — required for LLM calls
+- `OPENROUTER_API_KEY` — required for embedding calls in chapter generation
 - `GOOGLE_API_KEY` — optional, enables Pro / Flash with explicit caching
 - `DATABASE_URL`, `REDIS_URL` — connection strings
 - `RUN_LIVE_LLM=1` — gate live-API tests

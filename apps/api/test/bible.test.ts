@@ -3,7 +3,7 @@ import { buildServer } from '../src/server.ts';
 
 const TEST_DB = process.env.TEST_DATABASE_URL ?? 'postgresql://novel:novel@localhost:5432/novel_factory';
 process.env.DATABASE_URL = TEST_DB;
-process.env.OPENROUTER_API_KEY = 'test-key';
+process.env.OPENCODE_API_KEY = 'test-key';
 process.env.NOVEL_FORCE_MOCK_LLM = '1';
 
 const VALID_BIBLE = JSON.stringify({

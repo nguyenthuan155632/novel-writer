@@ -3,7 +3,7 @@ import { chapters, chapterSummaries, highStakesReviews } from '@novel/db/schema'
 import { eq, and, desc } from 'drizzle-orm';
 import type { Logger } from 'pino';
 import { HighStakesReviewerAgent } from '@novel/ai';
-import { OpenRouterProvider } from '@novel/ai/providers/openrouter';
+import { OpenCodeProvider } from '@novel/ai/providers/opencode';
 import { LoggedLLMProvider, makeDrizzleRecorder } from '@novel/ai/llm-call-logger';
 
 export interface HighStakesReviewJobData {
@@ -38,7 +38,10 @@ export async function runHighStakesReviewJob(data: HighStakesReviewJobData, ctx:
 
   const arcSummary = summaries.map((s, i) => `Chapter ${chapterNumber - i}: ${s.rollingSummary ?? '(no summary)'}`).join('\n');
 
-  const baseProvider = new OpenRouterProvider({ apiKey: process.env.OPENROUTER_API_KEY ?? '' });
+  const baseProvider = new OpenCodeProvider({
+    apiKey: process.env.OPENCODE_API_KEY ?? '',
+    baseUrl: process.env.OPENCODE_BASE_URL,
+  });
   const provider = new LoggedLLMProvider({ inner: baseProvider, recordCall: makeDrizzleRecorder(db) });
   const agent = new HighStakesReviewerAgent({ provider, logger: log as any });
 

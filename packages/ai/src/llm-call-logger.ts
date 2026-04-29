@@ -17,6 +17,15 @@ export interface LlmCallRecord {
 export interface LoggedLLMProviderOptions {
   inner: LLMProvider;
   recordCall: (row: LlmCallRecord) => Promise<void> | void;
+  /**
+   * When set, logs each request’s messages before the HTTP call (can be very large).
+   * Intended for local debugging; enable from the worker via `LOG_LLM_PROMPTS`.
+   */
+  logPrompts?: {
+    log: (bindings: Record<string, unknown>, msg: string) => void;
+    /** When set to a positive number, truncate each message body for logging only. */
+    maxCharsPerMessage?: number;
+  };
 }
 
 export class LoggedLLMProvider implements LLMProvider {
@@ -27,6 +36,26 @@ export class LoggedLLMProvider implements LLMProvider {
 
   async complete(req: CompletionRequest): Promise<CompletionResponse> {
     const meta = req.metadata ?? {};
+    const logPrompts = this.opts.logPrompts;
+    if (logPrompts) {
+      const max = logPrompts.maxCharsPerMessage;
+      const truncate = (s: string): string =>
+        max != null && max > 0 && s.length > max
+          ? `${s.slice(0, max)}…[truncated ${s.length - max} chars]`
+          : s;
+      logPrompts.log(
+        {
+          model: req.model,
+          agentRole: meta.agentRole ?? 'unknown',
+          promptVersion: meta.promptVersion,
+          traceId: meta.traceId,
+          storyId: meta.storyId,
+          maxOutputTokens: req.maxOutputTokens,
+          messages: req.messages.map(m => ({ role: m.role, content: truncate(m.content) })),
+        },
+        'llm request prompt',
+      );
+    }
     let res: CompletionResponse | undefined;
     try {
       res = await this.opts.inner.complete(req);

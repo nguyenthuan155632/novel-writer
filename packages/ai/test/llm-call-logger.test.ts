@@ -46,4 +46,32 @@ describe('LoggedLLMProvider', () => {
     expect(failRow.inputTokens).toBe(0);
     expect(failRow.outputTokens).toBe(0);
   });
+
+  it('invokes logPrompts before the inner call', async () => {
+    const recorder = vi.fn();
+    const promptLog = vi.fn();
+    const inner = new MockProvider({
+      responder: { kind: 'fixed', content: 'ok', usage: { inputTokens: 1, outputTokens: 2, cachedInputTokens: 0 } },
+    });
+    const innerSpy = vi.spyOn(inner, 'complete');
+    const wrapped = new LoggedLLMProvider({
+      inner,
+      recordCall: recorder,
+      logPrompts: { log: promptLog, maxCharsPerMessage: 4 },
+    });
+
+    await wrapped.complete({
+      model: 'm',
+      messages: [{ role: 'user', content: 'hello world' }],
+      metadata: { agentRole: 'writer', traceId: 't1', storyId: 's1' },
+    });
+
+    expect(promptLog).toHaveBeenCalledTimes(1);
+    expect(promptLog.mock.calls[0]![1]).toBe('llm request prompt');
+    const bindings = promptLog.mock.calls[0]![0] as { messages: { role: string; content: string }[] };
+    expect(bindings.messages[0]!.content).toContain('hell');
+    expect(bindings.messages[0]!.content).toContain('truncated');
+    expect(innerSpy).toHaveBeenCalledTimes(1);
+    expect(promptLog.mock.invocationCallOrder[0]).toBeLessThan(innerSpy.mock.invocationCallOrder[0]!);
+  });
 });

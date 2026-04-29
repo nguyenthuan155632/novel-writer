@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { getDb } from '@novel/db';
 import { sagas, stories, storyBibles } from '@novel/db/schema';
 import { eq, and, asc } from 'drizzle-orm';
-import { OpenRouterProvider } from '@novel/ai/providers/openrouter';
+import { OpenCodeProvider } from '@novel/ai/providers/opencode';
 import { LoggedLLMProvider, makeDrizzleRecorder } from '@novel/ai/llm-call-logger';
 import { SagaPlannerAgent } from '@novel/ai';
 import '@novel/ai/prompts/saga-planner.v1';
@@ -13,7 +13,10 @@ const SagaParam = z.object({ storyId: z.string().uuid(), sagaId: z.string().uuid
 const PlanBody = z.object({ resetSeeds: z.boolean().optional() });
 
 function buildProvider() {
-  const base = new OpenRouterProvider({ apiKey: process.env.OPENROUTER_API_KEY ?? '' });
+  const base = new OpenCodeProvider({
+    apiKey: process.env.OPENCODE_API_KEY ?? '',
+    baseUrl: process.env.OPENCODE_BASE_URL,
+  });
   const db = getDb();
   return new LoggedLLMProvider({ inner: base, recordCall: makeDrizzleRecorder(db) });
 }
