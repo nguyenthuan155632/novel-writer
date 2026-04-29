@@ -12,3 +12,5 @@ export * from './utils/tokens.js';
 export * from './utils/hash.js';
 export { EXPORT_CONFIG, type ExportFormat } from './config/export-config.ts';
 export { AdminMetricsService, type AnyDb, type CacheHitRate, type CostRollingPoint, type ValidatorFailureRow, type AutoFixStat, type PendingCanonAgingBucket, type AdminMetrics } from './services/admin-metrics.ts';
+export { renderMarkdown, type MarkdownExportInput } from './services/exporters/markdown-exporter.ts';
+export { renderEpub, type EpubExportInput } from './services/exporters/epub-exporter.ts';
