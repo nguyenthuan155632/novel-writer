@@ -1,0 +1,38 @@
+import { MODEL_CONFIG } from '@novel/core';
+import type { LLMProvider } from '../providers/types.ts';
+import type { Logger } from './packet-generator.ts';
+import { arcSummaryCompactorPromptV1 } from '../prompts/arc-summary-compactor.v1.ts';
+
+export interface ArcSummaryCompactorInput {
+  storyId: string;
+  arcTitle: string;
+  perChapterSummaries: { chapterNumber: number; detailedSummary: string }[];
+}
+
+export type ArcSummaryCompactorDeps = {
+  provider: LLMProvider;
+  logger: Logger;
+};
+
+export class ArcSummaryCompactorAgent {
+  constructor(private readonly deps: ArcSummaryCompactorDeps) {}
+
+  async compact(input: ArcSummaryCompactorInput): Promise<{ summary: string; promptVersion: string; usage: { inputTokens: number; outputTokens: number; cachedInputTokens: number } }> {
+    const log = this.deps.logger.child({ agent: 'arc_summary_compactor', storyId: input.storyId });
+    const built = arcSummaryCompactorPromptV1.build({
+      arcTitle: input.arcTitle,
+      perChapterSummaries: input.perChapterSummaries,
+    } as Record<string, unknown>);
+
+    const r = await this.deps.provider.complete({
+      model: MODEL_CONFIG.routes.summary_compactor,
+      messages: [{ role: 'system', content: built.system }, { role: 'user', content: built.user }],
+      temperature: 0.4,
+      maxOutputTokens: 1500,
+      metadata: { agentRole: arcSummaryCompactorPromptV1.agentRole, promptVersion: arcSummaryCompactorPromptV1.version, storyId: input.storyId },
+    });
+
+    log.info({ tokens: r.usage.inputTokens + r.usage.outputTokens }, 'arc summary compacted');
+    return { summary: r.content.trim(), promptVersion: arcSummaryCompactorPromptV1.version, usage: r.usage };
+  }
+}
