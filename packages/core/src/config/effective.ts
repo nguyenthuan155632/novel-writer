@@ -1,17 +1,23 @@
 import { CONTEXT_CONFIG, type ContextConfig } from './context.ts';
 import { GENERATION_CONFIG, type GenerationConfig } from './generation.ts';
 import { BUDGET_GUARDRAILS, type BudgetGuardrails } from './budget.ts';
+import { MODEL_CONFIG, type ModelConfig } from './models.ts';
+import { LONG_FORM_CONFIG, type LongFormConfig } from './long-form.ts';
 
 export interface EffectiveConfig {
   context: ContextConfig;
   generation: GenerationConfig;
   budget: BudgetGuardrails;
+  model: ModelConfig;
+  longForm: LongFormConfig;
 }
 
 export interface ConfigOverrides {
   context?: DeepPartial<ContextConfig>;
   generation?: DeepPartial<GenerationConfig>;
   budget?: DeepPartial<BudgetGuardrails>;
+  model?: DeepPartial<ModelConfig>;
+  longForm?: DeepPartial<LongFormConfig>;
 }
 
 type DeepPartial<T> = T extends object ? { [K in keyof T]?: DeepPartial<T[K]> } : Widen<T>;
@@ -43,6 +49,8 @@ export function mergeOverrides(overrides: ConfigOverrides): EffectiveConfig {
     context: deepMerge(CONTEXT_CONFIG, overrides.context),
     generation: deepMerge(GENERATION_CONFIG, overrides.generation),
     budget: deepMerge(BUDGET_GUARDRAILS, overrides.budget),
+    model: deepMerge(MODEL_CONFIG, overrides.model),
+    longForm: deepMerge(LONG_FORM_CONFIG, overrides.longForm),
   };
 }
 
