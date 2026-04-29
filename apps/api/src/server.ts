@@ -1,5 +1,6 @@
 import '@novel/core/load-env';
 import Fastify from 'fastify';
+import cors from '@fastify/cors';
 import logger from './plugins/logger.ts';
 import errorHandler from './plugins/error-handler.ts';
 import healthRoute from './routes/health.ts';
@@ -41,6 +42,7 @@ export function buildServer() {
   app.register(exportsRoute);
   app.register(storySettingsRoute);
   app.register(promptVersionsRoute);
+  app.register(cors, { origin: true, methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'] });
   return app;
 }
 
