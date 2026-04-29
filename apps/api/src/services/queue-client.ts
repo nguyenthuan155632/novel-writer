@@ -22,6 +22,17 @@ export function getGenerateChapterQueue(): Queue {
   return generateChapterQueue;
 }
 
+let generateBatchQueue: Queue | null = null;
+
+export function getGenerateBatchQueue(): Queue {
+  if (!generateBatchQueue) {
+    generateBatchQueue = new Queue('generate-batch', {
+      connection: getConnection(),
+    });
+  }
+  return generateBatchQueue;
+}
+
 export async function enqueueGenerateChapter(data: {
   storyId: string;
   chapterNumber: number;

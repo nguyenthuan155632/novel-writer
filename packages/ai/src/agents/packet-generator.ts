@@ -6,6 +6,7 @@ import { packetGeneratorPromptV1, type PacketGeneratorPromptInput } from '../pro
 export interface Logger {
   child(bindings: Record<string, unknown>): Logger;
   error(obj: Record<string, unknown>, msg: string): void;
+  info(obj: Record<string, unknown>, msg: string): void;
 }
 
 export type PacketGeneratorDeps = {

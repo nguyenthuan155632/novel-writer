@@ -16,7 +16,7 @@ export default async function SagasPage({ params }: { params: Promise<{ id: stri
         {sagas.map((s) => (
           <li key={s.id} className="border rounded p-3">
             <div className="flex justify-between text-sm">
-              <Link href={`/stories/${id}/sagas/${s.id}`} className="font-semibold text-blue-700">
+              <Link href={`/stories/${id}/sagas/${s.id}` as any} className="font-semibold text-blue-700">
                 {s.sagaNumber + 1}. {s.title}
               </Link>
               <span className="text-gray-500">ch {s.startChapter}–{s.endChapter}</span>

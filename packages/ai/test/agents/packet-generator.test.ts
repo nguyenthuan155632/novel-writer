@@ -7,6 +7,7 @@ import '../../src/prompts/packet-generator.v1.ts';
 const silentLogger: Logger = {
   child: () => silentLogger,
   error: () => {},
+  info: () => {},
 };
 
 const VALID_PACKET = JSON.stringify({

@@ -1,5 +1,5 @@
 import { getDb } from '@novel/db';
-import { schema } from '@novel/db/schema';
+import { sagas, plantedSeeds, arcs } from '@novel/db/schema';
 import { eq, and } from 'drizzle-orm';
 import { MODEL_CONFIG } from '@novel/core';
 import type { LLMProvider } from '../providers/types.ts';
@@ -31,13 +31,13 @@ export class ArcPlannerAgent {
     const db = getDb();
     const log = this.deps.logger.child({ agent: 'arc_planner', storyId: input.storyId, sagaId: input.sagaId });
 
-    const [saga] = await db.select().from(schema.sagas).where(eq(schema.sagas.id, input.sagaId)).limit(1);
+    const [saga] = await db.select().from(sagas).where(eq(sagas.id, input.sagaId)).limit(1);
     if (!saga) throw new Error(`Saga ${input.sagaId} not found`);
 
     const unresolvedSeeds = await db
-      .select({ seedKey: schema.plantedSeeds.seedKey, description: schema.plantedSeeds.description, payoffChapter: schema.plantedSeeds.payoffChapter })
-      .from(schema.plantedSeeds)
-      .where(and(eq(schema.plantedSeeds.storyId, input.storyId), eq(schema.plantedSeeds.status, 'pending')));
+      .select({ seedKey: plantedSeeds.seedKey, description: plantedSeeds.description, payoffChapter: plantedSeeds.payoffChapter })
+      .from(plantedSeeds)
+      .where(and(eq(plantedSeeds.storyId, input.storyId), eq(plantedSeeds.status, 'pending')));
 
     const sagaSeeds = unresolvedSeeds.filter((s) => {
       const pc = s.payoffChapter ?? 0;
@@ -79,19 +79,19 @@ export class ArcPlannerAgent {
     let count = 0;
     await db.transaction(async (tx) => {
       for (const a of output.arcs) {
-        const existing = await tx.select({ id: schema.arcs.id }).from(schema.arcs)
-          .where(and(eq(schema.arcs.storyId, storyId), eq(schema.arcs.sagaId, sagaId), eq(schema.arcs.arcNumber, a.index)))
+        const existing = await tx.select({ id: arcs.id }).from(arcs)
+          .where(and(eq(arcs.storyId, storyId), eq(arcs.sagaId, sagaId), eq(arcs.arcNumber, a.index)))
           .limit(1);
         if (existing.length > 0) {
-          await tx.update(schema.arcs).set({
+          await tx.update(arcs).set({
             title: a.title, premise: a.premise,
             startChapter: a.startChapter, endChapter: a.endChapter,
             expectedChanges: a.expectedChanges,
             seedsToResolveInArc: a.seedsToResolveInArc ?? [],
             summaryVersion: 0,
-          }).where(eq(schema.arcs.id, existing[0].id));
+          }).where(eq(arcs.id, existing[0]!.id));
         } else {
-          await tx.insert(schema.arcs).values({
+          await tx.insert(arcs).values({
             storyId, sagaId, arcNumber: a.index,
             title: a.title, premise: a.premise,
             startChapter: a.startChapter, endChapter: a.endChapter,

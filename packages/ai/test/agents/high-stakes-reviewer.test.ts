@@ -12,7 +12,7 @@ vi.mock('@novel/db', () => ({
   }),
 }));
 vi.mock('@novel/db/schema', () => ({
-  schema: { highStakesReviews: {} as any },
+  highStakesReviews: {} as any,
 }));
 
 describe('HighStakesReviewerAgent.review', () => {

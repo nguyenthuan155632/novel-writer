@@ -1,5 +1,5 @@
 import { getDb } from '@novel/db';
-import { schema } from '@novel/db/schema';
+import { batches } from '@novel/db/schema';
 import { eq } from 'drizzle-orm';
 import { createLogger } from '@novel/core/logger';
 
@@ -19,14 +19,14 @@ export async function runGenerateBatchJob(data: GenerateBatchJobData, ctx: { log
 
   log.info({ batchId, storyId, startChapter, endChapter }, 'batch job started');
 
-  const [batch] = await db.select().from(schema.batches).where(eq(schema.batches.id, batchId)).limit(1);
+  const [batch] = await db.select().from(batches).where(eq(batches.id, batchId)).limit(1);
   if (!batch || batch.status === 'cancelled') {
     return { status: 'cancelled', completed: 0 };
   }
 
-  await db.update(schema.batches)
+  await db.update(batches)
     .set({ status: 'completed', finishedAt: new Date() })
-    .where(eq(schema.batches.id, batchId));
+    .where(eq(batches.id, batchId));
 
   const completed = endChapter - startChapter + 1;
   return { status: 'completed', completed };

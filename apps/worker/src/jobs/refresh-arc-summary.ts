@@ -1,5 +1,5 @@
 import { getDb } from '@novel/db';
-import { schema } from '@novel/db/schema';
+import { arcs, chapters, chapterSummaries } from '@novel/db/schema';
 import { eq, and, desc, gte, lte, sql } from 'drizzle-orm';
 import type { Logger } from 'pino';
 import { ArcSummaryCompactorAgent } from '@novel/ai';
@@ -17,23 +17,23 @@ export async function runRefreshArcSummaryJob(data: RefreshArcSummaryJobData, ct
   const { storyId, arcId } = data;
   const log = ctx.logger.child({ arcId, storyId });
 
-  const [arc] = await db.select().from(schema.arcs).where(eq(schema.arcs.id, arcId)).limit(1);
+  const [arc] = await db.select().from(arcs).where(eq(arcs.id, arcId)).limit(1);
   if (!arc) {
     log.warn('arc not found; noop');
     return { status: 'skipped' as const };
   }
 
   const summaries = await db
-    .select({ chapterNumber: schema.chapterSummaries.chapterNumber, detailedSummary: schema.chapterSummaries.detailedSummary })
-    .from(schema.chapterSummaries)
-    .innerJoin(schema.chapters, eq(schema.chapterSummaries.chapterId, schema.chapters.id))
+    .select({ chapterNumber: chapterSummaries.chapterNumber, detailedSummary: chapterSummaries.detailedSummary })
+    .from(chapterSummaries)
+    .innerJoin(chapters, eq(chapterSummaries.chapterId, chapters.id))
     .where(and(
-      eq(schema.chapters.storyId, storyId),
-      gte(schema.chapters.chapterNumber, arc.startChapter ?? 0),
-      lte(schema.chapters.chapterNumber, arc.endChapter ?? 999999),
-      eq(schema.chapters.status, 'completed'),
+      eq(chapters.storyId, storyId),
+      gte(chapters.chapterNumber, arc.startChapter ?? 0),
+      lte(chapters.chapterNumber, arc.endChapter ?? 999999),
+      eq(chapters.status, 'completed'),
     ))
-    .orderBy(desc(schema.chapterSummaries.chapterNumber))
+    .orderBy(desc(chapterSummaries.chapterNumber))
     .limit(50);
 
   if (summaries.length === 0) {
@@ -54,11 +54,11 @@ export async function runRefreshArcSummaryJob(data: RefreshArcSummaryJobData, ct
     })),
   });
 
-  await db.update(schema.arcs).set({
+  await db.update(arcs).set({
     rollingSummary: out.summary,
-    summaryVersion: sql`${schema.arcs.summaryVersion} + 1`,
+    summaryVersion: sql`${arcs.summaryVersion} + 1`,
     summaryUpdatedAt: new Date(),
-  }).where(eq(schema.arcs.id, arcId));
+  }).where(eq(arcs.id, arcId));
 
   log.info({ costUsd: 0, tokens: out.usage.inputTokens + out.usage.outputTokens }, 'arc summary refreshed');
   return { status: 'refreshed' as const };

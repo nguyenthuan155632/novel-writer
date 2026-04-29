@@ -1,5 +1,5 @@
 import { getDb } from '@novel/db';
-import { schema } from '@novel/db/schema';
+import { highStakesReviews } from '@novel/db/schema';
 import { MODEL_CONFIG } from '@novel/core';
 import type { LLMProvider } from '../providers/types.ts';
 import type { Logger } from './packet-generator.ts';
@@ -58,7 +58,7 @@ export class HighStakesReviewerAgent {
     }
 
     const costUsd = (response.usage.inputTokens * 1.25 + response.usage.outputTokens * 10) / 1_000_000;
-    const rows = await db.insert(schema.highStakesReviews).values({
+    const rows = await db.insert(highStakesReviews).values({
       storyId: input.storyId,
       chapterId: input.chapterId,
       triggerReason: input.triggerReason,
@@ -68,8 +68,8 @@ export class HighStakesReviewerAgent {
       tokens: response.usage.inputTokens + response.usage.outputTokens,
       costUsd: costUsd.toFixed(6),
       promptVersion: highStakesReviewerPromptV1.version,
-    }).returning({ id: schema.highStakesReviews.id });
-    const row = rows[0];
+    }).returning({ id: highStakesReviews.id });
+    const row = rows[0]!;
 
     log.info({ approve: parsed.approve, concerns: parsed.concerns.length }, 'review persisted');
     return {

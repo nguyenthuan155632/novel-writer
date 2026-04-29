@@ -29,7 +29,9 @@ vi.mock('@novel/db', () => ({
 }));
 
 vi.mock('@novel/db/schema', () => ({
-  schema: { sagas: {} as any, plantedSeeds: {} as any, arcs: {} as any },
+  sagas: {} as any,
+  plantedSeeds: {} as any,
+  arcs: {} as any,
 }));
 
 describe('ArcPlannerAgent.plan (mocked db)', () => {

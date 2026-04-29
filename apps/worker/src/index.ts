@@ -45,8 +45,8 @@ const refreshSagaSummaryWorker = new Worker<RefreshSagaSummaryJob>(
 const highStakesReviewWorker = new Worker<HighStakesReviewJob>(
   QUEUE_NAMES.highStakesReview,
   async (job) => {
-    log.info({ jobId: job.id, data: job.data }, 'high-stakes-review job received (placeholder)');
-    return { status: 'queued' };
+    const { runHighStakesReviewJob } = await import('./jobs/high-stakes-review.js');
+    return runHighStakesReviewJob(job.data, { logger: log.child({ jobId: job.id, traceId: job.data.traceId }) });
   },
   { connection: connection as any, concurrency: 1 }
 );

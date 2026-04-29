@@ -1,10 +1,10 @@
 import { getDb } from '@novel/db';
-import { schema } from '@novel/db/schema';
+import { sagas, plantedSeeds } from '@novel/db/schema';
 import { eq, and } from 'drizzle-orm';
 import { MODEL_CONFIG } from '@novel/core';
 import type { LLMProvider } from '../providers/types.ts';
 import type { Logger } from './packet-generator.js';
-import { SagaPlannerOutputSchema, SAGA_PLANNER_JSON_SCHEMA } from '../schemas/saga.ts';
+import { SagaPlannerOutputSchema, SAGA_PLANNER_JSON_SCHEMA, type SagaPlannerOutput } from '../schemas/saga.ts';
 import { sagaPlannerPromptV1 } from '../prompts/saga-planner.v1.ts';
 import type { SagaPlannerInput, SagaPlannerResult } from './saga-planner.types.ts';
 
@@ -67,12 +67,12 @@ export class SagaPlannerAgent {
     await db.transaction(async (tx) => {
       for (const s of output.sagas) {
         const existing = await tx
-          .select({ id: schema.sagas.id })
-          .from(schema.sagas)
-          .where(and(eq(schema.sagas.storyId, storyId), eq(schema.sagas.sagaNumber, s.index)))
+          .select({ id: sagas.id })
+          .from(sagas)
+          .where(and(eq(sagas.storyId, storyId), eq(sagas.sagaNumber, s.index)))
           .limit(1);
         if (existing.length > 0) {
-          await tx.update(schema.sagas)
+          await tx.update(sagas)
             .set({
               title: s.title,
               premise: s.premise,
@@ -81,9 +81,9 @@ export class SagaPlannerAgent {
               expectedTurningPoints: s.expectedTurningPoints,
               summaryVersion: 0,
             })
-            .where(eq(schema.sagas.id, existing[0].id));
+            .where(eq(sagas.id, existing[0]!.id));
         } else {
-          await tx.insert(schema.sagas).values({
+          await tx.insert(sagas).values({
             storyId,
             sagaNumber: s.index,
             title: s.title,
@@ -99,13 +99,13 @@ export class SagaPlannerAgent {
 
       for (const seed of output.plantedSeeds) {
         const existing = await tx
-          .select({ id: schema.plantedSeeds.id, status: schema.plantedSeeds.status })
-          .from(schema.plantedSeeds)
-          .where(and(eq(schema.plantedSeeds.storyId, storyId), eq(schema.plantedSeeds.seedKey, seed.seedKey)))
+          .select({ id: plantedSeeds.id, status: plantedSeeds.status })
+          .from(plantedSeeds)
+          .where(and(eq(plantedSeeds.storyId, storyId), eq(plantedSeeds.seedKey, seed.seedKey)))
           .limit(1);
         if (existing.length > 0 && !opts.resetSeeds) continue;
         if (existing.length > 0) {
-          await tx.update(schema.plantedSeeds).set({
+          await tx.update(plantedSeeds).set({
             description: seed.description,
             seedText: seed.description,
             payoffDescription: `Payoff at ch ${seed.payoffChapter}: ${seed.description}`,
@@ -114,9 +114,9 @@ export class SagaPlannerAgent {
             payoffChapter: seed.payoffChapter,
             importance: seed.importance,
             status: 'pending',
-          }).where(eq(schema.plantedSeeds.id, existing[0].id));
+          }).where(eq(plantedSeeds.id, existing[0]!.id));
         } else {
-          await tx.insert(schema.plantedSeeds).values({
+          await tx.insert(plantedSeeds).values({
             storyId,
             seedKey: seed.seedKey,
             description: seed.description,

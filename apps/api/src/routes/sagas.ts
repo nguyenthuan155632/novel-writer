@@ -1,12 +1,12 @@
 import type { FastifyPluginCallback } from 'fastify';
 import { z } from 'zod';
 import { getDb } from '@novel/db';
-import { schema } from '@novel/db/schema';
+import { sagas, stories, storyBibles } from '@novel/db/schema';
 import { eq, and, asc } from 'drizzle-orm';
 import { OpenRouterProvider } from '@novel/ai/providers/openrouter';
 import { LoggedLLMProvider, makeDrizzleRecorder } from '@novel/ai/llm-call-logger';
 import { SagaPlannerAgent } from '@novel/ai';
-import '../../src/prompts/saga-planner.v1.ts';
+import '@novel/ai/prompts/saga-planner.v1';
 
 const StoryParam = z.object({ storyId: z.string().uuid() });
 const SagaParam = z.object({ storyId: z.string().uuid(), sagaId: z.string().uuid() });
@@ -22,17 +22,17 @@ const sagasRoute: FastifyPluginCallback = (app, _opts, done) => {
   app.get('/api/stories/:storyId/sagas', async (req, reply) => {
     const db = getDb();
     const { storyId } = StoryParam.parse(req.params);
-    const rows = await db.select().from(schema.sagas)
-      .where(eq(schema.sagas.storyId, storyId))
-      .orderBy(asc(schema.sagas.sagaNumber));
+    const rows = await db.select().from(sagas)
+      .where(eq(sagas.storyId, storyId))
+      .orderBy(asc(sagas.sagaNumber));
     return reply.send({ sagas: rows });
   });
 
   app.get('/api/stories/:storyId/sagas/:sagaId', async (req, reply) => {
     const db = getDb();
     const { storyId, sagaId } = SagaParam.parse(req.params);
-    const [row] = await db.select().from(schema.sagas)
-      .where(and(eq(schema.sagas.storyId, storyId), eq(schema.sagas.id, sagaId)))
+    const [row] = await db.select().from(sagas)
+      .where(and(eq(sagas.storyId, storyId), eq(sagas.id, sagaId)))
       .limit(1);
     if (!row) return reply.code(404).send({ error: 'saga_not_found' });
     return reply.send({ saga: row });
@@ -43,9 +43,9 @@ const sagasRoute: FastifyPluginCallback = (app, _opts, done) => {
     const { storyId } = StoryParam.parse(req.params);
     const { resetSeeds = false } = PlanBody.parse(req.body ?? {});
 
-    const [story] = await db.select().from(schema.stories).where(eq(schema.stories.id, storyId)).limit(1);
+    const [story] = await db.select().from(stories).where(eq(stories.id, storyId)).limit(1);
     if (!story) return reply.code(404).send({ error: 'story_not_found' });
-    const [bible] = await db.select().from(schema.storyBibles).where(eq(schema.storyBibles.storyId, storyId)).limit(1);
+    const [bible] = await db.select().from(storyBibles).where(eq(storyBibles.storyId, storyId)).limit(1);
     if (!bible) return reply.code(409).send({ error: 'bible_required' });
 
     const provider = buildProvider();

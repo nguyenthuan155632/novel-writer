@@ -1,5 +1,5 @@
 import { getDb } from '@novel/db';
-import { schema } from '@novel/db/schema';
+import { sagas, arcs } from '@novel/db/schema';
 import { eq, and, asc, sql } from 'drizzle-orm';
 import type { Logger } from 'pino';
 import { ArcSummaryCompactorAgent } from '@novel/ai';
@@ -17,13 +17,13 @@ export async function runRefreshSagaSummaryJob(data: RefreshSagaSummaryJobData, 
   const { storyId, sagaId } = data;
   const log = ctx.logger.child({ sagaId, storyId });
 
-  const [saga] = await db.select().from(schema.sagas).where(eq(schema.sagas.id, sagaId)).limit(1);
+  const [saga] = await db.select().from(sagas).where(eq(sagas.id, sagaId)).limit(1);
   if (!saga) return { status: 'skipped' as const };
 
-  const arcRows = await db.select({ id: schema.arcs.id, title: schema.arcs.title, rollingSummary: schema.arcs.rollingSummary })
-    .from(schema.arcs)
-    .where(and(eq(schema.arcs.storyId, storyId), eq(schema.arcs.sagaId, sagaId)))
-    .orderBy(asc(schema.arcs.arcNumber));
+  const arcRows = await db.select({ id: arcs.id, title: arcs.title, rollingSummary: arcs.rollingSummary })
+    .from(arcs)
+    .where(and(eq(arcs.storyId, storyId), eq(arcs.sagaId, sagaId)))
+    .orderBy(asc(arcs.arcNumber));
 
   const filled = arcRows.filter((a) => a.rollingSummary);
   if (filled.length === 0) {
@@ -44,11 +44,11 @@ export async function runRefreshSagaSummaryJob(data: RefreshSagaSummaryJobData, 
     })),
   });
 
-  await db.update(schema.sagas).set({
+  await db.update(sagas).set({
     rollingSummary: out.summary,
-    summaryVersion: sql`${schema.sagas.summaryVersion} + 1`,
+    summaryVersion: sql`${sagas.summaryVersion} + 1`,
     summaryUpdatedAt: new Date(),
-  }).where(eq(schema.sagas.id, sagaId));
+  }).where(eq(sagas.id, sagaId));
 
   log.info('saga summary refreshed');
   return { status: 'refreshed' as const };

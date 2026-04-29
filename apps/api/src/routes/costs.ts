@@ -1,7 +1,7 @@
 import type { FastifyPluginCallback } from 'fastify';
 import { z } from 'zod';
 import { getDb } from '@novel/db';
-import { schema } from '@novel/db/schema';
+import { llmCalls } from '@novel/db/schema';
 import { eq, sql, and, gte } from 'drizzle-orm';
 import { BudgetGuard, BUDGET_GUARDRAILS } from '../services/budget-guard.ts';
 
@@ -20,14 +20,14 @@ const costsRoute: FastifyPluginCallback = (app, _opts, done) => {
     const monthAgo = new Date(Date.now() - 30 * 24 * 3600_000);
     const rows = await db
       .select({
-        agent: schema.llmCalls.agentRole,
+        agent: llmCalls.agentRole,
         callCount: sql<number>`COUNT(*)::int`,
-        tokens: sql<number>`COALESCE(SUM(${schema.llmCalls.inputTokens} + ${schema.llmCalls.outputTokens}), 0)::int`,
-        cost: sql<string>`COALESCE(SUM(${schema.llmCalls.estimatedCostUsd}), 0)`,
+        tokens: sql<number>`COALESCE(SUM(${llmCalls.inputTokens} + ${llmCalls.outputTokens}), 0)::int`,
+        cost: sql<string>`COALESCE(SUM(${llmCalls.estimatedCostUsd}), 0)`,
       })
-      .from(schema.llmCalls)
-      .where(and(eq(schema.llmCalls.storyId, storyId), gte(schema.llmCalls.createdAt, monthAgo)))
-      .groupBy(schema.llmCalls.agentRole);
+      .from(llmCalls)
+      .where(and(eq(llmCalls.storyId, storyId), gte(llmCalls.createdAt, monthAgo)))
+      .groupBy(llmCalls.agentRole);
     return reply.send({ rows });
   });
 
@@ -36,13 +36,13 @@ const costsRoute: FastifyPluginCallback = (app, _opts, done) => {
     const { storyId } = StoryParam.parse(req.params);
     const rows = await db
       .select({
-        chapterNumber: schema.llmCalls.chapterId,
-        cost: sql<string>`COALESCE(SUM(${schema.llmCalls.estimatedCostUsd}), 0)`,
-        tokens: sql<number>`COALESCE(SUM(${schema.llmCalls.inputTokens} + ${schema.llmCalls.outputTokens}), 0)::int`,
+        chapterNumber: llmCalls.chapterId,
+        cost: sql<string>`COALESCE(SUM(${llmCalls.estimatedCostUsd}), 0)`,
+        tokens: sql<number>`COALESCE(SUM(${llmCalls.inputTokens} + ${llmCalls.outputTokens}), 0)::int`,
       })
-      .from(schema.llmCalls)
-      .where(eq(schema.llmCalls.storyId, storyId))
-      .groupBy(schema.llmCalls.chapterId);
+      .from(llmCalls)
+      .where(eq(llmCalls.storyId, storyId))
+      .groupBy(llmCalls.chapterId);
     return reply.send({ rows });
   });
 

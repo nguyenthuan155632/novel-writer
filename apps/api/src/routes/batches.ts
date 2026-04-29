@@ -1,9 +1,9 @@
 import type { FastifyPluginCallback } from 'fastify';
 import { z } from 'zod';
 import { getDb } from '@novel/db';
-import { schema } from '@novel/db/schema';
+import { batches } from '@novel/db/schema';
 import { eq, and, desc } from 'drizzle-orm';
-import { getGenerateBatchQueue } from '@novel/worker/queues.js';
+import { getGenerateBatchQueue } from '../services/queue-client.ts';
 
 const StoryParam = z.object({ storyId: z.string().uuid() });
 const BatchParam = z.object({ storyId: z.string().uuid(), batchId: z.string().uuid() });
@@ -17,9 +17,9 @@ const batchesRoute: FastifyPluginCallback = (app, _opts, done) => {
   app.get('/api/stories/:storyId/batches', async (req, reply) => {
     const db = getDb();
     const { storyId } = StoryParam.parse(req.params);
-    const rows = await db.select().from(schema.batches)
-      .where(eq(schema.batches.storyId, storyId))
-      .orderBy(desc(schema.batches.startedAt));
+    const rows = await db.select().from(batches)
+      .where(eq(batches.storyId, storyId))
+      .orderBy(desc(batches.startedAt));
     return reply.send({ batches: rows });
   });
 
@@ -27,9 +27,10 @@ const batchesRoute: FastifyPluginCallback = (app, _opts, done) => {
     const db = getDb();
     const { storyId } = StoryParam.parse(req.params);
     const body = StartBody.parse(req.body);
-    const [row] = await db.insert(schema.batches).values({
+    const [row] = await db.insert(batches).values({
       storyId, startChapter: body.startChapter, endChapter: body.endChapter, mode: body.mode, status: 'running',
     }).returning();
+    if (!row) return reply.code(500).send({ error: 'insert_failed' });
     const queue = getGenerateBatchQueue();
     const job = await queue.add('generate-batch', {
       batchId: row.id, storyId, startChapter: body.startChapter, endChapter: body.endChapter, mode: body.mode,
@@ -40,8 +41,8 @@ const batchesRoute: FastifyPluginCallback = (app, _opts, done) => {
   app.post('/api/stories/:storyId/batches/:batchId/cancel', async (req, reply) => {
     const db = getDb();
     const { storyId, batchId } = BatchParam.parse(req.params);
-    await db.update(schema.batches).set({ status: 'cancelled', finishedAt: new Date() })
-      .where(and(eq(schema.batches.storyId, storyId), eq(schema.batches.id, batchId)));
+    await db.update(batches).set({ status: 'cancelled', finishedAt: new Date() })
+      .where(and(eq(batches.storyId, storyId), eq(batches.id, batchId)));
     return reply.send({ status: 'cancelled' });
   });
 
