@@ -17,6 +17,7 @@ import canonFactsRoute from './routes/canon-facts.ts';
 import batchesRoute from './routes/batches.ts';
 import adminRoute from './routes/admin.ts';
 import exportsRoute from './routes/exports.ts';
+import storySettingsRoute from './routes/story-settings.ts';
 
 export function buildServer() {
   const app = Fastify({ logger: false });
@@ -37,6 +38,7 @@ export function buildServer() {
   app.register(batchesRoute);
   app.register(adminRoute);
   app.register(exportsRoute);
+  app.register(storySettingsRoute);
   return app;
 }
 
