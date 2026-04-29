@@ -10,3 +10,88 @@ label { display: block; font-weight: 600; margin-bottom: 4px; margin-top: 12px; 
 .error { color: #b91c1c; }
 .muted { color: #666; }
 .card { background: white; border: 1px solid #e5e5e5; padding: 16px; border-radius: 8px; }
+
+.tabs {
+  display: flex;
+  border-bottom: 2px solid #e5e5e5;
+  margin-bottom: 20px;
+}
+
+.tab-button {
+  padding: 12px 24px;
+  border: none;
+  background: #f0f0f0;
+  color: #666;
+  font-weight: 600;
+  cursor: pointer;
+  border-radius: 6px 6px 0 0;
+  transition: all 0.2s ease;
+}
+
+.tab-button:hover {
+  background: #e0e0e0;
+}
+
+.tab-button.active {
+  background: #1a4ed8;
+  color: white;
+}
+
+.tab-button + .tab-button {
+  margin-left: 4px;
+}
+
+.tab-content {
+  background: white;
+  border: 1px solid #e5e5e5;
+  border-radius: 8px;
+  padding: 20px;
+}
+
+.tab-panel {
+  display: none;
+}
+
+.tab-panel.active {
+  display: block;
+}
+
+.textarea-group {
+  margin-bottom: 16px;
+}
+
+.textarea-group label {
+  display: block;
+  font-weight: 600;
+  margin-bottom: 8px;
+  margin-top: 0;
+}
+
+.textarea-group textarea {
+  padding: 12px;
+  border-radius: 8px;
+  border: 1px solid #ddd;
+  width: 100%;
+  font: inherit;
+  resize: vertical;
+  min-height: 200px;
+  transition: border-color 0.2s ease;
+}
+
+.textarea-group textarea:focus {
+  outline: none;
+  border-color: #1a4ed8;
+  box-shadow: 0 0 0 3px rgba(26, 78, 216, 0.1);
+}
+
+.textarea-count {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 8px;
+  color: #666;
+  font-size: 14px;
+}
+
+.textarea-count.warning {
+  color: #b91c1c;
+}
