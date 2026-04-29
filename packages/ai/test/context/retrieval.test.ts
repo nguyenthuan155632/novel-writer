@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
 import { getStoryBible, getSagaForChapter, getArcForChapter, getArcById, getActiveCharacters, getOpenThreadsForStory, getPlantedSeedsForStory, getSeedsDueForChapter, getRecentSummaries, getPastChapterSummaries } from '../../src/context/retrieval.js';
-import { compactCharacter, compactThread, compactSeed, compactSummary } from '../../src/context/compact.js';
 
 describe('getStoryBible (unit)', () => {
   it('exports getStoryBible as a function', () => {

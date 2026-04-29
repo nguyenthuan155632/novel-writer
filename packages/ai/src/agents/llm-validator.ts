@@ -8,6 +8,7 @@ import type { LlmValidatorOutput } from '../schemas/validator.ts';
 export interface LlmValidatorDeps {
   provider: LLMProvider;
   logger?: { info: (...args: any[]) => void; warn: (...args: any[]) => void; error: (...args: any[]) => void };
+  model?: string;
 }
 
 export interface LlmValidatorInput {
@@ -38,7 +39,7 @@ export class LlmValidatorAgent {
     } as unknown as Record<string, unknown>);
 
     const res = await this.deps.provider.complete({
-      model: MODEL_CONFIG.routes.llm_validator,
+      model: this.deps.model ?? MODEL_CONFIG.routes.llm_validator,
       messages: [
         { role: 'system', content: built.system },
         { role: 'user', content: built.user },

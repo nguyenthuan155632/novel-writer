@@ -36,6 +36,10 @@ export default async function ChapterDetailPage({
 
   if (error) return <p className="error">{error}</p>;
   if (!chapter) return <p>Chapter not found.</p>;
+  const canRetry =
+    chapter.status === 'failed' ||
+    chapter.status === 'paused_pending_updates' ||
+    (chapter.status === 'generating' && chapter.validationStatus === 'failed');
 
   return (
     <div>
@@ -43,7 +47,7 @@ export default async function ChapterDetailPage({
       <p className="muted">
         Status: {chapter.status} · Words: {chapter.wordCount} · Validation: {chapter.validationStatus} · Packet: {chapter.packetAuditStatus}
       </p>
-      {(chapter.status === 'failed' || chapter.status === 'paused_pending_updates') && (
+      {canRetry && (
         <RegenerateButton storyId={id} chapterNumber={chapter.chapterNumber} />
       )}
       {chapter.summary && (

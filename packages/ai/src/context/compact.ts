@@ -16,7 +16,7 @@ export function compactCharacter(c: {
     currentRealm: opts.stripOptional ? undefined : (c.currentRealm ?? undefined),
     status: (['alive', 'dead', 'missing', 'unknown'].includes(c.status) ? c.status : 'unknown') as CharacterCompact['status'],
     bloodlines: c.currentBloodlines ?? [],
-    faction: opts.stripOptional ? undefined : undefined,
+    faction: opts.stripOptional ? undefined : (c.faction ?? undefined),
     shortTraits: traits.slice(0, 5),
   };
 }

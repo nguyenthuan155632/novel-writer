@@ -4,6 +4,7 @@ import { getDb } from '@novel/db';
 import { batches } from '@novel/db/schema';
 import { eq, and, desc } from 'drizzle-orm';
 import { getGenerateBatchQueue } from '../services/queue-client.ts';
+import { newTraceId } from '@novel/core/trace';
 
 const StoryParam = z.object({ storyId: z.string().uuid() });
 const BatchParam = z.object({ storyId: z.string().uuid(), batchId: z.string().uuid() });
@@ -32,8 +33,10 @@ const batchesRoute: FastifyPluginCallback = (app, _opts, done) => {
     }).returning();
     if (!row) return reply.code(500).send({ error: 'insert_failed' });
     const queue = getGenerateBatchQueue();
+    const traceId = (req as unknown as { traceId?: string }).traceId ?? newTraceId();
     const job = await queue.add('generate-batch', {
       batchId: row.id, storyId, startChapter: body.startChapter, endChapter: body.endChapter, mode: body.mode,
+      traceId,
     }, { jobId: `batch-${row.id}` });
     return reply.code(202).send({ batch: row, jobId: job.id });
   });

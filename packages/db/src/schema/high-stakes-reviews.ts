@@ -1,4 +1,4 @@
-import { pgTable, uuid, text, integer, timestamp, jsonb, numeric } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, text, integer, timestamp, jsonb } from 'drizzle-orm/pg-core';
 import { stories } from './stories.ts';
 import { chapters } from './chapters.ts';
 

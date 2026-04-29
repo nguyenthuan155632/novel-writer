@@ -1,20 +1,33 @@
 import { z } from 'zod';
 import type { JsonSchema } from '../providers/types.ts';
 
+export const PACKET_LIMITS = {
+  goal: 500,
+  requiredEventDescription: 500,
+  requiredEvents: 8,
+  charactersPresent: 20,
+  setting: 300,
+  conflict: 500,
+  cliffhanger: 500,
+  forbiddenMoves: 20,
+  toneHints: 5,
+  notes: 500,
+} as const;
+
 export const ChapterPacketSchema = z.object({
   chapterNumber: z.number().int().positive(),
-  goal: z.string().min(1).max(500),
+  goal: z.string().min(1).max(PACKET_LIMITS.goal),
   requiredEvents: z.array(z.object({
-    description: z.string().min(1).max(300),
+    description: z.string().min(1).max(PACKET_LIMITS.requiredEventDescription),
     seedId: z.string().uuid().optional(),
-  })).max(8),
-  charactersPresent: z.array(z.string().min(1)).max(20),
-  setting: z.string().max(300).optional(),
-  conflict: z.string().min(1).max(500),
-  cliffhanger: z.string().min(1).max(300),
-  forbiddenMoves: z.array(z.string()).max(20),
-  toneHints: z.array(z.string()).max(5).optional(),
-  notes: z.string().max(500).optional(),
+  })).max(PACKET_LIMITS.requiredEvents),
+  charactersPresent: z.array(z.string().min(1)).max(PACKET_LIMITS.charactersPresent),
+  setting: z.string().max(PACKET_LIMITS.setting).optional(),
+  conflict: z.string().min(1).max(PACKET_LIMITS.conflict),
+  cliffhanger: z.string().min(1).max(PACKET_LIMITS.cliffhanger),
+  forbiddenMoves: z.array(z.string()).max(PACKET_LIMITS.forbiddenMoves),
+  toneHints: z.array(z.string()).max(PACKET_LIMITS.toneHints).optional(),
+  notes: z.string().max(PACKET_LIMITS.notes).optional(),
 });
 
 export type ChapterPacket = z.infer<typeof ChapterPacketSchema>;

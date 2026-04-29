@@ -1,5 +1,5 @@
 import { eq, and } from 'drizzle-orm';
-import { chapters, chapterPackets, chapterSummaries } from '@novel/db/schema';
+import { chapters, chapterPackets, chapterSummaries, contextPackets, validations } from '@novel/db/schema';
 import type { Db } from '@novel/db';
 import type { Logger } from 'pino';
 import {
@@ -11,16 +11,13 @@ import {
   CanonExtractor,
   type CanonExtractionResult,
   SummaryCompactor,
-  type SummaryCompactionResult,
   auditPacket,
   buildChecks,
   runDeterministicValidator,
   type DeterministicValidatorResult,
   buildContext,
   type ChapterContext,
-  type ChapterPacket,
   type CheckInput,
-  detectConflicts,
   CanonMerger,
   type CanonMergerMode,
   type CanonMergerRow,
@@ -30,19 +27,18 @@ import {
   getArcForChapter,
   getActiveCharacters,
   getOpenThreadsForStory,
-  getPlantedSeedsForStory,
   getSeedsDueForChapter,
   getRecentSummaries,
   type EmbeddingService,
   OpenRouterEmbeddingService,
-  MockEmbeddingService,
 } from '@novel/ai';
 import { OpenCodeProvider } from '@novel/ai/providers/opencode';
 import { LoggedLLMProvider, makeDrizzleRecorder } from '@novel/ai/llm-call-logger';
 import type { LLMProvider, CompletionUsage } from '@novel/ai/providers/types';
-import { estimateCostUsd } from '@novel/core';
+import { estimateCostUsd, estimateTokensJson, modelFor, type AgentRole, type EffectiveConfig } from '@novel/core';
 import type { GenerateChapterJob } from '../queues.js';
 import type { GenerateChapterJobResult } from './generate-chapter.types.js';
+import { loadEffectiveStoryConfig } from '../services/story-config.js';
 
 export interface GenerateChapterDeps {
   db: Db;
@@ -50,6 +46,7 @@ export interface GenerateChapterDeps {
   embeddingService: EmbeddingService;
   logger: Logger;
   mode: 'safe' | 'semi_auto' | 'full_auto';
+  effectiveConfig?: EffectiveConfig;
 }
 
 function serializeContextForWriter(ctx: ChapterContext): string {
@@ -182,10 +179,7 @@ function buildCheckCanon(ctx: ChapterContext): CheckInput['canon'] {
   };
 }
 
-function extractorOutputToRows(
-  extracted: CanonExtractionResult['output'],
-  seedsResolvedIds: string[],
-): CanonMergerRow[] {
+function extractorOutputToRows(extracted: CanonExtractionResult['output']): CanonMergerRow[] {
   const rows: CanonMergerRow[] = [];
 
   for (const cu of extracted.characterUpdates) {
@@ -251,12 +245,53 @@ function accumulateUsage(usage: CompletionUsage, acc: { inputTokens: number; out
   acc.cachedInputTokens += usage.cachedInputTokens;
 }
 
+function modelForRole(config: EffectiveConfig | undefined, role: AgentRole): string {
+  return config?.model.routes[role] ?? modelFor(role);
+}
+
+export async function persistContextPacket(
+  db: Db,
+  packet: {
+    chapterId: string;
+    hotTierHash: string;
+    warmTierHash: string;
+    coldPayload: Record<string, unknown>;
+    totalInputTokens: number;
+    cachedInputTokens: number;
+    configSnapshot?: Record<string, unknown>;
+  },
+): Promise<void> {
+  await db.insert(contextPackets).values(packet);
+}
+
+export async function persistValidationRows(
+  db: Db,
+  input: {
+    storyId: string;
+    chapterId: string;
+    checks: { id: string; severity: 'low' | 'medium' | 'high' | 'critical'; pass: boolean; issues: string[] }[];
+    validatorModel: string;
+  },
+): Promise<void> {
+  if (input.checks.length === 0) return;
+  await db.insert(validations).values(input.checks.map((check) => ({
+    storyId: input.storyId,
+    chapterId: input.chapterId,
+    pass: check.pass,
+    severity: check.severity,
+    issues: check.issues,
+    requiredFixes: check.pass ? [] : check.issues,
+    validatorModel: input.validatorModel,
+  })));
+}
+
 export async function executeGenerateChapterPipeline(
   data: GenerateChapterJob,
   deps: GenerateChapterDeps,
 ): Promise<GenerateChapterJobResult> {
   const { db, provider, embeddingService, logger } = deps;
   const mode = data.mode ?? 'safe';
+  const effectiveConfig = deps.effectiveConfig;
   const traceId = data.traceId;
   const start = Date.now();
   const tokenAcc = { inputTokens: 0, outputTokens: 0, cachedInputTokens: 0 };
@@ -313,7 +348,6 @@ export async function executeGenerateChapterPipeline(
     const bible = await getStoryBible(db, data.storyId);
     const activeCharacters = await getActiveCharacters(db, data.storyId, data.chapterNumber);
     const openThreads = await getOpenThreadsForStory(db, data.storyId);
-    const allSeeds = await getPlantedSeedsForStory(db, data.storyId);
     const dueSeeds = await getSeedsDueForChapter(db, data.storyId, data.chapterNumber);
     const recentSummaries = await getRecentSummaries(db, data.storyId, data.chapterNumber, 5);
 
@@ -337,7 +371,8 @@ export async function executeGenerateChapterPipeline(
       arcGoals: arc?.mainConflict ?? '',
     };
 
-    const packetGen = new PacketGenerator({ provider, logger: log });
+    const packetModel = modelForRole(effectiveConfig, 'packet_generator');
+    const packetGen = new PacketGenerator({ provider, logger: log, model: packetModel });
     let packetResult: PacketGenerationResult;
     let attemptCount = 1;
 
@@ -346,7 +381,7 @@ export async function executeGenerateChapterPipeline(
       storyId: data.storyId,
     });
     accumulateUsage(packetResult.usage, tokenAcc);
-    totalCost += estimateCostUsd('packet_generator', packetResult.usage);
+    totalCost += estimateCostUsd(packetModel, packetResult.usage);
 
     const auditInput = {
       packet: packetResult.packet,
@@ -375,7 +410,7 @@ export async function executeGenerateChapterPipeline(
       });
       attemptCount++;
       accumulateUsage(packetResult.usage, tokenAcc);
-      totalCost += estimateCostUsd('packet_generator', packetResult.usage);
+      totalCost += estimateCostUsd(packetModel, packetResult.usage);
     }
 
     await db.insert(chapterPackets).values({
@@ -405,11 +440,23 @@ export async function executeGenerateChapterPipeline(
       embeddingService,
       traceId,
       logger: log,
+      config: effectiveConfig?.context,
+    });
+
+    await persistContextPacket(db, {
+      chapterId,
+      hotTierHash: context.meta.hotHash,
+      warmTierHash: context.meta.warmHash,
+      coldPayload: context.cold as unknown as Record<string, unknown>,
+      totalInputTokens: estimateTokensJson(context),
+      cachedInputTokens: tokenAcc.cachedInputTokens,
+      configSnapshot: effectiveConfig as unknown as Record<string, unknown> | undefined,
     });
 
     const serializedContext = serializeContextForWriter(context);
 
-    const writer = new WriterAgent({ provider, logger: log });
+    const writerModel = modelForRole(effectiveConfig, 'writer');
+    const writer = new WriterAgent({ provider, logger: log, model: writerModel });
     let writerResult = await writer.write({
       serializedContext,
       cacheKey: context.meta.hotHash,
@@ -418,7 +465,7 @@ export async function executeGenerateChapterPipeline(
       traceId,
     });
     accumulateUsage(writerResult.usage, tokenAcc);
-    totalCost += estimateCostUsd('writer', writerResult.usage);
+    totalCost += estimateCostUsd(writerModel, writerResult.usage);
 
     const checkCanon = buildCheckCanon(context);
     const checkInput: CheckInput = {
@@ -439,6 +486,12 @@ export async function executeGenerateChapterPipeline(
         updatedAt: new Date(),
       })
       .where(eq(chapters.id, chapterId));
+    await persistValidationRows(db, {
+      storyId: data.storyId,
+      chapterId,
+      checks: detResult.checks,
+      validatorModel: 'deterministic',
+    });
 
     if (detResult.shortCircuited || !detResult.pass) {
       const criticalIssues = detResult.checks.filter(c => !c.pass && (c.severity === 'critical' || c.severity === 'high'));
@@ -458,9 +511,9 @@ export async function executeGenerateChapterPipeline(
       }
     }
 
-    let llmValidatorOutput: { pass: boolean; issues: { code: string; severity: string; message: string }[] } | null = null;
     if (!detResult.shortCircuited) {
-      const llmValidator = new LlmValidatorAgent({ provider, logger: log });
+      const llmValidatorModel = modelForRole(effectiveConfig, 'llm_validator');
+      const llmValidator = new LlmValidatorAgent({ provider, logger: log, model: llmValidatorModel });
       const llmValResult = await llmValidator.validate({
         serializedContext,
         chapterContent: writerResult.content,
@@ -470,8 +523,20 @@ export async function executeGenerateChapterPipeline(
         traceId,
       });
       accumulateUsage(llmValResult.usage, tokenAcc);
-      totalCost += estimateCostUsd('llm_validator', llmValResult.usage);
-      llmValidatorOutput = llmValResult.output;
+      totalCost += estimateCostUsd(llmValidatorModel, llmValResult.usage);
+      await persistValidationRows(db, {
+        storyId: data.storyId,
+        chapterId,
+        checks: llmValResult.output.pass
+          ? [{ id: 'llm_validator', severity: 'low', pass: true, issues: [] }]
+          : llmValResult.output.issues.map((issue) => ({
+              id: issue.code,
+              severity: issue.severity,
+              pass: false,
+              issues: [issue.message],
+            })),
+        validatorModel: llmValidatorModel,
+      });
 
       if (!llmValResult.output.pass) {
         const nonCriticalIssues = llmValResult.output.issues.filter(
@@ -510,7 +575,8 @@ export async function executeGenerateChapterPipeline(
 
         if (nonCriticalIssues.length > 0) {
           log.info({ nonCriticalIssues }, 'LLM validator found low/medium issues, auto-fixing');
-          const autoFixer = new AutoFixerAgent({ provider, logger: log });
+          const autoFixerModel = modelForRole(effectiveConfig, 'auto_fixer');
+          const autoFixer = new AutoFixerAgent({ provider, logger: log, model: autoFixerModel });
           const fixResult = await autoFixer.fix({
             serializedContext,
             chapterContent: writerResult.content,
@@ -521,13 +587,14 @@ export async function executeGenerateChapterPipeline(
             traceId,
           });
           accumulateUsage(fixResult.usage, tokenAcc);
-          totalCost += estimateCostUsd('auto_fixer', fixResult.usage);
+          totalCost += estimateCostUsd(autoFixerModel, fixResult.usage);
           writerResult = { title: fixResult.title, content: fixResult.content, usage: fixResult.usage, cost: fixResult.cost };
         }
       }
     }
 
-    const canonExtractor = new CanonExtractor({ provider, logger: log });
+    const canonExtractorModel = modelForRole(effectiveConfig, 'canon_extractor');
+    const canonExtractor = new CanonExtractor({ provider, logger: log, model: canonExtractorModel });
     const canonSnapshot = buildCanonSnapshotFromContext(context);
     const canonSnapshotText = buildCanonSnapshotText(canonSnapshot);
 
@@ -545,14 +612,9 @@ export async function executeGenerateChapterPipeline(
       recentSummary: context.cold.recentSummaries[0]?.shortSummary ?? '',
     }, { traceId, storyId: data.storyId });
     accumulateUsage(extractionResult.usage, tokenAcc);
-    totalCost += estimateCostUsd('canon_extractor', extractionResult.usage);
+    totalCost += estimateCostUsd(canonExtractorModel, extractionResult.usage);
 
-    const mergerRows = extractorOutputToRows(
-      extractionResult.output,
-      extractionResult.output.seedsResolvedThisChapter,
-    );
-
-    const detectedConflicts = detectConflicts(extractionResult.output, canonSnapshot);
+    const mergerRows = extractorOutputToRows(extractionResult.output);
 
     const canonMerger = new CanonMerger({ db: db as any, embeddingService });
     const mergerMode: CanonMergerMode = mode === 'safe' ? 'review' : 'auto';
@@ -572,7 +634,8 @@ export async function executeGenerateChapterPipeline(
       conflicts: mergerResult.conflicts.length,
     }, 'canon merger completed');
 
-    const summaryCompactor = new SummaryCompactor({ provider, logger: log });
+    const summaryModel = modelForRole(effectiveConfig, 'summary_compactor');
+    const summaryCompactor = new SummaryCompactor({ provider, logger: log, model: summaryModel });
     const summaryResult = await summaryCompactor.compact({
       chapterNumber: data.chapterNumber,
       chapterContent: writerResult.content,
@@ -580,7 +643,7 @@ export async function executeGenerateChapterPipeline(
       bibleCompact: context.hot.bibleCompact,
     }, { traceId, storyId: data.storyId });
     accumulateUsage(summaryResult.usage, tokenAcc);
-    totalCost += estimateCostUsd('summary_compactor', summaryResult.usage);
+    totalCost += estimateCostUsd(summaryModel, summaryResult.usage);
 
     try {
       const embResp = await embeddingService.embed({
@@ -651,6 +714,7 @@ export async function runGenerateChapterJob(
   const { getDb } = await import('@novel/db');
 
   const db = getDb();
+  const effectiveConfig = await loadEffectiveStoryConfig(data.storyId);
   const baseProvider = new OpenCodeProvider({
     apiKey: process.env.OPENCODE_API_KEY ?? '',
     baseUrl: process.env.OPENCODE_BASE_URL,
@@ -681,5 +745,6 @@ export async function runGenerateChapterJob(
     embeddingService,
     logger: ctx.logger,
     mode: data.mode ?? 'safe',
+    effectiveConfig,
   });
 }

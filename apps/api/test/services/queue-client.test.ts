@@ -10,7 +10,11 @@ vi.mock('bullmq', () => ({
 }));
 vi.mock('ioredis', () => ({ default: vi.fn() }));
 
-import { enqueueGenerateChapter } from '../../src/services/queue-client.js';
+import {
+  enqueueGenerateChapter,
+  enqueueGenerateExport,
+  enqueueHighStakesReview,
+} from '../../src/services/queue-client.js';
 
 describe('enqueueGenerateChapter', () => {
   beforeEach(() => {
@@ -43,6 +47,44 @@ describe('enqueueGenerateChapter', () => {
       'generate-chapter',
       expect.objectContaining({ storyId: 's1', chapterNumber: 1 }),
       expect.objectContaining({ jobId: 'gen-s1-1' }),
+    );
+  });
+
+  it('enqueues manual high-stakes review jobs deterministically', async () => {
+    mockAdd.mockResolvedValueOnce({ id: 'review-c1-manual' });
+
+    const jobId = await enqueueHighStakesReview({
+      storyId: 's1',
+      chapterId: 'c1',
+      chapterNumber: 7,
+      triggerReason: 'manual',
+      traceId: 'trace-1',
+    });
+
+    expect(jobId).toBe('review-c1-manual');
+    expect(mockAdd).toHaveBeenCalledWith(
+      'high-stakes-review',
+      expect.objectContaining({
+        storyId: 's1',
+        chapterId: 'c1',
+        chapterNumber: 7,
+        triggerReason: 'manual',
+        traceId: 'trace-1',
+      }),
+      expect.objectContaining({ jobId: 'review-c1-manual' }),
+    );
+  });
+
+  it('enqueues export jobs with format-specific deterministic ids', async () => {
+    mockAdd.mockResolvedValueOnce({ id: 'export-s1-epub' });
+
+    const jobId = await enqueueGenerateExport({ storyId: 's1', format: 'epub' });
+
+    expect(jobId).toBe('export-s1-epub');
+    expect(mockAdd).toHaveBeenCalledWith(
+      'generate-export',
+      { storyId: 's1', format: 'epub' },
+      expect.objectContaining({ jobId: 'export-s1-epub' }),
     );
   });
 });

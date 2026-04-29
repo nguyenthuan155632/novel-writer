@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { computeHotHash, computeWarmHash } from '../../src/context/cache-keys.js';
-import type { HotTier, WarmTier, CharacterCompact, ThreadCompact, SeedCompact } from '../../src/context/types.js';
+import type { HotTier, WarmTier } from '../../src/context/types.js';
 
 describe('computeHotHash', () => {
   it('returns a 64-char hex string', () => {

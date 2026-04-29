@@ -1,5 +1,5 @@
 import { eq, and } from 'drizzle-orm';
-import { characters, canonFacts, openThreads, timelineEvents, pendingCanonUpdates } from '@novel/db/schema';
+import { characters, canonFacts, openThreads, timelineEvents, pendingCanonUpdates, plantedSeeds } from '@novel/db/schema';
 import type { CanonSnapshot } from './conflict-detector.ts';
 import type { EmbeddingService } from '../embeddings/types.ts';
 import type { ExtractorOutput } from '../schemas/extractor.ts';
@@ -76,8 +76,6 @@ export class CanonMerger {
     };
 
     const conflicts = detectConflicts(extracted, snapshot);
-    const conflictTargetKeys = new Set(conflicts.map(c => `${c.targetTable}:${c.targetId ?? ''}:${c.payloadKey}`));
-
     const pendingRows: (typeof pendingCanonUpdates.$inferInsert)[] = [];
     const autoApplyRows: CanonMergerRow[] = [];
 
@@ -129,6 +127,15 @@ export class CanonMerger {
     if (params.mode === 'auto') {
       for (const row of autoApplyRows) {
         await this.applyRow(row, params.storyId, params.chapterNumber, params.traceId);
+        autoAppliedCount++;
+      }
+      for (const seedId of params.seedsResolvedIds) {
+        await this.applyRow({
+          updateType: 'update',
+          targetTable: 'planted_seeds',
+          targetId: seedId,
+          payload: { status: 'paid_off', paidOffAtChapter: params.chapterNumber },
+        }, params.storyId, params.chapterNumber, params.traceId);
         autoAppliedCount++;
       }
     }
@@ -219,6 +226,17 @@ export class CanonMerger {
           importance: (row.payload.significance as string) ?? 'minor',
           relatedCharacterIds: (row.payload.charactersInvolved as string[]) ?? [],
         });
+        break;
+      }
+      case 'planted_seeds': {
+        if (row.targetId) {
+          await this.deps.db.update(plantedSeeds)
+            .set({
+              status: (row.payload.status as string | undefined) ?? 'paid_off',
+              paidOffAtChapter: (row.payload.paidOffAtChapter as number | undefined) ?? chapterNumber,
+            })
+            .where(and(eq(plantedSeeds.id, row.targetId), eq(plantedSeeds.storyId, storyId)));
+        }
         break;
       }
     }

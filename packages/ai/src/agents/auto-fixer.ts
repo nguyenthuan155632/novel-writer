@@ -7,6 +7,7 @@ import { parseTitleAndContent } from './writer.ts';
 export interface AutoFixerDeps {
   provider: LLMProvider;
   logger?: { info: (...args: any[]) => void; warn: (...args: any[]) => void; error: (...args: any[]) => void };
+  model?: string;
 }
 
 export interface AutoFixerInput {
@@ -40,7 +41,7 @@ export class AutoFixerAgent {
     } as unknown as Record<string, unknown>);
 
     const res = await this.deps.provider.complete({
-      model: MODEL_CONFIG.routes.auto_fixer,
+      model: this.deps.model ?? MODEL_CONFIG.routes.auto_fixer,
       messages: [
         { role: 'system', content: built.system },
         { role: 'user', content: built.user },

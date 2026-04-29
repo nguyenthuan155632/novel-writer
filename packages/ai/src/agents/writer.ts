@@ -6,6 +6,7 @@ import '../prompts/writer.v1.ts';
 export interface WriterDeps {
   provider: LLMProvider;
   logger?: { info: (...args: any[]) => void; warn: (...args: any[]) => void; error: (...args: any[]) => void };
+  model?: string;
 }
 
 export interface WriterInput {
@@ -31,7 +32,7 @@ export class WriterAgent {
     const built = prompt.build({ serializedContext: input.serializedContext } as unknown as Record<string, unknown>);
 
     const res = await this.deps.provider.complete({
-      model: MODEL_CONFIG.routes.writer,
+      model: this.deps.model ?? MODEL_CONFIG.routes.writer,
       messages: [
         { role: 'system', content: built.system },
         { role: 'user', content: built.user },

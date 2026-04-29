@@ -18,7 +18,7 @@ describe('compactCharacter', () => {
       currentRealm: 'kim đan',
       status: 'alive',
       bloodlines: ['Hỏa Long', 'Phượng Hoàng'],
-      faction: undefined,
+      faction: 'Thiên Môn',
       shortTraits: ['dũng cảm', 'thông minh', 'nóng tính', 'trung thành', 'đa nghi'],
     });
   });

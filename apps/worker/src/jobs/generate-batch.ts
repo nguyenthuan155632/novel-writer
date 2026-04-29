@@ -11,23 +11,76 @@ export interface GenerateBatchJobData {
   startChapter: number;
   endChapter: number;
   mode: 'safe' | 'semi_auto' | 'full_auto';
+  traceId: string;
 }
 
 export async function runGenerateBatchJob(data: GenerateBatchJobData, ctx: { logger: any }): Promise<{ status: string; completed: number }> {
   const db = getDb();
-  const { batchId, storyId, startChapter, endChapter } = data;
+  const { batchId, storyId, startChapter, endChapter, mode, traceId } = data;
+  const jobLog = ctx.logger ?? log;
 
-  log.info({ batchId, storyId, startChapter, endChapter }, 'batch job started');
+  jobLog.info({ batchId, storyId, startChapter, endChapter }, 'batch job started');
 
   const [batch] = await db.select().from(batches).where(eq(batches.id, batchId)).limit(1);
   if (!batch || batch.status === 'cancelled') {
     return { status: 'cancelled', completed: 0 };
   }
 
-  await db.update(batches)
-    .set({ status: 'completed', finishedAt: new Date() })
-    .where(eq(batches.id, batchId));
+  let completed = 0;
+  let totalCostUsd = Number(batch.totalCostUsd ?? 0);
 
-  const completed = endChapter - startChapter + 1;
+  for (let chapterNumber = startChapter; chapterNumber <= endChapter; chapterNumber++) {
+    const { runGenerateChapterJob } = await import('./generate-chapter.js');
+    const result = await runGenerateChapterJob({
+      storyId,
+      chapterNumber,
+      mode,
+      traceId: `${traceId}:ch${chapterNumber}`,
+    }, { logger: jobLog.child({ chapterNumber }) });
+
+    completed++;
+    totalCostUsd += result.totalCostUsd;
+
+    if (result.status === 'paused_pending_updates') {
+      await db.update(batches)
+        .set({
+          status: 'paused',
+          pausedReason: `chapter_${chapterNumber}_pending_updates`,
+          completedChapters: completed,
+          totalCostUsd: totalCostUsd.toFixed(6),
+        })
+        .where(eq(batches.id, batchId));
+      return { status: 'paused', completed };
+    }
+
+    if (result.status === 'failed') {
+      await db.update(batches)
+        .set({
+          status: 'failed',
+          pausedReason: `chapter_${chapterNumber}_failed`,
+          completedChapters: completed,
+          totalCostUsd: totalCostUsd.toFixed(6),
+          finishedAt: new Date(),
+        })
+        .where(eq(batches.id, batchId));
+      return { status: 'failed', completed };
+    }
+
+    await db.update(batches)
+      .set({
+        completedChapters: completed,
+        totalCostUsd: totalCostUsd.toFixed(6),
+      })
+      .where(eq(batches.id, batchId));
+  }
+
+  await db.update(batches)
+    .set({
+      status: 'completed',
+      completedChapters: completed,
+      totalCostUsd: totalCostUsd.toFixed(6),
+      finishedAt: new Date(),
+    })
+    .where(eq(batches.id, batchId));
   return { status: 'completed', completed };
 }

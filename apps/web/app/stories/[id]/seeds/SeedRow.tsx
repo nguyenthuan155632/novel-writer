@@ -3,8 +3,6 @@ import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { patchSeed, deleteSeed, type PlantedSeed } from '@/lib/api/seeds';
 
-const COLOR: Record<string, string> = { minor: 'gray', major: 'amber', climax: 'red' };
-
 export function SeedRow({ storyId, seed }: { storyId: string; seed: PlantedSeed }) {
   const [pending, start] = useTransition();
   const [editing, setEditing] = useState(false);

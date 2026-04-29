@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { CanonMerger, type CanonMergerRow } from '../../src/reconciliation/canon-merger.ts';
 import type { CanonSnapshot } from '../../src/reconciliation/conflict-detector.ts';
 import { MockEmbeddingService } from '../../src/embeddings/mock.ts';
@@ -40,7 +40,7 @@ const CLEAN_SNAPSHOT: CanonSnapshot = {
 
 describe('CanonMerger', () => {
   it('auto-applies clean rows in auto mode', async () => {
-    const { db, inserts, updates } = mockDb();
+    const { db } = mockDb();
     const merger = new CanonMerger({ db, embeddingService: new MockEmbeddingService() });
 
     const rows: CanonMergerRow[] = [
@@ -80,7 +80,7 @@ describe('CanonMerger', () => {
   });
 
   it('sends all rows to pending in review mode', async () => {
-    const { db, inserts } = mockDb();
+    const { db } = mockDb();
     const merger = new CanonMerger({ db, embeddingService: new MockEmbeddingService() });
 
     const rows: CanonMergerRow[] = [
@@ -107,7 +107,7 @@ describe('CanonMerger', () => {
   });
 
   it('detects conflicts and marks rows as conflict', async () => {
-    const { db, inserts } = mockDb();
+    const { db } = mockDb();
     const merger = new CanonMerger({ db, embeddingService: new MockEmbeddingService() });
 
     const lockedSnapshot: CanonSnapshot = {
@@ -147,7 +147,7 @@ describe('CanonMerger', () => {
   });
 
   it('applies thread create and resolve', async () => {
-    const { db, inserts, updates } = mockDb();
+    const { db } = mockDb();
     const merger = new CanonMerger({ db, embeddingService: new MockEmbeddingService() });
 
     const rows: CanonMergerRow[] = [
@@ -186,5 +186,25 @@ describe('CanonMerger', () => {
 
     expect(result.autoAppliedCount).toBe(2);
     expect(result.conflicts).toHaveLength(0);
+  });
+
+  it('marks resolved planted seeds as paid off in auto mode', async () => {
+    const { db, updates } = mockDb();
+    const merger = new CanonMerger({ db, embeddingService: new MockEmbeddingService() });
+
+    const result = await merger.submit({
+      storyId: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+      chapterId: 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb',
+      chapterNumber: 12,
+      rows: [],
+      seedsResolvedIds: ['55555555-5555-5555-5555-555555555555'],
+      mode: 'auto',
+      traceId: 'trace-5',
+    }, CLEAN_SNAPSHOT);
+
+    expect(result.autoAppliedCount).toBe(1);
+    expect(updates).toContainEqual(expect.objectContaining({
+      vals: expect.objectContaining({ status: 'paid_off', paidOffAtChapter: 12 }),
+    }));
   });
 });

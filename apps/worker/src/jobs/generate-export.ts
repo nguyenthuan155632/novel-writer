@@ -1,7 +1,7 @@
 import { getDb } from '@novel/db';
 import { stories, chapters } from '@novel/db/schema';
 import { eq, and, isNotNull, asc } from 'drizzle-orm';
-import { renderMarkdown, renderEpub, EXPORT_CONFIG, type ExportFormat } from '@novel/core';
+import { renderMarkdown, renderEpub, type ExportFormat } from '@novel/core';
 import { createLogger } from '@novel/core/logger';
 import { Queue, type ConnectionOptions } from 'bullmq';
 import { createConnection } from '../queues.js';

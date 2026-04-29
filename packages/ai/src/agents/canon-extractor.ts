@@ -12,6 +12,7 @@ export interface Logger {
 export type CanonExtractorDeps = {
   provider: LLMProvider;
   logger: Logger;
+  model?: string;
 };
 
 export type CanonExtractionResult = {
@@ -29,7 +30,7 @@ export class CanonExtractor {
     const built = canonExtractorPromptV1.build(input as unknown as Record<string, unknown>);
 
     const res = await this.deps.provider.complete({
-      model: MODEL_CONFIG.routes.canon_extractor,
+      model: this.deps.model ?? MODEL_CONFIG.routes.canon_extractor,
       messages: [{ role: 'system', content: built.system }, { role: 'user', content: built.user }],
       responseSchema: EXTRACTOR_JSON_SCHEMA,
       temperature: 0.2,

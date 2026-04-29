@@ -4,6 +4,7 @@ import { getDb } from '@novel/db';
 import { stories, chapters } from '@novel/db/schema';
 import { eq, and, isNotNull, asc } from 'drizzle-orm';
 import { EXPORT_CONFIG, renderMarkdown, renderEpub } from '@novel/core';
+import { enqueueGenerateExport } from '../services/queue-client.ts';
 
 const StoryParam = z.object({ storyId: z.string().uuid() });
 const ExportBody = z.object({
@@ -68,9 +69,10 @@ const exportsRoute: FastifyPluginCallback = (app, _opts, done) => {
         }));
 
       if (exportChapters.length > EXPORT_CONFIG.SYNC_CHAPTER_THRESHOLD) {
+        const jobId = await enqueueGenerateExport({ storyId, format: body.format });
         return reply.status(202).send({
           status: 'queued',
-          message: 'use generate-export worker job',
+          jobId,
         });
       }
 

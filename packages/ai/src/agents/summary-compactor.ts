@@ -12,6 +12,7 @@ export interface Logger {
 export type SummaryCompactorDeps = {
   provider: LLMProvider;
   logger: Logger;
+  model?: string;
 };
 
 export type SummaryCompactionResult = {
@@ -29,7 +30,7 @@ export class SummaryCompactor {
     const built = summaryCompactorPromptV1.build(input as unknown as Record<string, unknown>);
 
     const res = await this.deps.provider.complete({
-      model: MODEL_CONFIG.routes.summary_compactor,
+      model: this.deps.model ?? MODEL_CONFIG.routes.summary_compactor,
       messages: [{ role: 'system', content: built.system }, { role: 'user', content: built.user }],
       responseSchema: SUMMARY_COMPACTOR_JSON_SCHEMA,
       temperature: 0.2,

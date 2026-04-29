@@ -1,5 +1,5 @@
 import { getDb } from '@novel/db';
-import { chapters, chapterSummaries, highStakesReviews } from '@novel/db/schema';
+import { chapters, chapterSummaries } from '@novel/db/schema';
 import { eq, and, desc } from 'drizzle-orm';
 import type { Logger } from 'pino';
 import { HighStakesReviewerAgent } from '@novel/ai';

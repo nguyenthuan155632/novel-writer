@@ -1,4 +1,3 @@
-import { GENERATION_CONFIG } from '@novel/core';
 import type { CheckInput, CheckResult, DeterministicCheck } from './types.ts';
 
 export const newBloodlineSourceCheck: DeterministicCheck = {

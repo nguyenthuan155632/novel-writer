@@ -1,12 +1,15 @@
-import { eq, and, gte, lte, desc, lt, gt, sql } from 'drizzle-orm';
-import { storyBibles, sagas, arcs, characters, openThreads, plantedSeeds, chapterSummaries, canonFacts } from '@novel/db/schema';
+import { eq, and, gte, lte, desc, lt, sql } from 'drizzle-orm';
+import { storyBibles, sagas, arcs, characters, openThreads, plantedSeeds, chapterSummaries } from '@novel/db/schema';
 import type { Db } from '@novel/db';
-import type { CanonFact, PlantedSeed, ChapterSummary, OpenThread, Character, Saga, Arc, StoryBible } from '@novel/db/schema';
+import type { CanonFact, Saga, Arc, StoryBible } from '@novel/db/schema';
 import { compactCharacter, compactThread, compactSeed, compactSummary, compactFact } from './compact.js';
 import type { CharacterCompact, ThreadCompact, SeedCompact, ChapterSummaryCompact, CanonFactCompact } from './types.js';
 
 export async function getStoryBible(db: Db, storyId: string): Promise<StoryBible | null> {
-  const rows = await db.select().from(storyBibles).where(eq(storyBibles.storyId, storyId)).limit(1);
+  const rows = await db.select().from(storyBibles)
+    .where(eq(storyBibles.storyId, storyId))
+    .orderBy(desc(storyBibles.version))
+    .limit(1);
   return rows[0] ?? null;
 }
 

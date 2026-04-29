@@ -42,6 +42,8 @@ export const packetGeneratorPromptV1: DualPromptTemplate = {
       `Lập kế hoạch chương ${String(input.chapterNumber)}.`,
       `BẮT BUỘC: ít nhất 1 conflict + 1 cliffhanger.`,
       `BẮT BUỘC: requiredEvents phải gồm các "MUST plant" seed ở trên (gắn seedId).`,
+      `GIỚI HẠN ĐỘ DÀI: goal <= 500 ký tự; conflict <= 500; cliffhanger <= 500; mỗi requiredEvents.description <= 500.`,
+      `Viết ngắn gọn, trọn ý, không lặp. Không xuống dòng quá dài trong một field.`,
       `forbiddenMoves: liệt kê những đòn từ # CẤM mà chương này KHÔNG được dùng.`,
       `Trả về JSON theo schema ChapterPacket.`,
     ].filter(Boolean).join('\n'),

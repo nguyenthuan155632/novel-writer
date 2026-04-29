@@ -46,4 +46,34 @@ describe('PacketGenerator', () => {
       forbiddenRules: '', chapterNumber: 1, arcGoals: 'g',
     }, { traceId: 't', storyId: 's' })).rejects.toThrow();
   });
+
+  it('truncates overlong fields before schema parsing', async () => {
+    const overlong = JSON.stringify({
+      chapterNumber: 4,
+      goal: 'g'.repeat(700),
+      requiredEvents: [{ description: 'e'.repeat(350) }],
+      charactersPresent: ['Lam Pham'],
+      conflict: 'c'.repeat(700),
+      cliffhanger: 'h'.repeat(350),
+      forbiddenMoves: [],
+      notes: 'n'.repeat(700),
+    });
+
+    const provider = new MockProvider({
+      responder: { kind: 'fixed', content: overlong },
+    });
+    const gen = new PacketGenerator({ provider, logger: silentLogger });
+    const r = await gen.generate({
+      bibleCompact: 'b', arcSummary: 'a', recentChapterSummaries: [],
+      activeCharacters: [], openThreads: [], duePlantedSeeds: [], overdueThreads: [],
+      forbiddenRules: '', chapterNumber: 4, arcGoals: 'g',
+    }, { traceId: 't', storyId: 's' });
+
+    expect(r.packet.goal.length).toBeLessThanOrEqual(500);
+    expect(r.packet.conflict.length).toBeLessThanOrEqual(500);
+    expect(r.packet.cliffhanger.length).toBeLessThanOrEqual(500);
+    expect(r.packet.requiredEvents[0]?.description.length).toBeLessThanOrEqual(500);
+    expect(r.packet.notes?.length ?? 0).toBeLessThanOrEqual(500);
+    expect(provider.getCalls().length).toBe(2);
+  });
 });

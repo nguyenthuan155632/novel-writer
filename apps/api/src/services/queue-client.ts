@@ -23,6 +23,8 @@ export function getGenerateChapterQueue(): Queue {
 }
 
 let generateBatchQueue: Queue | null = null;
+let highStakesReviewQueue: Queue | null = null;
+let generateExportQueue: Queue | null = null;
 
 export function getGenerateBatchQueue(): Queue {
   if (!generateBatchQueue) {
@@ -31,6 +33,24 @@ export function getGenerateBatchQueue(): Queue {
     });
   }
   return generateBatchQueue;
+}
+
+export function getHighStakesReviewQueue(): Queue {
+  if (!highStakesReviewQueue) {
+    highStakesReviewQueue = new Queue('high-stakes-review', {
+      connection: getConnection(),
+    });
+  }
+  return highStakesReviewQueue;
+}
+
+export function getGenerateExportQueue(): Queue {
+  if (!generateExportQueue) {
+    generateExportQueue = new Queue('generate-export', {
+      connection: getConnection(),
+    });
+  }
+  return generateExportQueue;
 }
 
 export async function enqueueGenerateChapter(data: {
@@ -58,6 +78,37 @@ export async function enqueueGenerateChapter(data: {
     removeOnFail: { age: 86400 * 7 },
   });
   return { jobId: job.id! };
+}
+
+export async function enqueueHighStakesReview(data: {
+  storyId: string;
+  chapterId: string;
+  chapterNumber: number;
+  triggerReason: 'arc_end' | 'critical_severity' | 'manual';
+  traceId: string;
+}): Promise<string> {
+  const queue = getHighStakesReviewQueue();
+  const jobId = `review-${data.chapterId}-${data.triggerReason}`;
+  const job = await queue.add('high-stakes-review', data, {
+    jobId,
+    removeOnComplete: { age: 86400, count: 1000 },
+    removeOnFail: { age: 86400 * 7 },
+  });
+  return job.id!;
+}
+
+export async function enqueueGenerateExport(data: {
+  storyId: string;
+  format: 'markdown' | 'epub';
+}): Promise<string> {
+  const queue = getGenerateExportQueue();
+  const jobId = `export-${data.storyId}-${data.format}`;
+  const job = await queue.add('generate-export', data, {
+    jobId,
+    removeOnComplete: { age: 86400, count: 1000 },
+    removeOnFail: { age: 86400 * 7 },
+  });
+  return job.id!;
 }
 
 export async function getGenerateChapterStatus(

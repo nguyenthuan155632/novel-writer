@@ -5,7 +5,7 @@ Single-user local app that generates 500–1000 chapter Vietnamese xianxia / fan
 ## What it does
 
 - Takes a one-line premise → produces a full bible, sagas, arcs, and chapters
-- Default model: `kimi-k2.6` via OpenCode Go (configurable per story)
+- Default model: `glm-5.1` via OpenCode Go (configurable per story)
 - Target cost: ≤ $0.05 / chapter; actual cost depends on the configured provider/model
 - Uses a 3-tier context cache (HOT / WARM / COLD), a canon DB, and 12 specialized agents
 
