@@ -11,7 +11,8 @@
     "./logger": "./src/logger.ts",
     "./trace": "./src/trace.ts",
     "./types/*": "./src/types/*.ts",
-    "./utils/*": "./src/utils/*.ts"
+    "./utils/*": "./src/utils/*.ts",
+    "./policy/*": "./src/policy/*.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
