@@ -11,6 +11,14 @@ export const optionalUuidFromUnknown = z.unknown().transform((val): string | und
   return r.success ? r.data : undefined;
 });
 
+/** Models often emit 0 for "not planned yet"; coerce to undefined so parsing does not fail. */
+export const optionalPositiveChapter = z.preprocess((val): unknown => {
+  if (val === null || val === undefined) return undefined;
+  if (typeof val !== 'number' || !Number.isFinite(val)) return val;
+  if (val <= 0) return undefined;
+  return val;
+}, z.number().int().positive().optional());
+
 export const CharacterUpdateSchema = z.object({
   action: z.enum(['create', 'update']),
   targetId: optionalUuidFromUnknown,
@@ -36,7 +44,7 @@ export const ThreadUpdateSchema = z.object({
   targetId: optionalUuidFromUnknown,
   title: z.string(),
   state: z.enum(['open', 'partial', 'resolved']).optional(),
-  plannedResolutionChapter: z.number().int().positive().optional(),
+  plannedResolutionChapter: optionalPositiveChapter,
 });
 
 export const TimelineEventSchema = z.object({

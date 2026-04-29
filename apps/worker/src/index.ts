@@ -8,13 +8,20 @@ const log = createLogger('worker');
 
 const connection = createConnection();
 
+/** Default BullMQ lock is 30s and maxStalledCount is 1; long LLM pipelines + rate-limit retries can exceed that and trigger UnrecoverableError "job stalled more than allowable limit". */
+const longJobWorkerSettings = {
+  connection: connection as any,
+  lockDuration: 600_000,
+  maxStalledCount: 5,
+} as const;
+
 const generateChapterWorker = new Worker<GenerateChapterJob>(
   QUEUE_NAMES.generateChapter,
   async (job) => {
     const { runGenerateChapterJob } = await import('./jobs/generate-chapter.js');
     return runGenerateChapterJob(job.data, { logger: log.child({ jobId: job.id, traceId: job.data.traceId }) });
   },
-  { connection: connection as any, concurrency: 1 }
+  { ...longJobWorkerSettings, concurrency: 1 }
 );
 
 const refreshArcSummaryWorker = new Worker<RefreshArcSummaryJob>(
@@ -23,7 +30,7 @@ const refreshArcSummaryWorker = new Worker<RefreshArcSummaryJob>(
     const { runRefreshArcSummaryJob } = await import('./jobs/refresh-arc-summary.js');
     return runRefreshArcSummaryJob(job.data, { logger: log.child({ jobId: job.id, traceId: job.data.traceId }) });
   },
-  { connection: connection as any, concurrency: 1 }
+  { ...longJobWorkerSettings, concurrency: 1 }
 );
 
 const generateBatchWorker = new Worker<GenerateBatchJob>(
@@ -32,7 +39,7 @@ const generateBatchWorker = new Worker<GenerateBatchJob>(
     const { runGenerateBatchJob } = await import('./jobs/generate-batch.js');
     return runGenerateBatchJob(job.data, { logger: log.child({ jobId: job.id, traceId: job.data.traceId }) });
   },
-  { connection: connection as any, concurrency: 1 }
+  { ...longJobWorkerSettings, concurrency: 1 }
 );
 
 const refreshSagaSummaryWorker = new Worker<RefreshSagaSummaryJob>(
@@ -41,7 +48,7 @@ const refreshSagaSummaryWorker = new Worker<RefreshSagaSummaryJob>(
     const { runRefreshSagaSummaryJob } = await import('./jobs/refresh-saga-summary.js');
     return runRefreshSagaSummaryJob(job.data, { logger: log.child({ jobId: job.id, traceId: job.data.traceId }) });
   },
-  { connection: connection as any, concurrency: 1 }
+  { ...longJobWorkerSettings, concurrency: 1 }
 );
 
 const highStakesReviewWorker = new Worker<HighStakesReviewJob>(
@@ -50,7 +57,7 @@ const highStakesReviewWorker = new Worker<HighStakesReviewJob>(
     const { runHighStakesReviewJob } = await import('./jobs/high-stakes-review.js');
     return runHighStakesReviewJob(job.data, { logger: log.child({ jobId: job.id, traceId: job.data.traceId }) });
   },
-  { connection: connection as any, concurrency: 1 }
+  { ...longJobWorkerSettings, concurrency: 1 }
 );
 
 const generateExportWorker = new Worker<GenerateExportJobData>(
@@ -59,7 +66,7 @@ const generateExportWorker = new Worker<GenerateExportJobData>(
     const { runGenerateExportJob } = await import('./jobs/generate-export.js');
     return runGenerateExportJob(job.data, { logger: log.child({ jobId: job.id, storyId: job.data.storyId, format: job.data.format }) });
   },
-  { connection: connection as any, concurrency: 2 }
+  { ...longJobWorkerSettings, concurrency: 2 }
 );
 
 generateChapterWorker.on('failed', (job, err) => log.error({ jobId: job?.id, err }, 'generate-chapter failed'));

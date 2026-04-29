@@ -71,4 +71,30 @@ describe('ExtractorOutputSchema', () => {
     expect(result.threadUpdates[1]!.targetId).toBe(valid);
     expect(result.seedsResolvedThisChapter).toEqual([valid]);
   });
+
+  it('treats plannedResolutionChapter 0 as absent (model placeholder)', () => {
+    const data = {
+      characterUpdates: [],
+      newCanonFacts: [],
+      threadUpdates: [
+        { action: 'update' as const, title: 'T', plannedResolutionChapter: 0 },
+      ],
+      newTimelineEvents: [],
+      seedsResolvedThisChapter: [],
+    };
+    const result = ExtractorOutputSchema.parse(data);
+    expect(result.threadUpdates[0]!.plannedResolutionChapter).toBeUndefined();
+  });
+
+  it('keeps positive plannedResolutionChapter', () => {
+    const data = {
+      characterUpdates: [],
+      newCanonFacts: [],
+      threadUpdates: [{ action: 'update' as const, title: 'T', plannedResolutionChapter: 12 }],
+      newTimelineEvents: [],
+      seedsResolvedThisChapter: [],
+    };
+    const result = ExtractorOutputSchema.parse(data);
+    expect(result.threadUpdates[0]!.plannedResolutionChapter).toBe(12);
+  });
 });
