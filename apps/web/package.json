@@ -10,11 +10,13 @@
     "test": "echo 'web has no unit tests in plan 1'"
   },
   "dependencies": {
+    "diff": "^9.0.0",
     "next": "15.1.7",
     "react": "19.0.0",
     "react-dom": "19.0.0"
   },
   "devDependencies": {
+    "@types/diff": "^8.0.0",
     "@types/node": "24.12.2",
     "@types/react": "19.0.7",
     "@types/react-dom": "19.0.3",

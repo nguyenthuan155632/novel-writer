@@ -22,6 +22,7 @@ export default async function StoryLayout({
           <Link href={`/stories/${id}/bible` as any}>Bible</Link>
           <Link href={`/stories/${id}/chapters` as any}>Chapters</Link>
           <Link href={`/stories/${id}/pending` as any}>Pending Updates</Link>
+          <Link href={`/stories/${id}/settings` as any}>Settings</Link>
         </nav>
         <p style={{ marginTop: 16 }}><Link href="/">← All stories</Link></p>
       </aside>
