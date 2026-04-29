@@ -2,6 +2,7 @@ import type { FastifyPluginCallback } from 'fastify';
 import { z } from 'zod';
 import { getDb } from '@novel/db';
 import { arcs, chapters, sagas, storyBibles } from '@novel/db/schema';
+import { getModelStatus } from '@novel/core';
 import { eq, and, asc, desc, gte, isNull, lte, or } from 'drizzle-orm';
 import {
   enqueueGenerateChapter,
@@ -106,6 +107,7 @@ const plugin: FastifyPluginCallback = (app, _opts, done) => {
       storyId,
       chapterNumber: body.chapterNumber,
       mode: body.mode,
+      modelRoutes: getModelStatus().routes,
     });
     return reply.code(202).send({ jobId, storyId, chapterNumber: body.chapterNumber });
   });

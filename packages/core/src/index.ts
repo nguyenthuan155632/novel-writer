@@ -1,7 +1,22 @@
 export * from './types/ids.ts';
 export { CONTEXT_CONFIG, type ContextConfig } from './config/context.ts';
 export { GENERATION_CONFIG, type GenerationConfig } from './config/generation.ts';
-export { MODEL_CONFIG, type ModelConfig, type AgentRole, modelFor, pricingFor, estimateCostUsd } from './config/models.ts';
+export {
+  MODEL_CONFIG,
+  MODEL_HINTS,
+  MODEL_OPTIONS,
+  type AgentRole,
+  type ModelConfig,
+  type ModelOption,
+  type ModelRoutes,
+  type ModelStatus,
+  estimateCostUsd,
+  getModelStatus,
+  modelFor,
+  pricingFor,
+  resetModelRoutesForTests,
+  setModelRoutes,
+} from './config/models.ts';
 export { BUDGET_GUARDRAILS, type BudgetGuardrails } from './config/budget.ts';
 export { LONG_FORM_CONFIG, type LongFormConfig } from './config/long-form.ts';
 export { resolveEffectiveMode, type Mode, type ModeContext, type ModeEscalationDeps, type ArcBoundary } from './policy/mode-escalation.ts';

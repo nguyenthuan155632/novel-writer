@@ -1,5 +1,6 @@
 import { Queue, QueueEvents, type ConnectionOptions } from 'bullmq';
 import IORedis from 'ioredis';
+import type { ModelRoutes } from '@novel/core';
 
 export type GenerateChapterJob = {
   storyId: string;
@@ -9,6 +10,7 @@ export type GenerateChapterJob = {
   traceId: string;
   mode?: 'safe' | 'semi_auto' | 'full_auto';
   retryAttempt?: number;
+  modelRoutes?: Partial<ModelRoutes>;
 };
 
 export type RefreshArcSummaryJob = {
@@ -24,6 +26,7 @@ export type GenerateBatchJob = {
   endChapter: number;
   mode: 'safe' | 'semi_auto' | 'full_auto';
   traceId: string;
+  modelRoutes?: Partial<ModelRoutes>;
 };
 
 export type RefreshSagaSummaryJob = {

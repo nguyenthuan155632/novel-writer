@@ -4,6 +4,7 @@ import { buildServer } from '../../src/server.ts';
 import { getDb } from '@novel/db';
 import { arcs, sagas, stories, storyBibles } from '@novel/db/schema';
 import { eq } from 'drizzle-orm';
+import { resetModelRoutesForTests, setModelRoutes } from '@novel/core';
 
 const TEST_DB = process.env.TEST_DATABASE_URL ?? 'postgresql://novel:novel@localhost:5432/novel_factory';
 process.env.DATABASE_URL = TEST_DB;
@@ -23,6 +24,7 @@ beforeEach(() => {
   mockEnqueue.mockResolvedValue({ jobId: 'gen-story-1' });
   mockGetStatus.mockReset();
   mockGetStatus.mockResolvedValue(null);
+  resetModelRoutesForTests();
 });
 
 async function createPlannedStory(chapterNumber = 1): Promise<string> {
@@ -76,6 +78,7 @@ describe('chapters routes', () => {
 
   it('POST /api/stories/:storyId/chapters/generate enqueues job', async () => {
     const storyId = await createPlannedStory();
+    setModelRoutes({ writer: 'google/gemini-2.5-flash' });
     mockEnqueue.mockResolvedValueOnce({ jobId: `gen-${storyId}-1` });
     const r = await app.inject({
       method: 'POST',
@@ -87,11 +90,12 @@ describe('chapters routes', () => {
     expect(body.jobId).toBe(`gen-${storyId}-1`);
     expect(body.storyId).toBe(storyId);
     expect(body.chapterNumber).toBe(1);
-    expect(mockEnqueue).toHaveBeenCalledWith({
+    expect(mockEnqueue).toHaveBeenCalledWith(expect.objectContaining({
       storyId,
       chapterNumber: 1,
       mode: 'safe',
-    });
+      modelRoutes: expect.objectContaining({ writer: 'google/gemini-2.5-flash' }),
+    }));
 
     await getDb(TEST_DB).delete(stories).where(eq(stories.id, storyId));
   });

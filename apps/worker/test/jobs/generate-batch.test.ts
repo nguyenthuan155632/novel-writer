@@ -52,12 +52,18 @@ describe('runGenerateBatchJob', () => {
       endChapter: 5,
       mode: 'semi_auto',
       traceId: 'trace-1',
+      modelRoutes: { writer: 'google/gemini-2.5-flash' },
     }, { logger });
 
     expect(mockRunGenerateChapterJob).toHaveBeenCalledTimes(3);
     expect(mockRunGenerateChapterJob).toHaveBeenNthCalledWith(
       1,
-      expect.objectContaining({ storyId: 'story-1', chapterNumber: 3, mode: 'semi_auto' }),
+      expect.objectContaining({
+        storyId: 'story-1',
+        chapterNumber: 3,
+        mode: 'semi_auto',
+        modelRoutes: { writer: 'google/gemini-2.5-flash' },
+      }),
       expect.anything(),
     );
     expect(result).toEqual({ status: 'completed', completed: 3 });

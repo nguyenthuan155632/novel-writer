@@ -714,7 +714,19 @@ export async function runGenerateChapterJob(
   const { getDb } = await import('@novel/db');
 
   const db = getDb();
-  const effectiveConfig = await loadEffectiveStoryConfig(data.storyId);
+  const baseConfig = await loadEffectiveStoryConfig(data.storyId);
+  const effectiveConfig = data.modelRoutes
+    ? {
+        ...baseConfig,
+        model: {
+          ...baseConfig.model,
+          routes: {
+            ...baseConfig.model.routes,
+            ...data.modelRoutes,
+          },
+        },
+      }
+    : baseConfig;
   const baseProvider = new OpenCodeProvider({
     apiKey: process.env.OPENCODE_API_KEY ?? '',
     baseUrl: process.env.OPENCODE_BASE_URL,

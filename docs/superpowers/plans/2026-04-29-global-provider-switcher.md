@@ -26,6 +26,7 @@
 ## Task 1: API Provider State Helper
 
 **Files:**
+
 - Create: `apps/api/src/lib/provider-switcher.ts`
 - Test: `apps/api/test/lib/provider-switcher.test.ts`
 
@@ -34,14 +35,14 @@
 Create `apps/api/test/lib/provider-switcher.test.ts`:
 
 ```ts
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   buildLiveProvider,
   getActiveProvider,
   getProviderStatus,
   resetActiveProviderForTests,
   setActiveProvider,
-} from '../../src/lib/provider-switcher.ts';
+} from "../../src/lib/provider-switcher.ts";
 
 const OLD_ENV = process.env;
 
@@ -51,48 +52,51 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-describe('provider switcher', () => {
-  it('defaults to opencode when NOVEL_LLM_PROVIDER is unset', () => {
+describe("provider switcher", () => {
+  it("defaults to opencode when NOVEL_LLM_PROVIDER is unset", () => {
     delete process.env.NOVEL_LLM_PROVIDER;
 
-    expect(getActiveProvider()).toBe('opencode');
-    expect(getProviderStatus().provider).toBe('opencode');
+    expect(getActiveProvider()).toBe("opencode");
+    expect(getProviderStatus().provider).toBe("opencode");
   });
 
-  it('uses openrouter as the startup default when configured', () => {
-    process.env.NOVEL_LLM_PROVIDER = 'openrouter';
+  it("uses openrouter as the startup default when configured", () => {
+    process.env.NOVEL_LLM_PROVIDER = "openrouter";
     resetActiveProviderForTests();
 
-    expect(getActiveProvider()).toBe('openrouter');
+    expect(getActiveProvider()).toBe("openrouter");
   });
 
-  it('updates the active provider', () => {
-    setActiveProvider('openrouter');
+  it("updates the active provider", () => {
+    setActiveProvider("openrouter");
 
-    expect(getActiveProvider()).toBe('openrouter');
-    expect(getProviderStatus().options.map((o) => o.id)).toEqual(['opencode', 'openrouter']);
+    expect(getActiveProvider()).toBe("openrouter");
+    expect(getProviderStatus().options.map((o) => o.id)).toEqual([
+      "opencode",
+      "openrouter",
+    ]);
   });
 
-  it('builds an opencode live provider when selected', () => {
-    setActiveProvider('opencode');
-    process.env.OPENCODE_API_KEY = 'opencode-key';
+  it("builds an opencode live provider when selected", () => {
+    setActiveProvider("opencode");
+    process.env.OPENCODE_API_KEY = "opencode-key";
 
     const provider = buildLiveProvider();
 
-    expect(provider.name).toBe('opencode');
+    expect(provider.name).toBe("opencode");
   });
 
-  it('builds an openrouter live provider when selected', () => {
-    setActiveProvider('openrouter');
-    process.env.OPENROUTER_API_KEY = 'openrouter-key';
+  it("builds an openrouter live provider when selected", () => {
+    setActiveProvider("openrouter");
+    process.env.OPENROUTER_API_KEY = "openrouter-key";
 
     const provider = buildLiveProvider();
 
-    expect(provider.name).toBe('openrouter');
+    expect(provider.name).toBe("openrouter");
   });
 
-  it('requires the selected provider api key', () => {
-    setActiveProvider('openrouter');
+  it("requires the selected provider api key", () => {
+    setActiveProvider("openrouter");
     delete process.env.OPENROUTER_API_KEY;
 
     expect(() => buildLiveProvider()).toThrow(/OPENROUTER_API_KEY is required/);
@@ -115,11 +119,11 @@ Expected: FAIL because `apps/api/src/lib/provider-switcher.ts` does not exist.
 Create `apps/api/src/lib/provider-switcher.ts`:
 
 ```ts
-import { OpenCodeProvider } from '@novel/ai/providers/opencode';
-import { OpenRouterProvider } from '@novel/ai/providers/openrouter';
-import type { LLMProvider } from '@novel/ai/providers/types';
+import { OpenCodeProvider } from "@novel/ai/providers/opencode";
+import { OpenRouterProvider } from "@novel/ai/providers/openrouter";
+import type { LLMProvider } from "@novel/ai/providers/types";
 
-export type LlmProviderId = 'opencode' | 'openrouter';
+export type LlmProviderId = "opencode" | "openrouter";
 
 export interface ProviderOption {
   id: LlmProviderId;
@@ -132,8 +136,8 @@ export interface ProviderStatus {
 }
 
 export const PROVIDER_OPTIONS: ProviderOption[] = [
-  { id: 'opencode', label: 'OpenCode' },
-  { id: 'openrouter', label: 'OpenRouter' },
+  { id: "opencode", label: "OpenCode" },
+  { id: "openrouter", label: "OpenRouter" },
 ];
 
 let activeProvider: LlmProviderId = readProviderFromEnv();
@@ -155,9 +159,9 @@ export function getProviderStatus(): ProviderStatus {
 }
 
 export function buildLiveProvider(): LLMProvider {
-  if (activeProvider === 'openrouter') {
+  if (activeProvider === "openrouter") {
     return new OpenRouterProvider({
-      apiKey: requireEnv('OPENROUTER_API_KEY'),
+      apiKey: requireEnv("OPENROUTER_API_KEY"),
       baseUrl: process.env.OPENROUTER_BASE_URL,
       httpReferer: process.env.OPENROUTER_HTTP_REFERER,
       xTitle: process.env.OPENROUTER_X_TITLE,
@@ -165,7 +169,7 @@ export function buildLiveProvider(): LLMProvider {
   }
 
   return new OpenCodeProvider({
-    apiKey: requireEnv('OPENCODE_API_KEY'),
+    apiKey: requireEnv("OPENCODE_API_KEY"),
     baseUrl: process.env.OPENCODE_BASE_URL,
   });
 }
@@ -179,8 +183,8 @@ function readProviderFromEnv(): LlmProviderId {
 }
 
 function parseProvider(value: string | undefined): LlmProviderId {
-  if (value === 'openrouter') return 'openrouter';
-  return 'opencode';
+  if (value === "openrouter") return "openrouter";
+  return "opencode";
 }
 
 function requireEnv(k: string): string {
@@ -210,6 +214,7 @@ git commit -m "feat: add api provider switcher state"
 ## Task 2: Wire Provider Builder and Preserve Mock Bypass
 
 **Files:**
+
 - Modify: `apps/api/src/lib/llm-provider.ts`
 - Test: `apps/api/test/lib/provider-switcher.test.ts`
 
@@ -218,26 +223,26 @@ git commit -m "feat: add api provider switcher state"
 Append to `apps/api/test/lib/provider-switcher.test.ts`:
 
 ```ts
-import { buildLoggedProvider } from '../../src/lib/llm-provider.ts';
+import { buildLoggedProvider } from "../../src/lib/llm-provider.ts";
 
-describe('buildLoggedProvider', () => {
-  it('uses the selected live provider under the logger wrapper', () => {
-    setActiveProvider('openrouter');
-    process.env.OPENROUTER_API_KEY = 'openrouter-key';
+describe("buildLoggedProvider", () => {
+  it("uses the selected live provider under the logger wrapper", () => {
+    setActiveProvider("openrouter");
+    process.env.OPENROUTER_API_KEY = "openrouter-key";
 
     const provider = buildLoggedProvider();
 
-    expect(provider.name).toBe('logged');
+    expect(provider.name).toBe("logged");
   });
 
-  it('uses mock provider when a mock response is supplied', async () => {
-    setActiveProvider('openrouter');
+  it("uses mock provider when a mock response is supplied", async () => {
+    setActiveProvider("openrouter");
     delete process.env.OPENROUTER_API_KEY;
 
     const provider = buildLoggedProvider({ mockResponse: '{"ok":true}' });
     const response = await provider.complete({
-      model: 'glm-5.1',
-      messages: [{ role: 'user', content: 'ping' }],
+      model: "google/gemini-2.5-flash",
+      messages: [{ role: "user", content: "ping" }],
     });
 
     expect(response.content).toBe('{"ok":true}');
@@ -260,18 +265,27 @@ Expected: FAIL because `buildLoggedProvider` still always constructs `OpenCodePr
 Modify `apps/api/src/lib/llm-provider.ts` to:
 
 ```ts
-import { MockProvider } from '@novel/ai/providers/mock';
-import { LoggedLLMProvider, makeDrizzleRecorder } from '@novel/ai/llm-call-logger';
-import type { LLMProvider } from '@novel/ai/providers/types';
-import { getDb } from '@novel/db';
-import { buildLiveProvider } from './provider-switcher.ts';
+import { MockProvider } from "@novel/ai/providers/mock";
+import {
+  LoggedLLMProvider,
+  makeDrizzleRecorder,
+} from "@novel/ai/llm-call-logger";
+import type { LLMProvider } from "@novel/ai/providers/types";
+import { getDb } from "@novel/db";
+import { buildLiveProvider } from "./provider-switcher.ts";
 
-export function buildLoggedProvider(opts?: { mockResponse?: string }): LLMProvider {
-  const forceMock = process.env.NOVEL_FORCE_MOCK_LLM === '1';
-  const mockResponse = opts?.mockResponse ?? process.env.NOVEL_MOCK_LLM_RESPONSE;
-  const inner: LLMProvider = (forceMock || opts?.mockResponse)
-    ? new MockProvider({ responder: { kind: 'fixed', content: mockResponse ?? '{}' } })
-    : buildLiveProvider();
+export function buildLoggedProvider(opts?: {
+  mockResponse?: string;
+}): LLMProvider {
+  const forceMock = process.env.NOVEL_FORCE_MOCK_LLM === "1";
+  const mockResponse =
+    opts?.mockResponse ?? process.env.NOVEL_MOCK_LLM_RESPONSE;
+  const inner: LLMProvider =
+    forceMock || opts?.mockResponse
+      ? new MockProvider({
+          responder: { kind: "fixed", content: mockResponse ?? "{}" },
+        })
+      : buildLiveProvider();
   const recorder = makeDrizzleRecorder(getDb());
   return new LoggedLLMProvider({ inner, recordCall: recorder });
 }
@@ -297,6 +311,7 @@ git commit -m "feat: route logged provider through switcher"
 ## Task 3: Admin Provider Routes
 
 **Files:**
+
 - Modify: `apps/api/src/routes/admin.ts`
 - Test: `apps/api/test/routes/admin.test.ts`
 
@@ -307,53 +322,56 @@ If `apps/api/test/routes/admin.test.ts` does not exist, create it with tests bel
 Use this content for the provider route tests:
 
 ```ts
-import { afterEach, describe, expect, it } from 'vitest';
-import { buildServer } from '../../../src/server.ts';
-import { resetActiveProviderForTests, setActiveProvider } from '../../../src/lib/provider-switcher.ts';
+import { afterEach, describe, expect, it } from "vitest";
+import { buildServer } from "../../../src/server.ts";
+import {
+  resetActiveProviderForTests,
+  setActiveProvider,
+} from "../../../src/lib/provider-switcher.ts";
 
 afterEach(() => {
   resetActiveProviderForTests();
 });
 
-describe('admin provider routes', () => {
-  it('returns the active provider and options', async () => {
-    setActiveProvider('opencode');
+describe("admin provider routes", () => {
+  it("returns the active provider and options", async () => {
+    setActiveProvider("opencode");
     const app = buildServer();
 
-    const res = await app.inject({ method: 'GET', url: '/api/admin/provider' });
+    const res = await app.inject({ method: "GET", url: "/api/admin/provider" });
     await app.close();
 
     expect(res.statusCode).toBe(200);
     expect(res.json()).toEqual({
-      provider: 'opencode',
+      provider: "opencode",
       options: [
-        { id: 'opencode', label: 'OpenCode' },
-        { id: 'openrouter', label: 'OpenRouter' },
+        { id: "opencode", label: "OpenCode" },
+        { id: "openrouter", label: "OpenRouter" },
       ],
     });
   });
 
-  it('updates the active provider', async () => {
+  it("updates the active provider", async () => {
     const app = buildServer();
 
     const res = await app.inject({
-      method: 'PUT',
-      url: '/api/admin/provider',
-      payload: { provider: 'openrouter' },
+      method: "PUT",
+      url: "/api/admin/provider",
+      payload: { provider: "openrouter" },
     });
     await app.close();
 
     expect(res.statusCode).toBe(200);
-    expect(res.json().provider).toBe('openrouter');
+    expect(res.json().provider).toBe("openrouter");
   });
 
-  it('rejects unsupported providers', async () => {
+  it("rejects unsupported providers", async () => {
     const app = buildServer();
 
     const res = await app.inject({
-      method: 'PUT',
-      url: '/api/admin/provider',
-      payload: { provider: 'bad-provider' },
+      method: "PUT",
+      url: "/api/admin/provider",
+      payload: { provider: "bad-provider" },
     });
     await app.close();
 
@@ -377,20 +395,23 @@ Expected: FAIL because `/api/admin/provider` does not exist.
 Add imports to `apps/api/src/routes/admin.ts`:
 
 ```ts
-import { z } from 'zod';
-import { getProviderStatus, setActiveProvider } from '../lib/provider-switcher.ts';
+import { z } from "zod";
+import {
+  getProviderStatus,
+  setActiveProvider,
+} from "../lib/provider-switcher.ts";
 ```
 
 Add route handlers inside the admin plugin:
 
 ```ts
 const ProviderBodySchema = z.object({
-  provider: z.enum(['opencode', 'openrouter']),
+  provider: z.enum(["opencode", "openrouter"]),
 });
 
-app.get('/api/admin/provider', async () => getProviderStatus());
+app.get("/api/admin/provider", async () => getProviderStatus());
 
-app.put('/api/admin/provider', async (req) => {
+app.put("/api/admin/provider", async (req) => {
   const body = ProviderBodySchema.parse(req.body);
   return setActiveProvider(body.provider);
 });
@@ -416,6 +437,7 @@ git commit -m "feat: add admin provider routes"
 ## Task 4: Web Provider Switcher UI
 
 **Files:**
+
 - Create: `apps/web/lib/api/provider.ts`
 - Create: `apps/web/app/provider-switcher.tsx`
 - Modify: `apps/web/app/layout.tsx`
@@ -425,9 +447,9 @@ git commit -m "feat: add admin provider routes"
 Create `apps/web/lib/api/provider.ts`:
 
 ```ts
-import { apiFetch } from '../api-client';
+import { apiFetch } from "../api-client";
 
-export type LlmProviderId = 'opencode' | 'openrouter';
+export type LlmProviderId = "opencode" | "openrouter";
 
 export interface ProviderOption {
   id: LlmProviderId;
@@ -440,12 +462,14 @@ export interface ProviderStatus {
 }
 
 export function getProviderStatus(): Promise<ProviderStatus> {
-  return apiFetch<ProviderStatus>('/api/admin/provider');
+  return apiFetch<ProviderStatus>("/api/admin/provider");
 }
 
-export function updateProvider(provider: LlmProviderId): Promise<ProviderStatus> {
-  return apiFetch<ProviderStatus>('/api/admin/provider', {
-    method: 'PUT',
+export function updateProvider(
+  provider: LlmProviderId,
+): Promise<ProviderStatus> {
+  return apiFetch<ProviderStatus>("/api/admin/provider", {
+    method: "PUT",
     body: JSON.stringify({ provider }),
   });
 }
@@ -456,15 +480,15 @@ export function updateProvider(provider: LlmProviderId): Promise<ProviderStatus>
 Create `apps/web/app/provider-switcher.tsx`:
 
 ```tsx
-'use client';
+"use client";
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState } from "react";
 import {
   getProviderStatus,
   updateProvider,
   type LlmProviderId,
   type ProviderOption,
-} from '@/lib/api/provider';
+} from "@/lib/api/provider";
 
 export default function ProviderSwitcher() {
   const [provider, setProvider] = useState<LlmProviderId | null>(null);
@@ -510,7 +534,7 @@ export default function ProviderSwitcher() {
     <div className="provider-switcher" aria-label="LLM provider">
       <select
         aria-label="LLM provider"
-        value={provider ?? ''}
+        value={provider ?? ""}
         disabled={!provider || saving}
         onChange={(e) => onChange(e.target.value as LlmProviderId)}
       >
@@ -532,32 +556,44 @@ export default function ProviderSwitcher() {
 Modify `apps/web/app/layout.tsx`:
 
 ```tsx
-import './globals.css';
-import type { ReactNode } from 'react';
-import ProviderSwitcher from './provider-switcher';
+import "./globals.css";
+import type { ReactNode } from "react";
+import ProviderSwitcher from "./provider-switcher";
 
-export const metadata = { title: 'Novel Writer', description: 'AI Novel Factory' };
+export const metadata = {
+  title: "Novel Writer",
+  description: "AI Novel Factory",
+};
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="vi">
-      <body style={{ fontFamily: 'system-ui, sans-serif', margin: 0 }}>
+      <body style={{ fontFamily: "system-ui, sans-serif", margin: 0 }}>
         <header
           style={{
             padding: 16,
-            borderBottom: '1px solid #ddd',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
+            borderBottom: "1px solid #ddd",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
             gap: 16,
           }}
         >
-          <a href="/" style={{ textDecoration: 'none', color: 'inherit', fontWeight: 600 }}>
+          <a
+            href="/"
+            style={{
+              textDecoration: "none",
+              color: "inherit",
+              fontWeight: 600,
+            }}
+          >
             Novel Writer
           </a>
           <ProviderSwitcher />
         </header>
-        <main style={{ padding: 24, maxWidth: 1100, margin: '0 auto' }}>{children}</main>
+        <main style={{ padding: 24, maxWidth: 1100, margin: "0 auto" }}>
+          {children}
+        </main>
       </body>
     </html>
   );
@@ -613,6 +649,7 @@ git commit -m "feat: add provider switcher ui"
 ## Task 5: Documentation and Final Verification
 
 **Files:**
+
 - Modify: `.env.local.example`
 - Modify: `README.md`
 

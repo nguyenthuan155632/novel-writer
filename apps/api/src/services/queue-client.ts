@@ -1,5 +1,6 @@
 import { Queue } from 'bullmq';
 import IORedis from 'ioredis';
+import type { ModelRoutes } from '@novel/core';
 
 let connection: IORedis | null = null;
 let generateChapterQueue: Queue | null = null;
@@ -57,6 +58,7 @@ export async function enqueueGenerateChapter(data: {
   storyId: string;
   chapterNumber: number;
   mode: string;
+  modelRoutes?: Partial<ModelRoutes>;
 }): Promise<{ jobId: string }> {
   const queue = getGenerateChapterQueue();
   const jobId = `gen-${data.storyId}-${data.chapterNumber}`;

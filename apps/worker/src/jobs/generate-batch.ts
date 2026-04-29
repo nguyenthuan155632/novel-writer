@@ -2,6 +2,7 @@ import { getDb } from '@novel/db';
 import { batches } from '@novel/db/schema';
 import { eq } from 'drizzle-orm';
 import { createLogger } from '@novel/core/logger';
+import type { ModelRoutes } from '@novel/core';
 
 const log = createLogger('generate-batch');
 
@@ -12,6 +13,7 @@ export interface GenerateBatchJobData {
   endChapter: number;
   mode: 'safe' | 'semi_auto' | 'full_auto';
   traceId: string;
+  modelRoutes?: Partial<ModelRoutes>;
 }
 
 export async function runGenerateBatchJob(data: GenerateBatchJobData, ctx: { logger: any }): Promise<{ status: string; completed: number }> {
@@ -36,6 +38,7 @@ export async function runGenerateBatchJob(data: GenerateBatchJobData, ctx: { log
       chapterNumber,
       mode,
       traceId: `${traceId}:ch${chapterNumber}`,
+      modelRoutes: data.modelRoutes,
     }, { logger: jobLog.child({ chapterNumber }) });
 
     completed++;

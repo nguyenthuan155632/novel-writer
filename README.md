@@ -5,7 +5,7 @@ Single-user local app that generates 500–1000 chapter Vietnamese xianxia / fan
 ## What it does
 
 - Takes a one-line premise → produces a full bible, sagas, arcs, and chapters
-- Default model: `glm-5.1` via OpenCode Go (configurable per story)
+- Default model: `google/gemini-2.5-flash` via OpenCode Go (configurable per story)
 - Target cost: ≤ $0.05 / chapter; actual cost depends on the configured provider/model
 - Uses a 3-tier context cache (HOT / WARM / COLD), a canon DB, and 12 specialized agents
 
@@ -45,6 +45,10 @@ Env vars (copy `.env.example` → `.env`):
 ### Provider switcher
 
 The app can switch live LLM calls globally between OpenCode and OpenRouter from the header UI. The switch is process-local; restarting the API returns to the `NOVEL_LLM_PROVIDER` env default. Mock mode (`NOVEL_FORCE_MOCK_LLM=1`) still bypasses live providers.
+
+### Model settings
+
+The `/admin` page includes model inputs for each LLM function. The same values can be set at startup with env vars such as `WRITER_MODEL`, `VALIDATOR_MODEL`, and `HIGH_STAKES_MODEL`.
 
 ## Key docs
 

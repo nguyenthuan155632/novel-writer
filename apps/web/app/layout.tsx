@@ -21,7 +21,12 @@ export default function RootLayout({ children }: { children: ReactNode }) {
           <a href="/" style={{ textDecoration: 'none', color: 'inherit', fontWeight: 600 }}>
             Novel Writer
           </a>
-          <ProviderSwitcher />
+          <nav style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+            <a href="/admin" style={{ color: 'inherit' }}>
+              Admin
+            </a>
+            <ProviderSwitcher />
+          </nav>
         </header>
         <main style={{ padding: 24, maxWidth: 1100, margin: '0 auto' }}>{children}</main>
       </body>

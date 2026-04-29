@@ -28,7 +28,7 @@ describe('OpenCodeProvider', () => {
 
     const p = new OpenCodeProvider({ apiKey: 'k', fetchImpl });
     const r = await p.complete({
-      model: 'glm-5.1',
+      model: 'google/gemini-2.5-flash',
       messages: [{ role: 'user', content: 'hi' }],
       temperature: 0.2,
       topP: 0.9,
@@ -42,7 +42,7 @@ describe('OpenCodeProvider', () => {
       'Content-Type': 'application/json',
     });
     expect(JSON.parse(captured.init?.body as string)).toEqual({
-      model: 'glm-5.1',
+      model: 'google/gemini-2.5-flash',
       messages: [{ role: 'user', content: 'hi' }],
       temperature: 0.2,
       top_p: 0.9,
@@ -56,7 +56,7 @@ describe('OpenCodeProvider', () => {
   it('throws on non-OK response', async () => {
     const fetchImpl = makeFetchStub({ error: 'bad' }, 500);
     const p = new OpenCodeProvider({ apiKey: 'k', fetchImpl });
-    await expect(p.complete({ model: 'glm-5.1', messages: [{ role: 'user', content: 'hi' }] }))
+    await expect(p.complete({ model: 'google/gemini-2.5-flash', messages: [{ role: 'user', content: 'hi' }] }))
       .rejects.toThrow(/OpenCode error 500/);
   });
 
@@ -73,7 +73,7 @@ describe('OpenCodeProvider', () => {
     }) as unknown as typeof fetch;
     const p = new OpenCodeProvider({ apiKey: 'k', fetchImpl });
     await p.complete({
-      model: 'glm-5.1',
+      model: 'google/gemini-2.5-flash',
       messages: [{ role: 'user', content: 'hi' }],
       responseSchema: { type: 'object', properties: { a: { type: 'string' } } },
     });

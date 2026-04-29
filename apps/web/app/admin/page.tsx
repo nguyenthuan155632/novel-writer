@@ -1,16 +1,19 @@
 export const dynamic = 'force-dynamic';
 
 import { getAdminMetrics } from '@/lib/api/admin-metrics';
+import ModelSettings from './model-settings';
 
 export default async function AdminPage() {
   const metrics = await getAdminMetrics();
 
   return (
     <div className="p-6 max-w-5xl">
-      <h1 className="text-xl font-semibold mb-6">Admin metrics</h1>
+      <h1 className="text-xl font-semibold mb-6">Admin</h1>
+
+      <ModelSettings />
 
       {/* 1. Cache hit rate */}
-      <section className="mb-8">
+      <section className="mb-8 admin-section">
         <h2 className="font-medium mb-2">Cache hit rate</h2>
         <table className="w-full text-sm">
           <thead className="border-b text-left">
