@@ -11,6 +11,9 @@ import sagasRoute from './routes/sagas.ts';
 import arcsRoute from './routes/arcs.ts';
 import costsRoute from './routes/costs.ts';
 import reviewsRoute from './routes/reviews.ts';
+import timelineRoute from './routes/timeline.ts';
+import canonFactsRoute from './routes/canon-facts.ts';
+import batchesRoute from './routes/batches.ts';
 
 export function buildServer() {
   const app = Fastify({ logger: false });
@@ -26,6 +29,9 @@ export function buildServer() {
   app.register(arcsRoute);
   app.register(costsRoute);
   app.register(reviewsRoute);
+  app.register(timelineRoute);
+  app.register(canonFactsRoute);
+  app.register(batchesRoute);
   return app;
 }
 
