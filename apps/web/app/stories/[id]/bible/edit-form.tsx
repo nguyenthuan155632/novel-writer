@@ -83,7 +83,7 @@ export function EditForm({ storyId, bible }: { storyId: string; bible: Bible }) 
     const value = data[key];
     const words = countWords(value);
     const chars = countChars(value);
-    const isWarning = wordLimit && words > wordLimit;
+    const isWarning = !!wordLimit && words > wordLimit;
 
     return (
       <div className="textarea-group">
@@ -94,7 +94,7 @@ export function EditForm({ storyId, bible }: { storyId: string; bible: Bible }) 
           placeholder={placeholder}
         />
         <div className={`textarea-count ${isWarning ? 'warning' : ''}`}>
-          <span>{words} words</span>
+          <span>{wordLimit ? `${chars} characters` : `${words} words`}</span>
           <span>{wordLimit ? `${words} / ${wordLimit} words` : `${chars} characters`}</span>
         </div>
       </div>
