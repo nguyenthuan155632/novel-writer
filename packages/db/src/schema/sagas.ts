@@ -6,8 +6,10 @@ export const sagas = pgTable('sagas', {
   storyId: uuid('story_id').notNull().references(() => stories.id, { onDelete: 'cascade' }),
   sagaNumber: integer('saga_number').notNull(),
   title: text('title').notNull(),
+  premise: text('premise'),
   startChapter: integer('start_chapter'),
   endChapter: integer('end_chapter'),
+  expectedTurningPoints: jsonb('expected_turning_points').$type<string[]>().default([]).notNull(),
   rollingSummary: text('rolling_summary'),
   summaryVersion: integer('summary_version').default(0).notNull(),
   mainThemes: jsonb('main_themes').$type<string[]>().default([]).notNull(),
@@ -15,6 +17,7 @@ export const sagas = pgTable('sagas', {
   status: text('status').default('planned').notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  summaryUpdatedAt: timestamp('summary_updated_at', { withTimezone: true }),
 }, (t) => ({
   storyNumber: unique('sagas_story_saga_number_uq').on(t.storyId, t.sagaNumber),
 }));
