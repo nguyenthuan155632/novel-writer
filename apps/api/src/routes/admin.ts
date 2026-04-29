@@ -1,8 +1,13 @@
 import type { FastifyPluginCallback } from 'fastify';
 import { getDb } from '@novel/db';
-import { AdminMetricsService, getModelStatus, MODEL_OPTIONS, setModelRoutes } from '@novel/core';
+import { AdminMetricsService, MODEL_OPTIONS } from '@novel/core';
 import { z } from 'zod';
-import { getProviderStatus, setActiveProvider } from '../lib/provider-switcher.ts';
+import {
+  getModelStatusForActiveProvider,
+  getProviderStatus,
+  setActiveProvider,
+  setModelRoutesForActiveProvider,
+} from '../lib/provider-switcher.ts';
 
 const ProviderBodySchema = z.object({
   provider: z.enum(['opencode', 'openrouter', 'ollama']),
@@ -28,14 +33,14 @@ const adminRoute: FastifyPluginCallback = (app, _opts, done) => {
 
   app.put('/api/admin/provider', async (req) => {
     const body = ProviderBodySchema.parse(req.body);
-    return setActiveProvider(body.provider);
+    return await setActiveProvider(body.provider);
   });
 
-  app.get('/api/admin/models', async () => getModelStatus());
+  app.get('/api/admin/models', async () => getModelStatusForActiveProvider());
 
   app.put('/api/admin/models', async (req) => {
     const body = ModelRoutesSchema.parse(req.body);
-    return setModelRoutes(body.routes);
+    return setModelRoutesForActiveProvider(body.routes);
   });
 
   done();

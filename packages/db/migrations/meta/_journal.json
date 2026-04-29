@@ -29,6 +29,13 @@
       "when": 1777527015000,
       "tag": "0003_planted_seeds_planning_columns",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1777529400000,
+      "tag": "0004_llm_settings",
+      "breakpoints": true
     }
   ]
 }

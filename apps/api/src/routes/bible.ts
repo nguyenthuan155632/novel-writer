@@ -5,8 +5,8 @@ import { stories, storyBibles } from '@novel/db/schema';
 import { eq, desc } from 'drizzle-orm';
 import { generateBible } from '@novel/ai/agents/bible-generator';
 import '@novel/ai/prompts/bible-generator.v1';
-import { modelFor } from '@novel/core';
 import { buildLoggedProvider } from '../lib/llm-provider.ts';
+import { getModelStatusForActiveProviderFromDb } from '../lib/llm-settings.ts';
 import { newTraceId } from '@novel/core/trace';
 
 const UpdateBibleSchema = z.object({
@@ -27,12 +27,13 @@ const plugin: FastifyPluginCallback = (app, _opts, done) => {
     const [story] = await db.select().from(stories).where(eq(stories.id, id));
     if (!story) return reply.status(404).send({ error: 'story_not_found' });
 
-    const provider = buildLoggedProvider();
+    const provider = await buildLoggedProvider();
+    const modelStatus = await getModelStatusForActiveProviderFromDb();
     const traceId = (req as unknown as { traceId: string }).traceId ?? newTraceId();
 
     const { bible } = await generateBible({
       provider,
-      model: modelFor('bible_generator'),
+      model: modelStatus.routes.bible_generator,
       input: {
         premise: story.premise,
         genre: story.genre,

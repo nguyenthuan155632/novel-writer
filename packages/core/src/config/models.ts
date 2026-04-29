@@ -1,14 +1,16 @@
+const DEFAULT_MODEL_ID = 'google/gemini-2.5-flash';
+
 const DEFAULT_MODEL_ROUTES = {
-  bible_generator: process.env.BIBLE_MODEL ?? 'google/gemini-2.5-flash',
-  saga_planner: process.env.SAGA_PLANNER_MODEL ?? 'google/gemini-2.5-flash',
-  arc_planner: process.env.ARC_PLANNER_MODEL ?? 'google/gemini-2.5-flash',
-  packet_generator: process.env.PACKET_MODEL ?? 'google/gemini-2.5-flash',
-  writer: process.env.WRITER_MODEL ?? 'google/gemini-2.5-flash',
-  auto_fixer: process.env.FIXER_MODEL ?? 'google/gemini-2.5-flash',
-  llm_validator: process.env.VALIDATOR_MODEL ?? 'google/gemini-2.5-flash',
-  canon_extractor: process.env.EXTRACTOR_MODEL ?? 'google/gemini-2.5-flash',
-  summary_compactor: process.env.COMPACTOR_MODEL ?? 'google/gemini-2.5-flash',
-  high_stakes_reviewer: process.env.HIGH_STAKES_MODEL ?? 'google/gemini-2.5-flash',
+  bible_generator: DEFAULT_MODEL_ID,
+  saga_planner: DEFAULT_MODEL_ID,
+  arc_planner: DEFAULT_MODEL_ID,
+  packet_generator: DEFAULT_MODEL_ID,
+  writer: DEFAULT_MODEL_ID,
+  auto_fixer: DEFAULT_MODEL_ID,
+  llm_validator: DEFAULT_MODEL_ID,
+  canon_extractor: DEFAULT_MODEL_ID,
+  summary_compactor: DEFAULT_MODEL_ID,
+  high_stakes_reviewer: DEFAULT_MODEL_ID,
 };
 
 export const MODEL_CONFIG = {

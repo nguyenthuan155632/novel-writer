@@ -5,7 +5,7 @@ Single-user local app that generates 500–1000 chapter Vietnamese xianxia / fan
 ## What it does
 
 - Takes a one-line premise → produces a full bible, sagas, arcs, and chapters
-- Default model: `google/gemini-2.5-flash` via OpenCode Go (configurable per story)
+- Default model route: `google/gemini-2.5-flash` (seeded in Postgres; overridden per provider in Admin)
 - Target cost: ≤ $0.05 / chapter; actual cost depends on the configured provider/model
 - Uses a 3-tier context cache (HOT / WARM / COLD), a canon DB, and 12 specialized agents
 
@@ -35,21 +35,20 @@ pnpm dev   # api + web + worker concurrently
 
 Env vars (copy `.env.example` → `.env`):
 
-- `NOVEL_LLM_PROVIDER=opencode|openrouter|ollama` — startup default for live LLM calls
-- `OPENCODE_API_KEY` — required when OpenCode is selected
-- `OPENROUTER_API_KEY` — required when OpenRouter is selected, and for embedding calls in chapter generation
-- `OLLAMA_BASE_URL` — optional (defaults to `http://localhost:11434/v1`) when Ollama is selected; `OLLAMA_API_KEY` only if your server expects a Bearer token
+- `OPENCODE_API_KEY` — required when OpenCode is the active provider
+- `OPENROUTER_API_KEY` — required when OpenRouter is the active provider, and for embedding calls in chapter generation
+- `OLLAMA_BASE_URL` — optional (defaults to `http://localhost:11434/v1`) when using Ollama; `OLLAMA_API_KEY` only if your server expects a Bearer token
 - `GOOGLE_API_KEY` — optional, enables Pro / Flash with explicit caching
 - `DATABASE_URL`, `REDIS_URL` — connection strings
 - `RUN_LIVE_LLM=1` — gate live-API tests
 
-### Provider switcher
+Base URL overrides (`OPENCODE_BASE_URL`, `OPENROUTER_BASE_URL`) are optional; see `.env.example`.
 
-The app can switch live LLM calls globally between OpenCode, OpenRouter, and Ollama from the header UI. The switch is process-local; restarting the API returns to the `NOVEL_LLM_PROVIDER` env default. Mock mode (`NOVEL_FORCE_MOCK_LLM=1`) still bypasses live providers.
+### Provider + model settings
 
-### Model settings
+Active LLM provider and per-role model routes are stored in **PostgreSQL** (`llm_provider_state`, `llm_provider_settings`). The header switches the globally active provider; `/admin` edits model routes for each provider. **These settings survive API restarts.** Mock mode (`NOVEL_FORCE_MOCK_LLM=1`) still bypasses live providers.
 
-The `/admin` page includes model inputs for each LLM function. The same values can be set at startup with env vars such as `WRITER_MODEL`, `VALIDATOR_MODEL`, and `HIGH_STAKES_MODEL`.
+`NOVEL_LLM_PROVIDER` and per-role model env vars (`WRITER_MODEL`, `BIBLE_MODEL`, etc.) are **not** used at runtime for provider or route selection anymore; configure them in the UI after migrate/seed.
 
 ## Key docs
 

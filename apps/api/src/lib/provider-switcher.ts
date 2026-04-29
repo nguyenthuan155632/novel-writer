@@ -2,7 +2,18 @@ import { OpenCodeProvider } from '@novel/ai/providers/opencode';
 import { OllamaProvider } from '@novel/ai/providers/ollama';
 import { OpenRouterProvider } from '@novel/ai/providers/openrouter';
 import type { LLMProvider } from '@novel/ai/providers/types';
-import { parseLlmProvider, type LlmProviderId } from '@novel/core';
+import type { LlmProviderId } from '@novel/core';
+import {
+  getActiveProviderFromDb,
+  resetLlmSettingsForTests,
+  setActiveProviderInDb,
+} from './llm-settings.ts';
+
+export {
+  getQueueLlmSnapshotFromDb as getQueueLlmSnapshot,
+  getModelStatusForActiveProviderFromDb as getModelStatusForActiveProvider,
+  setModelRoutesForActiveProviderInDb as setModelRoutesForActiveProvider,
+} from './llm-settings.ts';
 
 export interface ProviderOption {
   id: LlmProviderId;
@@ -20,25 +31,26 @@ export const PROVIDER_OPTIONS: ProviderOption[] = [
   { id: 'ollama', label: 'Ollama (local)' },
 ];
 
-let activeProvider: LlmProviderId = readProviderFromEnv();
-
-export function getActiveProvider(): LlmProviderId {
-  return activeProvider;
+export async function getActiveProvider(): Promise<LlmProviderId> {
+  return getActiveProviderFromDb();
 }
 
-export function setActiveProvider(provider: LlmProviderId): ProviderStatus {
-  activeProvider = provider;
+export async function setActiveProvider(provider: LlmProviderId): Promise<ProviderStatus> {
+  await setActiveProviderInDb(provider);
   return getProviderStatus();
 }
 
-export function getProviderStatus(): ProviderStatus {
+export async function getProviderStatus(): Promise<ProviderStatus> {
+  const provider = await getActiveProviderFromDb();
   return {
-    provider: activeProvider,
+    provider,
     options: PROVIDER_OPTIONS,
   };
 }
 
-export function buildLiveProvider(): LLMProvider {
+export async function buildLiveProvider(): Promise<LLMProvider> {
+  const activeProvider = await getActiveProviderFromDb();
+
   if (activeProvider === 'openrouter') {
     return new OpenRouterProvider({
       apiKey: requireEnv('OPENROUTER_API_KEY'),
@@ -61,12 +73,8 @@ export function buildLiveProvider(): LLMProvider {
   });
 }
 
-export function resetActiveProviderForTests(): void {
-  activeProvider = readProviderFromEnv();
-}
-
-function readProviderFromEnv(): LlmProviderId {
-  return parseLlmProvider(process.env.NOVEL_LLM_PROVIDER);
+export async function resetActiveProviderForTests(): Promise<void> {
+  await resetLlmSettingsForTests();
 }
 
 function requireEnv(k: string): string {

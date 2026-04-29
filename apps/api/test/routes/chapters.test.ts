@@ -4,8 +4,11 @@ import { buildServer } from '../../src/server.ts';
 import { getDb } from '@novel/db';
 import { arcs, sagas, stories, storyBibles } from '@novel/db/schema';
 import { eq } from 'drizzle-orm';
-import { resetModelRoutesForTests, setModelRoutes } from '@novel/core';
-import { resetActiveProviderForTests, setActiveProvider } from '../../src/lib/provider-switcher.ts';
+import {
+  resetActiveProviderForTests,
+  setActiveProvider,
+  setModelRoutesForActiveProvider,
+} from '../../src/lib/provider-switcher.ts';
 
 const TEST_DB = process.env.TEST_DATABASE_URL ?? 'postgresql://novel:novel@localhost:5432/novel_factory';
 process.env.DATABASE_URL = TEST_DB;
@@ -20,13 +23,12 @@ vi.mock('../../src/services/queue-client.js', () => ({
 const app = buildServer();
 beforeAll(async () => { await app.ready(); });
 afterAll(async () => { await app.close(); });
-beforeEach(() => {
+beforeEach(async () => {
   mockEnqueue.mockReset();
   mockEnqueue.mockResolvedValue({ jobId: 'gen-story-1' });
   mockGetStatus.mockReset();
   mockGetStatus.mockResolvedValue(null);
-  resetModelRoutesForTests();
-  resetActiveProviderForTests();
+  await resetActiveProviderForTests();
 });
 
 async function createPlannedStory(chapterNumber = 1): Promise<string> {
@@ -80,8 +82,8 @@ describe('chapters routes', () => {
 
   it('POST /api/stories/:storyId/chapters/generate enqueues job', async () => {
     const storyId = await createPlannedStory();
-    setActiveProvider('openrouter');
-    setModelRoutes({ writer: 'google/gemini-2.5-flash' });
+    await setActiveProvider('openrouter');
+    await setModelRoutesForActiveProvider({ writer: 'google/gemini-2.5-flash' });
     mockEnqueue.mockResolvedValueOnce({ jobId: `gen-${storyId}-1` });
     const r = await app.inject({
       method: 'POST',
@@ -99,6 +101,44 @@ describe('chapters routes', () => {
       mode: 'safe',
       llmProvider: 'openrouter',
       modelRoutes: expect.objectContaining({ writer: 'google/gemini-2.5-flash' }),
+    }));
+
+    await getDb(TEST_DB).delete(stories).where(eq(stories.id, storyId));
+  });
+
+  it('POST /api/stories/:storyId/chapters/generate snapshots provider-specific routes', async () => {
+    const storyId = await createPlannedStory();
+    await setActiveProvider('openrouter');
+    await setModelRoutesForActiveProvider({ writer: 'openrouter/writer-v1' });
+    await setActiveProvider('ollama');
+    await setModelRoutesForActiveProvider({ writer: 'ollama/writer-local' });
+
+    await setActiveProvider('openrouter');
+    const firstRun = await app.inject({
+      method: 'POST',
+      url: `/api/stories/${storyId}/chapters/generate`,
+      payload: { chapterNumber: 1, mode: 'safe' },
+    });
+    expect(firstRun.statusCode).toBe(202);
+    expect(mockEnqueue).toHaveBeenNthCalledWith(1, expect.objectContaining({
+      storyId,
+      chapterNumber: 1,
+      llmProvider: 'openrouter',
+      modelRoutes: expect.objectContaining({ writer: 'openrouter/writer-v1' }),
+    }));
+
+    await setActiveProvider('ollama');
+    const secondRun = await app.inject({
+      method: 'POST',
+      url: `/api/stories/${storyId}/chapters/generate`,
+      payload: { chapterNumber: 2, mode: 'safe' },
+    });
+    expect(secondRun.statusCode).toBe(202);
+    expect(mockEnqueue).toHaveBeenNthCalledWith(2, expect.objectContaining({
+      storyId,
+      chapterNumber: 2,
+      llmProvider: 'ollama',
+      modelRoutes: expect.objectContaining({ writer: 'ollama/writer-local' }),
     }));
 
     await getDb(TEST_DB).delete(stories).where(eq(stories.id, storyId));

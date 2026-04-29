@@ -1,7 +1,8 @@
 import { describe, it, expect, afterAll } from 'vitest';
+import { MODEL_OPTIONS } from '@novel/core';
 import { getDb, getSqlClient } from '../src/client.ts';
-import { arcs, sagas, stories, storyBibles } from '../src/schema/index.ts';
-import { eq } from 'drizzle-orm';
+import { arcs, llmProviderSettings, llmProviderState, sagas, stories, storyBibles } from '../src/schema/index.ts';
+import { eq, sql } from 'drizzle-orm';
 
 const TEST_DB_URL = process.env.TEST_DATABASE_URL ?? 'postgresql://novel:novel@localhost:5432/novel_factory';
 
@@ -72,6 +73,37 @@ describe('schema smoke', () => {
     expect(foundSaga[0]!.expectedTurningPoints).toEqual(['opening turn', 'closing turn']);
 
     await db.delete(stories).where(eq(stories.id, story.id));
+  });
+
+  it('seeds llm provider settings and active provider state', async () => {
+    const providerRows = await db.select().from(llmProviderSettings);
+    expect(providerRows.map((row) => row.provider).sort()).toEqual(['ollama', 'opencode', 'openrouter']);
+
+    for (const row of providerRows) {
+      const routes = row.modelRoutes as Record<string, string>;
+      for (const opt of MODEL_OPTIONS) {
+        expect(routes[opt.role], `${row.provider} missing ${opt.role}`).toBeDefined();
+        expect(routes[opt.role]!.trim().length, `${row.provider} ${opt.role}`).toBeGreaterThan(0);
+      }
+    }
+
+    const stateRows = await db.select().from(llmProviderState).where(eq(llmProviderState.id, 'global'));
+    expect(stateRows).toHaveLength(1);
+    expect(['opencode', 'openrouter', 'ollama']).toContain(stateRows[0]!.activeProvider);
+  });
+
+  it('enforces llm singleton and provider constraints', async () => {
+    await expect(
+      db.execute(sql`insert into llm_provider_state (id, active_provider) values ('not-global', 'opencode')`)
+    ).rejects.toThrow();
+
+    await expect(
+      db.execute(sql`insert into llm_provider_settings (provider, model_routes) values ('bad-provider', '{}'::jsonb)`)
+    ).rejects.toThrow();
+
+    await expect(
+      db.execute(sql`update llm_provider_settings set model_routes = '[]'::jsonb where provider = 'opencode'`)
+    ).rejects.toThrow();
   });
 
   afterAll(async () => {

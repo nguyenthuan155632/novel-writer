@@ -2,13 +2,12 @@ import type { FastifyPluginCallback } from 'fastify';
 import { z } from 'zod';
 import { getDb } from '@novel/db';
 import { arcs, chapters, sagas, storyBibles } from '@novel/db/schema';
-import { getModelStatus } from '@novel/core';
 import { eq, and, asc, desc, gte, isNull, lte, or } from 'drizzle-orm';
 import {
   enqueueGenerateChapter,
   getGenerateChapterStatus,
 } from '../services/queue-client.js';
-import { getActiveProvider } from '../lib/provider-switcher.ts';
+import { getQueueLlmSnapshot } from '../lib/provider-switcher.ts';
 
 const ChapterParams = z.object({
   storyId: z.string().uuid(),
@@ -104,12 +103,13 @@ const plugin: FastifyPluginCallback = (app, _opts, done) => {
       });
     }
 
+    const llmSnapshot = await getQueueLlmSnapshot();
     const { jobId } = await enqueueGenerateChapter({
       storyId,
       chapterNumber: body.chapterNumber,
       mode: body.mode,
-      llmProvider: getActiveProvider(),
-      modelRoutes: getModelStatus().routes,
+      llmProvider: llmSnapshot.llmProvider,
+      modelRoutes: llmSnapshot.modelRoutes,
     });
     return reply.code(202).send({ jobId, storyId, chapterNumber: body.chapterNumber });
   });

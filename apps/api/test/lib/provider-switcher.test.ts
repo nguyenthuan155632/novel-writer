@@ -3,100 +3,100 @@ import { buildLoggedProvider } from '../../src/lib/llm-provider.ts';
 import {
   buildLiveProvider,
   getActiveProvider,
+  getModelStatusForActiveProvider,
   getProviderStatus,
   resetActiveProviderForTests,
   setActiveProvider,
+  setModelRoutesForActiveProvider,
 } from '../../src/lib/provider-switcher.ts';
+
+const TEST_DB = process.env.TEST_DATABASE_URL ?? 'postgresql://novel:novel@localhost:5432/novel_factory';
+process.env.DATABASE_URL = TEST_DB;
 
 const OLD_ENV = process.env;
 
-afterEach(() => {
+afterEach(async () => {
   process.env = { ...OLD_ENV };
-  resetActiveProviderForTests();
+  await resetActiveProviderForTests();
   vi.restoreAllMocks();
 });
 
 describe('provider switcher', () => {
-  it('defaults to opencode when NOVEL_LLM_PROVIDER is unset', () => {
-    delete process.env.NOVEL_LLM_PROVIDER;
-    resetActiveProviderForTests();
+  it('defaults to opencode from database seed', async () => {
+    await resetActiveProviderForTests();
 
-    expect(getActiveProvider()).toBe('opencode');
-    expect(getProviderStatus().provider).toBe('opencode');
+    expect(await getActiveProvider()).toBe('opencode');
+    expect((await getProviderStatus()).provider).toBe('opencode');
   });
 
-  it('uses openrouter as the startup default when configured', () => {
-    process.env.NOVEL_LLM_PROVIDER = 'openrouter';
-    resetActiveProviderForTests();
+  it('updates the active provider', async () => {
+    await setActiveProvider('openrouter');
 
-    expect(getActiveProvider()).toBe('openrouter');
+    expect(await getActiveProvider()).toBe('openrouter');
+    expect((await getProviderStatus()).options.map((o) => o.id)).toEqual(['opencode', 'openrouter', 'ollama']);
   });
 
-  it('uses ollama as the startup default when configured', () => {
-    process.env.NOVEL_LLM_PROVIDER = 'ollama';
-    resetActiveProviderForTests();
-
-    expect(getActiveProvider()).toBe('ollama');
-  });
-
-  it('updates the active provider', () => {
-    setActiveProvider('openrouter');
-
-    expect(getActiveProvider()).toBe('openrouter');
-    expect(getProviderStatus().options.map((o) => o.id)).toEqual(['opencode', 'openrouter', 'ollama']);
-  });
-
-  it('builds an opencode live provider when selected', () => {
-    setActiveProvider('opencode');
+  it('builds an opencode live provider when selected', async () => {
+    await setActiveProvider('opencode');
     process.env.OPENCODE_API_KEY = 'opencode-key';
 
-    const provider = buildLiveProvider();
+    const provider = await buildLiveProvider();
 
     expect(provider.name).toBe('opencode');
   });
 
-  it('builds an openrouter live provider when selected', () => {
-    setActiveProvider('openrouter');
+  it('builds an openrouter live provider when selected', async () => {
+    await setActiveProvider('openrouter');
     process.env.OPENROUTER_API_KEY = 'openrouter-key';
 
-    const provider = buildLiveProvider();
+    const provider = await buildLiveProvider();
 
     expect(provider.name).toBe('openrouter');
   });
 
-  it('builds an ollama live provider when selected', () => {
-    setActiveProvider('ollama');
+  it('builds an ollama live provider when selected', async () => {
+    await setActiveProvider('ollama');
 
-    const provider = buildLiveProvider();
+    const provider = await buildLiveProvider();
 
     expect(provider.name).toBe('ollama');
   });
 
-  it('requires the selected provider api key', () => {
-    setActiveProvider('openrouter');
+  it('requires the selected provider api key', async () => {
+    await setActiveProvider('openrouter');
     delete process.env.OPENROUTER_API_KEY;
 
-    expect(() => buildLiveProvider()).toThrow(/OPENROUTER_API_KEY is required/);
+    await expect(buildLiveProvider()).rejects.toThrow(/OPENROUTER_API_KEY is required/);
+  });
+
+  it('keeps separate model routes for each provider', async () => {
+    await setActiveProvider('openrouter');
+    await setModelRoutesForActiveProvider({ writer: 'openrouter/model-a' });
+    await setActiveProvider('ollama');
+    await setModelRoutesForActiveProvider({ writer: 'ollama/model-b' });
+    await setActiveProvider('openrouter');
+    const status = await getModelStatusForActiveProvider();
+    expect(status.routes.writer).toBe('openrouter/model-a');
   });
 });
 
 describe('buildLoggedProvider', () => {
-  it('uses the selected live provider under the logger wrapper', () => {
-    setActiveProvider('openrouter');
+  it('uses the selected live provider under the logger wrapper', async () => {
+    await setActiveProvider('openrouter');
     process.env.OPENROUTER_API_KEY = 'openrouter-key';
-    process.env.DATABASE_URL = 'postgres://user:pass@localhost:1/db';
+    process.env.DATABASE_URL = TEST_DB;
 
-    const provider = buildLoggedProvider();
+    const provider = await buildLoggedProvider();
 
     expect(provider.name).toBe('logged(openrouter)');
   });
 
-  it('uses mock provider when a mock response is supplied', () => {
-    setActiveProvider('openrouter');
+  it('uses mock provider when a mock response is supplied', async () => {
+    await setActiveProvider('openrouter');
     delete process.env.OPENROUTER_API_KEY;
-    process.env.DATABASE_URL = 'postgres://user:pass@localhost:1/db';
+    process.env.DATABASE_URL = TEST_DB;
 
-    const provider = buildLoggedProvider({ mockResponse: '{"ok":true}' });
+    const provider = await buildLoggedProvider({ mockResponse: '{"ok":true}' });
 
     expect(provider.name).toBe('logged(mock)');
   });

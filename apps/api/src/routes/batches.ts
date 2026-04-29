@@ -5,8 +5,7 @@ import { batches } from '@novel/db/schema';
 import { eq, and, desc } from 'drizzle-orm';
 import { getGenerateBatchQueue } from '../services/queue-client.ts';
 import { newTraceId } from '@novel/core/trace';
-import { getModelStatus } from '@novel/core';
-import { getActiveProvider } from '../lib/provider-switcher.ts';
+import { getQueueLlmSnapshot } from '../lib/provider-switcher.ts';
 
 const StoryParam = z.object({ storyId: z.string().uuid() });
 const BatchParam = z.object({ storyId: z.string().uuid(), batchId: z.string().uuid() });
@@ -36,11 +35,12 @@ const batchesRoute: FastifyPluginCallback = (app, _opts, done) => {
     if (!row) return reply.code(500).send({ error: 'insert_failed' });
     const queue = getGenerateBatchQueue();
     const traceId = (req as unknown as { traceId?: string }).traceId ?? newTraceId();
+    const llmSnapshot = await getQueueLlmSnapshot();
     const job = await queue.add('generate-batch', {
       batchId: row.id, storyId, startChapter: body.startChapter, endChapter: body.endChapter, mode: body.mode,
       traceId,
-      llmProvider: getActiveProvider(),
-      modelRoutes: getModelStatus().routes,
+      llmProvider: llmSnapshot.llmProvider,
+      modelRoutes: llmSnapshot.modelRoutes,
     }, { jobId: `batch-${row.id}` });
     return reply.code(202).send({ batch: row, jobId: job.id });
   });

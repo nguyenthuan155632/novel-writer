@@ -12,6 +12,18 @@ afterEach(() => {
 });
 
 describe('MODEL_CONFIG', () => {
+  it('uses static defaults regardless of process env', () => {
+    const prev = process.env.WRITER_MODEL;
+    process.env.WRITER_MODEL = 'custom/model';
+    try {
+      resetModelRoutesForTests();
+      expect(modelFor('writer')).toBe('google/gemini-2.5-flash');
+    } finally {
+      if (prev === undefined) delete process.env.WRITER_MODEL;
+      else process.env.WRITER_MODEL = prev;
+    }
+  });
+
   it('defaults agent routes to google/gemini-2.5-flash', () => {
     expect(Object.values(MODEL_CONFIG.routes).every((model) => model === 'google/gemini-2.5-flash')).toBe(true);
     expect(modelFor('writer')).toBe('google/gemini-2.5-flash');
