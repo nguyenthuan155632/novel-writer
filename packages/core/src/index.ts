@@ -10,3 +10,5 @@ export { shouldRunReviewer, type TriggerContext } from './policy/high-stakes-tri
 export { mergeOverrides, getEffectiveConfig, type EffectiveConfig, type ConfigOverrides, type StoryOverridesProvider } from './config/effective.ts';
 export * from './utils/tokens.js';
 export * from './utils/hash.js';
+export { EXPORT_CONFIG, type ExportFormat } from './config/export-config.ts';
+export { AdminMetricsService, type AnyDb, type CacheHitRate, type CostRollingPoint, type ValidatorFailureRow, type AutoFixStat, type PendingCanonAgingBucket, type AdminMetrics } from './services/admin-metrics.ts';
