@@ -8,6 +8,7 @@ import {
   enqueueGenerateChapter,
   getGenerateChapterStatus,
 } from '../services/queue-client.js';
+import { getActiveProvider } from '../lib/provider-switcher.ts';
 
 const ChapterParams = z.object({
   storyId: z.string().uuid(),
@@ -107,6 +108,7 @@ const plugin: FastifyPluginCallback = (app, _opts, done) => {
       storyId,
       chapterNumber: body.chapterNumber,
       mode: body.mode,
+      llmProvider: getActiveProvider(),
       modelRoutes: getModelStatus().routes,
     });
     return reply.code(202).send({ jobId, storyId, chapterNumber: body.chapterNumber });

@@ -52,6 +52,7 @@ describe('runGenerateBatchJob', () => {
       endChapter: 5,
       mode: 'semi_auto',
       traceId: 'trace-1',
+      llmProvider: 'openrouter',
       modelRoutes: { writer: 'google/gemini-2.5-flash' },
     }, { logger });
 
@@ -62,6 +63,7 @@ describe('runGenerateBatchJob', () => {
         storyId: 'story-1',
         chapterNumber: 3,
         mode: 'semi_auto',
+        llmProvider: 'openrouter',
         modelRoutes: { writer: 'google/gemini-2.5-flash' },
       }),
       expect.anything(),

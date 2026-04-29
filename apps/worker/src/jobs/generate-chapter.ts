@@ -33,9 +33,17 @@ import {
   OpenRouterEmbeddingService,
 } from '@novel/ai';
 import { OpenCodeProvider } from '@novel/ai/providers/opencode';
+import { OpenRouterProvider } from '@novel/ai/providers/openrouter';
 import { LoggedLLMProvider, makeDrizzleRecorder } from '@novel/ai/llm-call-logger';
 import type { LLMProvider, CompletionUsage } from '@novel/ai/providers/types';
-import { estimateCostUsd, estimateTokensJson, modelFor, type AgentRole, type EffectiveConfig } from '@novel/core';
+import {
+  estimateCostUsd,
+  estimateTokensJson,
+  modelFor,
+  parseLlmProvider,
+  type AgentRole,
+  type EffectiveConfig,
+} from '@novel/core';
 import type { GenerateChapterJob } from '../queues.js';
 import type { GenerateChapterJobResult } from './generate-chapter.types.js';
 import { loadEffectiveStoryConfig } from '../services/story-config.js';
@@ -247,6 +255,23 @@ function accumulateUsage(usage: CompletionUsage, acc: { inputTokens: number; out
 
 function modelForRole(config: EffectiveConfig | undefined, role: AgentRole): string {
   return config?.model.routes[role] ?? modelFor(role);
+}
+
+function buildWorkerProvider(data: GenerateChapterJob): LLMProvider {
+  const provider = data.llmProvider ?? parseLlmProvider(process.env.NOVEL_LLM_PROVIDER);
+  if (provider === 'openrouter') {
+    return new OpenRouterProvider({
+      apiKey: process.env.OPENROUTER_API_KEY ?? '',
+      baseUrl: process.env.OPENROUTER_BASE_URL,
+      httpReferer: process.env.OPENROUTER_HTTP_REFERER,
+      xTitle: process.env.OPENROUTER_X_TITLE,
+    });
+  }
+
+  return new OpenCodeProvider({
+    apiKey: process.env.OPENCODE_API_KEY ?? '',
+    baseUrl: process.env.OPENCODE_BASE_URL,
+  });
 }
 
 export async function persistContextPacket(
@@ -727,10 +752,7 @@ export async function runGenerateChapterJob(
         },
       }
     : baseConfig;
-  const baseProvider = new OpenCodeProvider({
-    apiKey: process.env.OPENCODE_API_KEY ?? '',
-    baseUrl: process.env.OPENCODE_BASE_URL,
-  });
+  const baseProvider = buildWorkerProvider(data);
   const recorder = makeDrizzleRecorder(db);
   const logLlmPrompts =
     process.env.LOG_LLM_PROMPTS === '1' || process.env.LOG_LLM_PROMPTS === 'true';

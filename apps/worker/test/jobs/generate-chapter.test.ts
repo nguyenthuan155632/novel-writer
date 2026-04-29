@@ -1,6 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockGetArcForChapter = vi.fn();
+const mockOpenCodeProvider = vi.fn();
+const mockOpenRouterProvider = vi.fn();
+let loggedInner: unknown;
 
 vi.mock('@novel/ai', () => ({
   PacketGenerator: class {},
@@ -28,17 +31,95 @@ vi.mock('@novel/ai', () => ({
 }));
 
 vi.mock('@novel/ai/providers/opencode', () => ({
-  OpenCodeProvider: class {},
+  OpenCodeProvider: mockOpenCodeProvider,
+}));
+
+vi.mock('@novel/ai/providers/openrouter', () => ({
+  OpenRouterProvider: mockOpenRouterProvider,
 }));
 
 vi.mock('@novel/ai/llm-call-logger', () => ({
-  LoggedLLMProvider: class {},
+  LoggedLLMProvider: class {
+    constructor(opts: { inner: unknown }) {
+      loggedInner = opts.inner;
+    }
+  },
   makeDrizzleRecorder: () => async () => {},
 }));
+
+vi.mock('@novel/db', () => ({
+  getDb: () => ({
+    select: () => ({
+      from: () => ({
+        where: () => ({
+          limit: async () => [],
+        }),
+      }),
+    }),
+    insert: () => ({
+      values: () => ({
+        returning: async () => [{ id: '00000000-0000-0000-0000-0000000000c1' }],
+      }),
+    }),
+    update: () => ({
+      set: () => ({
+        where: async () => {},
+      }),
+    }),
+  }),
+}));
+
+vi.mock('../../src/services/story-config.js', async () => {
+  const core = await vi.importActual<typeof import('@novel/core')>('@novel/core');
+  return {
+    loadEffectiveStoryConfig: async () => ({
+      model: core.MODEL_CONFIG,
+      context: {},
+      validation: {},
+      generation: {},
+      canon: {},
+      queue: {},
+    }),
+  };
+});
 
 describe('executeGenerateChapterPipeline', () => {
   beforeEach(() => {
     mockGetArcForChapter.mockReset();
+    mockOpenCodeProvider.mockReset();
+    mockOpenRouterProvider.mockReset();
+    mockOpenCodeProvider.mockImplementation(function OpenCodeProvider(this: object) {
+      return this;
+    });
+    mockOpenRouterProvider.mockImplementation(function OpenRouterProvider(this: object) {
+      return this;
+    });
+    loggedInner = undefined;
+  });
+
+  it('uses the OpenRouter provider when the job was enqueued with openrouter selected', async () => {
+    mockGetArcForChapter.mockResolvedValue(null);
+    process.env.OPENROUTER_API_KEY = 'openrouter-key';
+
+    const fakeLogger = { child: () => fakeLogger, info: () => {}, warn: () => {}, error: () => {} };
+    const { runGenerateChapterJob } = await import('../../src/jobs/generate-chapter.js');
+
+    await expect(runGenerateChapterJob(
+      {
+        storyId: '00000000-0000-0000-0000-000000000001',
+        chapterNumber: 1,
+        traceId: 'trace-1',
+        mode: 'safe',
+        llmProvider: 'openrouter',
+      } as any,
+      { logger: fakeLogger as any },
+    )).rejects.toThrow(/No arc found/);
+
+    expect(mockOpenRouterProvider).toHaveBeenCalledWith(expect.objectContaining({
+      apiKey: 'openrouter-key',
+    }));
+    expect(mockOpenCodeProvider).not.toHaveBeenCalled();
+    expect(loggedInner).toBeDefined();
   });
 
   it('resolves arcId for jobs enqueued without one before inserting chapter rows', async () => {

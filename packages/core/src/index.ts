@@ -18,6 +18,7 @@ export {
   setModelRoutes,
 } from './config/models.ts';
 export { BUDGET_GUARDRAILS, type BudgetGuardrails } from './config/budget.ts';
+export { parseLlmProvider, type LlmProviderId } from './config/llm-provider.ts';
 export { LONG_FORM_CONFIG, type LongFormConfig } from './config/long-form.ts';
 export { resolveEffectiveMode, type Mode, type ModeContext, type ModeEscalationDeps, type ArcBoundary } from './policy/mode-escalation.ts';
 export { checkAgainstCaps } from './policy/budget-guardrails.ts';

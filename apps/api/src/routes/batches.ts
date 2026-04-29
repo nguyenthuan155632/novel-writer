@@ -6,6 +6,7 @@ import { eq, and, desc } from 'drizzle-orm';
 import { getGenerateBatchQueue } from '../services/queue-client.ts';
 import { newTraceId } from '@novel/core/trace';
 import { getModelStatus } from '@novel/core';
+import { getActiveProvider } from '../lib/provider-switcher.ts';
 
 const StoryParam = z.object({ storyId: z.string().uuid() });
 const BatchParam = z.object({ storyId: z.string().uuid(), batchId: z.string().uuid() });
@@ -38,6 +39,7 @@ const batchesRoute: FastifyPluginCallback = (app, _opts, done) => {
     const job = await queue.add('generate-batch', {
       batchId: row.id, storyId, startChapter: body.startChapter, endChapter: body.endChapter, mode: body.mode,
       traceId,
+      llmProvider: getActiveProvider(),
       modelRoutes: getModelStatus().routes,
     }, { jobId: `batch-${row.id}` });
     return reply.code(202).send({ batch: row, jobId: job.id });

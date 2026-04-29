@@ -5,6 +5,7 @@ import { getDb } from '@novel/db';
 import { arcs, sagas, stories, storyBibles } from '@novel/db/schema';
 import { eq } from 'drizzle-orm';
 import { resetModelRoutesForTests, setModelRoutes } from '@novel/core';
+import { resetActiveProviderForTests, setActiveProvider } from '../../src/lib/provider-switcher.ts';
 
 const TEST_DB = process.env.TEST_DATABASE_URL ?? 'postgresql://novel:novel@localhost:5432/novel_factory';
 process.env.DATABASE_URL = TEST_DB;
@@ -25,6 +26,7 @@ beforeEach(() => {
   mockGetStatus.mockReset();
   mockGetStatus.mockResolvedValue(null);
   resetModelRoutesForTests();
+  resetActiveProviderForTests();
 });
 
 async function createPlannedStory(chapterNumber = 1): Promise<string> {
@@ -78,6 +80,7 @@ describe('chapters routes', () => {
 
   it('POST /api/stories/:storyId/chapters/generate enqueues job', async () => {
     const storyId = await createPlannedStory();
+    setActiveProvider('openrouter');
     setModelRoutes({ writer: 'google/gemini-2.5-flash' });
     mockEnqueue.mockResolvedValueOnce({ jobId: `gen-${storyId}-1` });
     const r = await app.inject({
@@ -94,6 +97,7 @@ describe('chapters routes', () => {
       storyId,
       chapterNumber: 1,
       mode: 'safe',
+      llmProvider: 'openrouter',
       modelRoutes: expect.objectContaining({ writer: 'google/gemini-2.5-flash' }),
     }));
 

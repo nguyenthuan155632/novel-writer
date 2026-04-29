@@ -1,8 +1,7 @@
 import { OpenCodeProvider } from '@novel/ai/providers/opencode';
 import { OpenRouterProvider } from '@novel/ai/providers/openrouter';
 import type { LLMProvider } from '@novel/ai/providers/types';
-
-export type LlmProviderId = 'opencode' | 'openrouter';
+import { parseLlmProvider, type LlmProviderId } from '@novel/core';
 
 export interface ProviderOption {
   id: LlmProviderId;
@@ -58,12 +57,7 @@ export function resetActiveProviderForTests(): void {
 }
 
 function readProviderFromEnv(): LlmProviderId {
-  return parseProvider(process.env.NOVEL_LLM_PROVIDER);
-}
-
-function parseProvider(value: string | undefined): LlmProviderId {
-  if (value === 'openrouter') return 'openrouter';
-  return 'opencode';
+  return parseLlmProvider(process.env.NOVEL_LLM_PROVIDER);
 }
 
 function requireEnv(k: string): string {
