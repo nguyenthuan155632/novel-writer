@@ -1,6 +1,6 @@
 import { Worker } from 'bullmq';
 import { createLogger } from '@novel/core/logger';
-import { QUEUE_NAMES, createConnection, type GenerateChapterJob, type RefreshArcSummaryJob, type GenerateBatchJob, type HighStakesReviewJob } from './queues.js';
+import { QUEUE_NAMES, createConnection, type GenerateChapterJob, type RefreshArcSummaryJob, type RefreshSagaSummaryJob, type GenerateBatchJob, type HighStakesReviewJob } from './queues.js';
 
 const log = createLogger('worker');
 
@@ -33,6 +33,15 @@ const generateBatchWorker = new Worker<GenerateBatchJob>(
   { connection: connection as any, concurrency: 1 }
 );
 
+const refreshSagaSummaryWorker = new Worker<RefreshSagaSummaryJob>(
+  QUEUE_NAMES.refreshSagaSummary,
+  async (job) => {
+    const { runRefreshSagaSummaryJob } = await import('./jobs/refresh-saga-summary.js');
+    return runRefreshSagaSummaryJob(job.data, { logger: log.child({ jobId: job.id, traceId: job.data.traceId }) });
+  },
+  { connection: connection as any, concurrency: 1 }
+);
+
 const highStakesReviewWorker = new Worker<HighStakesReviewJob>(
   QUEUE_NAMES.highStakesReview,
   async (job) => {
@@ -44,6 +53,7 @@ const highStakesReviewWorker = new Worker<HighStakesReviewJob>(
 
 generateChapterWorker.on('failed', (job, err) => log.error({ jobId: job?.id, err }, 'generate-chapter failed'));
 refreshArcSummaryWorker.on('failed', (job, err) => log.error({ jobId: job?.id, err }, 'refresh-arc-summary failed'));
+refreshSagaSummaryWorker.on('failed', (job, err) => log.error({ jobId: job?.id, err }, 'refresh-saga-summary failed'));
 generateBatchWorker.on('failed', (job, err) => log.error({ jobId: job?.id, err }, 'generate-batch failed'));
 highStakesReviewWorker.on('failed', (job, err) => log.error({ jobId: job?.id, err }, 'high-stakes-review failed'));
 
@@ -51,7 +61,7 @@ log.info('worker started');
 
 const shutdown = async () => {
   log.info('worker shutting down');
-  await Promise.all([generateChapterWorker.close(), refreshArcSummaryWorker.close(), generateBatchWorker.close(), highStakesReviewWorker.close()]);
+  await Promise.all([generateChapterWorker.close(), refreshArcSummaryWorker.close(), refreshSagaSummaryWorker.close(), generateBatchWorker.close(), highStakesReviewWorker.close()]);
   await connection.quit();
   process.exit(0);
 };

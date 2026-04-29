@@ -26,6 +26,12 @@ export type GenerateBatchJob = {
   traceId: string;
 };
 
+export type RefreshSagaSummaryJob = {
+  storyId: string;
+  sagaId: string;
+  traceId: string;
+};
+
 export type HighStakesReviewJob = {
   storyId: string;
   chapterId: string;
@@ -37,6 +43,7 @@ export type HighStakesReviewJob = {
 export const QUEUE_NAMES = {
   generateChapter: 'generate-chapter',
   refreshArcSummary: 'refresh-arc-summary',
+  refreshSagaSummary: 'refresh-saga-summary',
   generateBatch: 'generate-batch',
   highStakesReview: 'high-stakes-review',
 } as const;
@@ -59,4 +66,48 @@ export function createGenerateChapterQueue(connection: ConnectionOptions): Queue
 
 export function createGenerateChapterEvents(connection: ConnectionOptions): QueueEvents {
   return new QueueEvents(QUEUE_NAMES.generateChapter, { connection });
+}
+
+export function createRefreshArcSummaryQueue(connection: ConnectionOptions): Queue<RefreshArcSummaryJob> {
+  return new Queue<RefreshArcSummaryJob>(QUEUE_NAMES.refreshArcSummary, {
+    connection,
+    defaultJobOptions: {
+      attempts: 1,
+      removeOnComplete: { count: 1000 },
+      removeOnFail: { count: 1000 },
+    },
+  });
+}
+
+export function createRefreshSagaSummaryQueue(connection: ConnectionOptions): Queue<RefreshSagaSummaryJob> {
+  return new Queue<RefreshSagaSummaryJob>(QUEUE_NAMES.refreshSagaSummary, {
+    connection,
+    defaultJobOptions: {
+      attempts: 1,
+      removeOnComplete: { count: 1000 },
+      removeOnFail: { count: 1000 },
+    },
+  });
+}
+
+export function createGenerateBatchQueue(connection: ConnectionOptions): Queue<GenerateBatchJob> {
+  return new Queue<GenerateBatchJob>(QUEUE_NAMES.generateBatch, {
+    connection,
+    defaultJobOptions: {
+      attempts: 1,
+      removeOnComplete: { count: 1000 },
+      removeOnFail: { count: 1000 },
+    },
+  });
+}
+
+export function createHighStakesReviewQueue(connection: ConnectionOptions): Queue<HighStakesReviewJob> {
+  return new Queue<HighStakesReviewJob>(QUEUE_NAMES.highStakesReview, {
+    connection,
+    defaultJobOptions: {
+      attempts: 1,
+      removeOnComplete: { count: 1000 },
+      removeOnFail: { count: 1000 },
+    },
+  });
 }
