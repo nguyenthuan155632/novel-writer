@@ -8,6 +8,9 @@ import chaptersRoute from './routes/chapters.ts';
 import pendingUpdatesRoute from './routes/pending-updates.ts';
 import seedsRoute from './routes/seeds.ts';
 import sagasRoute from './routes/sagas.ts';
+import arcsRoute from './routes/arcs.ts';
+import costsRoute from './routes/costs.ts';
+import reviewsRoute from './routes/reviews.ts';
 
 export function buildServer() {
   const app = Fastify({ logger: false });
@@ -20,6 +23,9 @@ export function buildServer() {
   app.register(pendingUpdatesRoute);
   app.register(seedsRoute);
   app.register(sagasRoute);
+  app.register(arcsRoute);
+  app.register(costsRoute);
+  app.register(reviewsRoute);
   return app;
 }
 
