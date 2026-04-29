@@ -1,0 +1,71 @@
+<h2>Tabbed Sections Design</h2>
+<p class="subtitle">Group related fields into logical tabs with character/word count</p>
+
+<div class="mockup">
+  <div class="mockup-header">Bible Edit Form - Tabbed Layout</div>
+  <div class="mockup-body" style="padding: 20px;">
+    <!-- Tab Navigation -->
+    <div style="display: flex; border-bottom: 2px solid #e5e5e5; margin-bottom: 20px;">
+      <button style="padding: 12px 24px; border: none; background: #1a4ed8; color: white; font-weight: 600; cursor: pointer; border-radius: 6px 6px 0 0;">World</button>
+      <button style="padding: 12px 24px; border: none; background: #f0f0f0; color: #666; font-weight: 600; cursor: pointer; border-radius: 6px 6px 0 0; margin-left: 4px;">Systems</button>
+      <button style="padding: 12px 24px; border: none; background: #f0f0f0; color: #666; font-weight: 600; cursor: pointer; border-radius: 6px 6px 0 0; margin-left: 4px;">Style</button>
+      <button style="padding: 12px 24px; border: none; background: #f0f0f0; color: #666; font-weight: 600; cursor: pointer; border-radius: 6px 6px 0 0; margin-left: 4px;">Summary</button>
+    </div>
+    
+    <!-- Tab Content -->
+    <div style="background: white; border: 1px solid #e5e5e5; border-radius: 8px; padding: 20px;">
+      <div style="margin-bottom: 16px;">
+        <label style="display: block; font-weight: 600; margin-bottom: 8px;">World Rules</label>
+        <textarea rows="8" style="padding: 12px; border-radius: 8px; border: 1px solid #ddd; width: 100%; font: inherit; resize: vertical; min-height: 200px; transition: border-color 0.2s;" placeholder="Describe the world rules, setting, and environment..."></textarea>
+        <div style="display: flex; justify-content: space-between; margin-top: 8px; color: #666; font-size: 14px;">
+          <span>0 words</span>
+          <span>0 / 5000 characters</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section" style="margin-top: 30px;">
+  <h3>Proposed Tab Structure</h3>
+  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+    <div>
+      <h4>🌍 World Tab</h4>
+      <ul>
+        <li>World Rules</li>
+      </ul>
+    </div>
+    <div>
+      <h4>⚔️ Systems Tab</h4>
+      <ul>
+        <li>Cultivation System</li>
+        <li>Bloodline System</li>
+      </ul>
+    </div>
+    <div>
+      <h4>✍️ Style Tab</h4>
+      <ul>
+        <li>Style Guide</li>
+        <li>Forbidden Rules</li>
+      </ul>
+    </div>
+    <div>
+      <h4>📝 Summary Tab</h4>
+      <ul>
+        <li>Ending Direction</li>
+        <li>Compact Summary</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<div class="section" style="margin-top: 30px;">
+  <h3>Features</h3>
+  <ul>
+    <li><strong>Auto-expanding textareas:</strong> Grow as you type, minimum height of 200px</li>
+    <li><strong>Character/Word count:</strong> Live count displayed below each field</li>
+    <li><strong>Visual feedback:</strong> Character limit warning for Compact Summary (1500 words)</li>
+    <li><strong>Smooth transitions:</strong> Tab switching with subtle animations</li>
+    <li><strong>Responsive:</strong> Works well on mobile and desktop</li>
+  </ul>
+</div>
