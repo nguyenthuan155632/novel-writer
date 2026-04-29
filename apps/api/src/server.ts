@@ -15,6 +15,7 @@ import reviewsRoute from './routes/reviews.ts';
 import timelineRoute from './routes/timeline.ts';
 import canonFactsRoute from './routes/canon-facts.ts';
 import batchesRoute from './routes/batches.ts';
+import adminRoute from './routes/admin.ts';
 
 export function buildServer() {
   const app = Fastify({ logger: false });
@@ -33,6 +34,7 @@ export function buildServer() {
   app.register(timelineRoute);
   app.register(canonFactsRoute);
   app.register(batchesRoute);
+  app.register(adminRoute);
   return app;
 }
 
