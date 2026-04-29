@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const mockGetArcForChapter = vi.fn();
 const mockOpenCodeProvider = vi.fn();
 const mockOpenRouterProvider = vi.fn();
+const mockOllamaProvider = vi.fn();
 let loggedInner: unknown;
 
 vi.mock('@novel/ai', () => ({
@@ -36,6 +37,10 @@ vi.mock('@novel/ai/providers/opencode', () => ({
 
 vi.mock('@novel/ai/providers/openrouter', () => ({
   OpenRouterProvider: mockOpenRouterProvider,
+}));
+
+vi.mock('@novel/ai/providers/ollama', () => ({
+  OllamaProvider: mockOllamaProvider,
 }));
 
 vi.mock('@novel/ai/llm-call-logger', () => ({
@@ -88,10 +93,14 @@ describe('executeGenerateChapterPipeline', () => {
     mockGetArcForChapter.mockReset();
     mockOpenCodeProvider.mockReset();
     mockOpenRouterProvider.mockReset();
+    mockOllamaProvider.mockReset();
     mockOpenCodeProvider.mockImplementation(function OpenCodeProvider(this: object) {
       return this;
     });
     mockOpenRouterProvider.mockImplementation(function OpenRouterProvider(this: object) {
+      return this;
+    });
+    mockOllamaProvider.mockImplementation(function OllamaProvider(this: object) {
       return this;
     });
     loggedInner = undefined;
@@ -119,6 +128,33 @@ describe('executeGenerateChapterPipeline', () => {
       apiKey: 'openrouter-key',
     }));
     expect(mockOpenCodeProvider).not.toHaveBeenCalled();
+    expect(mockOllamaProvider).not.toHaveBeenCalled();
+    expect(loggedInner).toBeDefined();
+  });
+
+  it('uses the Ollama provider when the job was enqueued with ollama selected', async () => {
+    mockGetArcForChapter.mockResolvedValue(null);
+    process.env.OLLAMA_BASE_URL = 'http://127.0.0.1:11434/v1';
+
+    const fakeLogger = { child: () => fakeLogger, info: () => {}, warn: () => {}, error: () => {} };
+    const { runGenerateChapterJob } = await import('../../src/jobs/generate-chapter.js');
+
+    await expect(runGenerateChapterJob(
+      {
+        storyId: '00000000-0000-0000-0000-000000000001',
+        chapterNumber: 1,
+        traceId: 'trace-1',
+        mode: 'safe',
+        llmProvider: 'ollama',
+      } as any,
+      { logger: fakeLogger as any },
+    )).rejects.toThrow(/No arc found/);
+
+    expect(mockOllamaProvider).toHaveBeenCalledWith(expect.objectContaining({
+      baseUrl: 'http://127.0.0.1:11434/v1',
+    }));
+    expect(mockOpenCodeProvider).not.toHaveBeenCalled();
+    expect(mockOpenRouterProvider).not.toHaveBeenCalled();
     expect(loggedInner).toBeDefined();
   });
 

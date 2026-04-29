@@ -32,11 +32,18 @@ describe('provider switcher', () => {
     expect(getActiveProvider()).toBe('openrouter');
   });
 
+  it('uses ollama as the startup default when configured', () => {
+    process.env.NOVEL_LLM_PROVIDER = 'ollama';
+    resetActiveProviderForTests();
+
+    expect(getActiveProvider()).toBe('ollama');
+  });
+
   it('updates the active provider', () => {
     setActiveProvider('openrouter');
 
     expect(getActiveProvider()).toBe('openrouter');
-    expect(getProviderStatus().options.map((o) => o.id)).toEqual(['opencode', 'openrouter']);
+    expect(getProviderStatus().options.map((o) => o.id)).toEqual(['opencode', 'openrouter', 'ollama']);
   });
 
   it('builds an opencode live provider when selected', () => {
@@ -55,6 +62,14 @@ describe('provider switcher', () => {
     const provider = buildLiveProvider();
 
     expect(provider.name).toBe('openrouter');
+  });
+
+  it('builds an ollama live provider when selected', () => {
+    setActiveProvider('ollama');
+
+    const provider = buildLiveProvider();
+
+    expect(provider.name).toBe('ollama');
   });
 
   it('requires the selected provider api key', () => {

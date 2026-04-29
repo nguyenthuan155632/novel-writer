@@ -1,6 +1,6 @@
 import { apiFetch } from '../api-client';
 
-export type LlmProviderId = 'opencode' | 'openrouter';
+export type LlmProviderId = 'opencode' | 'openrouter' | 'ollama';
 
 export interface ProviderOption {
   id: LlmProviderId;

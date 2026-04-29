@@ -1,4 +1,5 @@
 import { OpenCodeProvider } from '@novel/ai/providers/opencode';
+import { OllamaProvider } from '@novel/ai/providers/ollama';
 import { OpenRouterProvider } from '@novel/ai/providers/openrouter';
 import type { LLMProvider } from '@novel/ai/providers/types';
 import { parseLlmProvider, type LlmProviderId } from '@novel/core';
@@ -16,6 +17,7 @@ export interface ProviderStatus {
 export const PROVIDER_OPTIONS: ProviderOption[] = [
   { id: 'opencode', label: 'OpenCode' },
   { id: 'openrouter', label: 'OpenRouter' },
+  { id: 'ollama', label: 'Ollama (local)' },
 ];
 
 let activeProvider: LlmProviderId = readProviderFromEnv();
@@ -43,6 +45,13 @@ export function buildLiveProvider(): LLMProvider {
       baseUrl: process.env.OPENROUTER_BASE_URL,
       httpReferer: process.env.OPENROUTER_HTTP_REFERER,
       xTitle: process.env.OPENROUTER_X_TITLE,
+    });
+  }
+
+  if (activeProvider === 'ollama') {
+    return new OllamaProvider({
+      apiKey: process.env.OLLAMA_API_KEY,
+      baseUrl: process.env.OLLAMA_BASE_URL,
     });
   }
 

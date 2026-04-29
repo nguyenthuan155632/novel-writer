@@ -22,6 +22,7 @@ describe('admin provider routes', () => {
       options: [
         { id: 'opencode', label: 'OpenCode' },
         { id: 'openrouter', label: 'OpenRouter' },
+        { id: 'ollama', label: 'Ollama (local)' },
       ],
     });
   });

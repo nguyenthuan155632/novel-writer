@@ -33,6 +33,7 @@ import {
   OpenRouterEmbeddingService,
 } from '@novel/ai';
 import { OpenCodeProvider } from '@novel/ai/providers/opencode';
+import { OllamaProvider } from '@novel/ai/providers/ollama';
 import { OpenRouterProvider } from '@novel/ai/providers/openrouter';
 import { LoggedLLMProvider, makeDrizzleRecorder } from '@novel/ai/llm-call-logger';
 import type { LLMProvider, CompletionUsage } from '@novel/ai/providers/types';
@@ -265,6 +266,13 @@ function buildWorkerProvider(data: GenerateChapterJob): LLMProvider {
       baseUrl: process.env.OPENROUTER_BASE_URL,
       httpReferer: process.env.OPENROUTER_HTTP_REFERER,
       xTitle: process.env.OPENROUTER_X_TITLE,
+    });
+  }
+
+  if (provider === 'ollama') {
+    return new OllamaProvider({
+      apiKey: process.env.OLLAMA_API_KEY,
+      baseUrl: process.env.OLLAMA_BASE_URL,
     });
   }
 

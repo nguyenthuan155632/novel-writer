@@ -14,7 +14,7 @@ Single-user local app that generates 500–1000 chapter Vietnamese xianxia / fan
 - pnpm workspaces: `apps/{api,web,worker}` + `packages/{ai,core,db}`
 - Fastify (API) · Next.js 15 App Router (web) · BullMQ + Redis (worker)
 - PostgreSQL 16 + pgvector · Drizzle ORM
-- LLM gateway: OpenCode Go (default), OpenRouter (available provider), Google Direct (for explicit caching)
+- LLM gateway: OpenCode Go (default), OpenRouter, local Ollama (OpenAI-compatible), Google Direct (for explicit caching)
 
 ## Getting started
 
@@ -35,16 +35,17 @@ pnpm dev   # api + web + worker concurrently
 
 Env vars (copy `.env.example` → `.env`):
 
-- `NOVEL_LLM_PROVIDER=opencode|openrouter` — startup default for live LLM calls
+- `NOVEL_LLM_PROVIDER=opencode|openrouter|ollama` — startup default for live LLM calls
 - `OPENCODE_API_KEY` — required when OpenCode is selected
 - `OPENROUTER_API_KEY` — required when OpenRouter is selected, and for embedding calls in chapter generation
+- `OLLAMA_BASE_URL` — optional (defaults to `http://localhost:11434/v1`) when Ollama is selected; `OLLAMA_API_KEY` only if your server expects a Bearer token
 - `GOOGLE_API_KEY` — optional, enables Pro / Flash with explicit caching
 - `DATABASE_URL`, `REDIS_URL` — connection strings
 - `RUN_LIVE_LLM=1` — gate live-API tests
 
 ### Provider switcher
 
-The app can switch live LLM calls globally between OpenCode and OpenRouter from the header UI. The switch is process-local; restarting the API returns to the `NOVEL_LLM_PROVIDER` env default. Mock mode (`NOVEL_FORCE_MOCK_LLM=1`) still bypasses live providers.
+The app can switch live LLM calls globally between OpenCode, OpenRouter, and Ollama from the header UI. The switch is process-local; restarting the API returns to the `NOVEL_LLM_PROVIDER` env default. Mock mode (`NOVEL_FORCE_MOCK_LLM=1`) still bypasses live providers.
 
 ### Model settings
 

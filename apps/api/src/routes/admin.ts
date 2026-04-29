@@ -5,7 +5,7 @@ import { z } from 'zod';
 import { getProviderStatus, setActiveProvider } from '../lib/provider-switcher.ts';
 
 const ProviderBodySchema = z.object({
-  provider: z.enum(['opencode', 'openrouter']),
+  provider: z.enum(['opencode', 'openrouter', 'ollama']),
 });
 
 const ModelRoutesSchema = z.object({
