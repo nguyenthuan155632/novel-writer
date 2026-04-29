@@ -35,11 +35,16 @@ pnpm dev   # api + web + worker concurrently
 
 Env vars (copy `.env.example` → `.env`):
 
-- `OPENCODE_API_KEY` — required for LLM calls
-- `OPENROUTER_API_KEY` — required for embedding calls in chapter generation
+- `NOVEL_LLM_PROVIDER=opencode|openrouter` — startup default for live LLM calls
+- `OPENCODE_API_KEY` — required when OpenCode is selected
+- `OPENROUTER_API_KEY` — required when OpenRouter is selected, and for embedding calls in chapter generation
 - `GOOGLE_API_KEY` — optional, enables Pro / Flash with explicit caching
 - `DATABASE_URL`, `REDIS_URL` — connection strings
 - `RUN_LIVE_LLM=1` — gate live-API tests
+
+### Provider switcher
+
+The app can switch live LLM calls globally between OpenCode and OpenRouter from the header UI. The switch is process-local; restarting the API returns to the `NOVEL_LLM_PROVIDER` env default. Mock mode (`NOVEL_FORCE_MOCK_LLM=1`) still bypasses live providers.
 
 ## Key docs
 
