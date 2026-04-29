@@ -95,3 +95,26 @@ label { display: block; font-weight: 600; margin-bottom: 4px; margin-top: 12px; 
 .textarea-count.warning {
   color: #b91c1c;
 }
+
+.provider-switcher {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 160px;
+}
+
+.provider-switcher select {
+  min-width: 136px;
+  border: 1px solid #c7c7c7;
+  border-radius: 6px;
+  background: #fff;
+  color: #111;
+  font: inherit;
+  padding: 6px 8px;
+}
+
+.provider-switcher-error {
+  color: #b00020;
+  font-size: 12px;
+  max-width: 280px;
+}
