@@ -94,6 +94,49 @@ const plugin: FastifyPluginCallback = (app, _opts, done) => {
     return next;
   });
 
+  // PUT /api/stories/:storyId/bible/style-few-shots
+  app.put<{ Params: { storyId: string } }>('/api/stories/:storyId/bible/style-few-shots', async (req, reply) => {
+    const db = getDb();
+    const storyId = z.string().uuid().parse(req.params.storyId);
+
+    const FewShotsSchema = z.object({
+      fewShots: z
+        .array(z.string().min(20).max(2000))
+        .min(1)
+        .max(5),
+    });
+
+    let parsed: { fewShots: string[] };
+    try {
+      parsed = FewShotsSchema.parse(req.body);
+    } catch (e) {
+      return reply.status(400).send({ error: 'validation_failed', details: (e as Error).message });
+    }
+
+    const [current] = await db.select().from(storyBibles)
+      .where(eq(storyBibles.storyId, storyId))
+      .orderBy(desc(storyBibles.version))
+      .limit(1);
+    if (!current) return reply.status(404).send({ error: 'bible_not_found' });
+
+    const styleFewShots = parsed.fewShots.map((excerpt) => ({ excerpt }));
+
+    await db.insert(storyBibles).values({
+      storyId,
+      version: current.version + 1,
+      worldRules: current.worldRules,
+      cultivationSystem: current.cultivationSystem,
+      bloodlineSystem: current.bloodlineSystem,
+      styleGuide: current.styleGuide,
+      forbiddenRules: current.forbiddenRules,
+      endingDirection: current.endingDirection,
+      compactSummary: current.compactSummary,
+      styleFewShots,
+    });
+
+    return reply.status(200).send({ ok: true });
+  });
+
   done();
 };
 
