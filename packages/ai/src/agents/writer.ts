@@ -1,6 +1,7 @@
 import { GENERATION_CONFIG, MODEL_CONFIG } from '@novel/core';
 import type { LLMProvider } from '../providers/types.ts';
 import { getPrompt, type DualPromptTemplate } from '../prompts/registry.ts';
+import '../prompts/writer.v1.ts';
 
 export interface WriterDeps {
   provider: LLMProvider;

@@ -41,7 +41,8 @@ export default async function SagaDetail({ params }: { params: Promise<{ id: str
                 <Link href={`/stories/${id}/arcs/${arc.id}` as any} className="font-semibold text-blue-700">
                   {(arc.arcNumber ?? 0) + 1}. {arc.title}
                 </Link>
-                <span className="text-gray-500">ch {arc.startChapter}–{arc.endChapter}</span>
+                &nbsp;&nbsp;
+                <span className="text-gray-500">Chapters {arc.startChapter}–{arc.endChapter}</span>
               </div>
               <p className="mt-1 text-gray-700">{arc.premise}</p>
             </li>

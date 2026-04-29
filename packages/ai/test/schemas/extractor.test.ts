@@ -52,4 +52,23 @@ describe('ExtractorOutputSchema', () => {
     const result = ExtractorOutputSchema.parse(data);
     expect(result.newTimelineEvents[0]!.significance).toBe('minor');
   });
+
+  it('drops invalid UUID placeholders from threadUpdates and seeds', () => {
+    const valid = '11111111-1111-1111-1111-111111111111';
+    const data = {
+      characterUpdates: [{ action: 'create' as const, name: 'X', fields: {}, targetId: 'not-a-uuid' }],
+      newCanonFacts: [],
+      threadUpdates: [
+        { action: 'update' as const, title: 'T1', targetId: 'unknown-id-from-model' },
+        { action: 'create' as const, title: 'T2', targetId: valid },
+      ],
+      newTimelineEvents: [],
+      seedsResolvedThisChapter: ['bad', valid],
+    };
+    const result = ExtractorOutputSchema.parse(data);
+    expect(result.characterUpdates[0]!.targetId).toBeUndefined();
+    expect(result.threadUpdates[0]!.targetId).toBeUndefined();
+    expect(result.threadUpdates[1]!.targetId).toBe(valid);
+    expect(result.seedsResolvedThisChapter).toEqual([valid]);
+  });
 });

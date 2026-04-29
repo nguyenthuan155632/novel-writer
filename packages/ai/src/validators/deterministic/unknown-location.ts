@@ -14,7 +14,7 @@ export const unknownLocationCheck: DeterministicCheck = {
 
     const matches = input.content.matchAll(vietnameseNamePattern);
     for (const match of matches) {
-      const name = match[1]!;
+      const name = match[0]!;
       const lower = name.toLowerCase();
       if (knownCharacters.has(lower) || knownBloodlines.has(lower) || knownLocations.has(lower)) {
         continue;

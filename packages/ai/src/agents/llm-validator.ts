@@ -1,6 +1,7 @@
 import { GENERATION_CONFIG, MODEL_CONFIG } from '@novel/core';
 import type { LLMProvider } from '../providers/types.ts';
 import { getPrompt, type DualPromptTemplate } from '../prompts/registry.ts';
+import '../prompts/llm-validator.v1.ts';
 import { LlmValidatorOutputSchema, llmValidatorJsonSchema } from '../schemas/validator.ts';
 import type { LlmValidatorOutput } from '../schemas/validator.ts';
 

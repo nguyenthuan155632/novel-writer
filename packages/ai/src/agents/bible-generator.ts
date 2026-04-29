@@ -1,6 +1,7 @@
 import type { LLMProvider } from '../providers/types.ts';
 import { BibleSchema, bibleJsonSchema, type Bible } from '../schemas/bible.ts';
 import { getPrompt, type PromptTemplate } from '../prompts/registry.ts';
+import '../prompts/bible-generator.v1.ts';
 import type { BibleGeneratorInput } from '../prompts/bible-generator.v1.ts';
 
 export interface GenerateBibleParams {

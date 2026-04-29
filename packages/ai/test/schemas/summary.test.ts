@@ -29,4 +29,19 @@ describe('SummaryCompactorOutputSchema', () => {
   it('rejects missing required fields', () => {
     expect(() => SummaryCompactorOutputSchema.parse({ shortSummary: 'A' })).toThrow();
   });
+
+  it('truncates overlong summaries from the model', () => {
+    const longShort = 'x'.repeat(400);
+    const longDetail = 'y'.repeat(2500);
+    const result = SummaryCompactorOutputSchema.parse({
+      shortSummary: longShort,
+      detailedSummary: longDetail,
+      keyEvents: ['ok'],
+      charactersPresent: ['A'],
+    });
+    expect(result.shortSummary.length).toBeLessThanOrEqual(300);
+    expect(result.shortSummary.endsWith('…')).toBe(true);
+    expect(result.detailedSummary.length).toBeLessThanOrEqual(2000);
+    expect(result.detailedSummary.endsWith('…')).toBe(true);
+  });
 });

@@ -48,7 +48,7 @@ export function PlanArcsButton({
         disabled={loading}
         onClick={handlePlanArcs}
       >
-        {loading ? 'Planning arcs...' : 'Plan arcs (Pro)'}
+        {loading ? 'Planning arcs...' : 'Plan arcs'}
       </button>
       {error && <p className="text-red-600 text-sm mt-2">{error}</p>}
     </div>

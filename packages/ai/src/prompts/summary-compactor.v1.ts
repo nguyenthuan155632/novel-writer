@@ -11,7 +11,7 @@ export const summaryCompactorPromptV1: DualPromptTemplate = {
   agentRole: 'summary_compactor',
   version: 'v1',
   build: (input) => ({
-    system: `Bạn là summary-compactor cho tiểu thuyết tiên hiệp. Tóm tắt chương vừa viết thành 2 phiên bản: ngắn (≤300 từ, cho context packet) và chi tiết (≤2000 từ, cho retrieval).
+    system: `Bạn là summary-compactor cho tiểu thuyết tiên hiệp. Tóm tắt chương vừa viết thành 2 phiên bản: ngắn (tối đa 300 ký tự Unicode, cho context packet) và chi tiết (tối đa 2000 ký tự, cho retrieval).
 Quy tắc:
 - Chỉ tóm tắt những gì THỰC SỰ xảy ra.
 - keyEvents là sự kiện quan trọng nhất, ưu tiên conflict, đột phá, plot twist.

@@ -1,9 +1,19 @@
 import { z } from 'zod';
 import type { JsonSchema } from '../providers/types.ts';
 
+/** Models often emit placeholders or prose for IDs; drop invalid values instead of failing parse. */
+export const optionalUuidFromUnknown = z.unknown().transform((val): string | undefined => {
+  if (val === null || val === undefined) return undefined;
+  if (typeof val !== 'string') return undefined;
+  const t = val.trim();
+  if (!t) return undefined;
+  const r = z.string().uuid().safeParse(t);
+  return r.success ? r.data : undefined;
+});
+
 export const CharacterUpdateSchema = z.object({
   action: z.enum(['create', 'update']),
-  targetId: z.string().uuid().optional(),
+  targetId: optionalUuidFromUnknown,
   name: z.string().min(1),
   fields: z.object({
     currentRealm: z.string().optional(),
@@ -23,7 +33,7 @@ export const CanonFactProposalSchema = z.object({
 
 export const ThreadUpdateSchema = z.object({
   action: z.enum(['create', 'update', 'resolve']),
-  targetId: z.string().uuid().optional(),
+  targetId: optionalUuidFromUnknown,
   title: z.string(),
   state: z.enum(['open', 'partial', 'resolved']).optional(),
   plannedResolutionChapter: z.number().int().positive().optional(),
@@ -40,7 +50,19 @@ export const ExtractorOutputSchema = z.object({
   newCanonFacts: z.array(CanonFactProposalSchema).max(15),
   threadUpdates: z.array(ThreadUpdateSchema).max(15),
   newTimelineEvents: z.array(TimelineEventSchema).max(20),
-  seedsResolvedThisChapter: z.array(z.string().uuid()).max(10),
+  seedsResolvedThisChapter: z
+    .array(z.unknown())
+    .max(10)
+    .transform((arr): string[] => {
+      const out: string[] = [];
+      for (const x of arr) {
+        if (typeof x !== 'string') continue;
+        const t = x.trim();
+        const r = z.string().uuid().safeParse(t);
+        if (r.success) out.push(r.data);
+      }
+      return out;
+    }),
 });
 
 export type ExtractorOutput = z.infer<typeof ExtractorOutputSchema>;
