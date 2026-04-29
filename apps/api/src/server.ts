@@ -7,6 +7,7 @@ import bibleRoute from './routes/bible.ts';
 import chaptersRoute from './routes/chapters.ts';
 import pendingUpdatesRoute from './routes/pending-updates.ts';
 import seedsRoute from './routes/seeds.ts';
+import sagasRoute from './routes/sagas.ts';
 
 export function buildServer() {
   const app = Fastify({ logger: false });
@@ -18,6 +19,7 @@ export function buildServer() {
   app.register(chaptersRoute);
   app.register(pendingUpdatesRoute);
   app.register(seedsRoute);
+  app.register(sagasRoute);
   return app;
 }
 
