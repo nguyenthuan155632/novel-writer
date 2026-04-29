@@ -1,3 +1,4 @@
+import '@novel/core/load-env';
 import { Worker } from 'bullmq';
 import { createLogger } from '@novel/core/logger';
 import { QUEUE_NAMES, createConnection, type GenerateChapterJob, type RefreshArcSummaryJob, type RefreshSagaSummaryJob, type GenerateBatchJob, type HighStakesReviewJob } from './queues.js';

@@ -1,3 +1,4 @@
+import '@novel/core/load-env';
 import Fastify from 'fastify';
 import logger from './plugins/logger.ts';
 import errorHandler from './plugins/error-handler.ts';
