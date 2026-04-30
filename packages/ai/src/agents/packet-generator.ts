@@ -1,6 +1,7 @@
 import { MODEL_CONFIG } from '@novel/core';
 import { ZodError } from 'zod';
 import type { CompletionUsage, LLMProvider } from '../providers/types.ts';
+import { withCompletionRetryRaw } from '../parse-completion-json.ts';
 import { ChapterPacketSchema, CHAPTER_PACKET_JSON_SCHEMA, PACKET_LIMITS, type ChapterPacket } from '../schemas/packet.ts';
 import { packetGeneratorPromptV1, type PacketGeneratorPromptInput } from '../prompts/packet-generator.v1.ts';
 
@@ -104,33 +105,37 @@ export class PacketGenerator {
     rawContent: string,
     ctx: { traceId: string; storyId: string },
   ): Promise<{ content: string; usage: CompletionUsage }> {
-    const repaired = await this.deps.provider.complete({
-      model: this.deps.model ?? MODEL_CONFIG.routes.packet_generator,
-      messages: [
-        {
-          role: 'system',
-          content: 'Bạn là bộ sửa JSON ChapterPacket. Chỉ trả JSON hợp lệ, không giải thích.',
+    const repaired = await withCompletionRetryRaw(
+      'packet_generator_repair',
+      async () => this.deps.provider.complete({
+        model: this.deps.model ?? MODEL_CONFIG.routes.packet_generator,
+        messages: [
+          {
+            role: 'system',
+            content: 'Bạn là bộ sửa JSON ChapterPacket. Chỉ trả JSON hợp lệ, không giải thích.',
+          },
+          {
+            role: 'user',
+            content: [
+              'Sửa JSON sau để đúng schema ChapterPacket và giữ nguyên ý chính.',
+              'Giới hạn: goal<=500, conflict<=500, cliffhanger<=500, mỗi requiredEvents.description<=500.',
+              'Nếu quá dài, rút gọn mạch lạc, không cắt cụt giữa ý.',
+              'JSON gốc:',
+              rawContent,
+            ].join('\n\n'),
+          },
+        ],
+        responseSchema: CHAPTER_PACKET_JSON_SCHEMA,
+        temperature: 0.2,
+        metadata: {
+          agentRole: packetGeneratorPromptV1.agentRole,
+          promptVersion: PACKET_REPAIR_PROMPT_VERSION,
+          traceId: ctx.traceId,
+          storyId: ctx.storyId,
         },
-        {
-          role: 'user',
-          content: [
-            'Sửa JSON sau để đúng schema ChapterPacket và giữ nguyên ý chính.',
-            'Giới hạn: goal<=500, conflict<=500, cliffhanger<=500, mỗi requiredEvents.description<=500.',
-            'Nếu quá dài, rút gọn mạch lạc, không cắt cụt giữa ý.',
-            'JSON gốc:',
-            rawContent,
-          ].join('\n\n'),
-        },
-      ],
-      responseSchema: CHAPTER_PACKET_JSON_SCHEMA,
-      temperature: 0.2,
-      metadata: {
-        agentRole: packetGeneratorPromptV1.agentRole,
-        promptVersion: PACKET_REPAIR_PROMPT_VERSION,
-        traceId: ctx.traceId,
-        storyId: ctx.storyId,
-      },
-    });
+      }),
+      3,
+    );
 
     return { content: repaired.content, usage: repaired.usage };
   }
@@ -142,18 +147,22 @@ export class PacketGenerator {
       ? `${built.user}\n\n# REGENERATION HINTS (sửa lỗi audit)\n${ctx.auditHints.map(h => `- ${h}`).join('\n')}`
       : built.user;
 
-    const res = await this.deps.provider.complete({
-      model: this.deps.model ?? MODEL_CONFIG.routes.packet_generator,
-      messages: [{ role: 'system', content: built.system }, { role: 'user', content: userWithHints }],
-      responseSchema: CHAPTER_PACKET_JSON_SCHEMA,
-      temperature: 0.4,
-      metadata: {
-        agentRole: packetGeneratorPromptV1.agentRole,
-        promptVersion: packetGeneratorPromptV1.version,
-        traceId: ctx.traceId,
-        storyId: ctx.storyId,
-      },
-    });
+    const res = await withCompletionRetryRaw(
+      'packet_generator',
+      async () => this.deps.provider.complete({
+        model: this.deps.model ?? MODEL_CONFIG.routes.packet_generator,
+        messages: [{ role: 'system', content: built.system }, { role: 'user', content: userWithHints }],
+        responseSchema: CHAPTER_PACKET_JSON_SCHEMA,
+        temperature: 0.4,
+        metadata: {
+          agentRole: packetGeneratorPromptV1.agentRole,
+          promptVersion: packetGeneratorPromptV1.version,
+          traceId: ctx.traceId,
+          storyId: ctx.storyId,
+        },
+      }),
+      3,
+    );
 
     let parsed: ChapterPacket;
     let totalUsage = res.usage;

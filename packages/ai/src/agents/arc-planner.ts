@@ -3,6 +3,7 @@ import { sagas, plantedSeeds, arcs } from '@novel/db/schema';
 import { eq, and } from 'drizzle-orm';
 import { MODEL_CONFIG } from '@novel/core';
 import type { LLMProvider } from '../providers/types.ts';
+import { withCompletionRetryRaw } from '../parse-completion-json.ts';
 import type { Logger } from './packet-generator.ts';
 import { ArcPlannerOutputSchema, ARC_PLANNER_JSON_SCHEMA, type ArcPlannerOutput } from '../schemas/arc.ts';
 import { arcPlannerPromptV1 } from '../prompts/arc-planner.v1.ts';
@@ -54,13 +55,17 @@ export class ArcPlannerAgent {
       unresolvedSeeds: sagaSeeds,
     } as Record<string, unknown>);
 
-    const response = await this.deps.provider.complete({
-      model: MODEL_CONFIG.routes.arc_planner,
-      messages: [{ role: 'system', content: built.system }, { role: 'user', content: built.user }],
-      responseSchema: ARC_PLANNER_JSON_SCHEMA,
-      temperature: 0.7,
-      metadata: { agentRole: arcPlannerPromptV1.agentRole, promptVersion: arcPlannerPromptV1.version, storyId: input.storyId },
-    });
+    const response = await withCompletionRetryRaw(
+      'arc_planner',
+      async () => this.deps.provider.complete({
+        model: MODEL_CONFIG.routes.arc_planner,
+        messages: [{ role: 'system', content: built.system }, { role: 'user', content: built.user }],
+        responseSchema: ARC_PLANNER_JSON_SCHEMA,
+        temperature: 0.7,
+        metadata: { agentRole: arcPlannerPromptV1.agentRole, promptVersion: arcPlannerPromptV1.version, storyId: input.storyId },
+      }),
+      3,
+    );
 
     let parsed: ArcPlannerOutput;
     try {

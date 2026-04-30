@@ -2,6 +2,7 @@ import { getDb } from '@novel/db';
 import { highStakesReviews } from '@novel/db/schema';
 import { MODEL_CONFIG } from '@novel/core';
 import type { LLMProvider } from '../providers/types.ts';
+import { withCompletionRetryRaw } from '../parse-completion-json.ts';
 import type { Logger } from './packet-generator.ts';
 import { HighStakesReviewSchema, HIGH_STAKES_REVIEW_JSON_SCHEMA, type HighStakesReview } from '../schemas/high-stakes-review.ts';
 import { highStakesReviewerPromptV1 } from '../prompts/high-stakes-reviewer.v1.ts';
@@ -41,13 +42,17 @@ export class HighStakesReviewerAgent {
       bibleCompact: input.bibleCompact,
     } as Record<string, unknown>);
 
-    const response = await this.deps.provider.complete({
-      model: MODEL_CONFIG.routes.high_stakes_reviewer,
-      messages: [{ role: 'system', content: built.system }, { role: 'user', content: built.user }],
-      responseSchema: HIGH_STAKES_REVIEW_JSON_SCHEMA,
-      temperature: 0.3,
-      metadata: { agentRole: highStakesReviewerPromptV1.agentRole, promptVersion: highStakesReviewerPromptV1.version, storyId: input.storyId },
-    });
+    const response = await withCompletionRetryRaw(
+      'high_stakes_reviewer',
+      async () => this.deps.provider.complete({
+        model: MODEL_CONFIG.routes.high_stakes_reviewer,
+        messages: [{ role: 'system', content: built.system }, { role: 'user', content: built.user }],
+        responseSchema: HIGH_STAKES_REVIEW_JSON_SCHEMA,
+        temperature: 0.3,
+        metadata: { agentRole: highStakesReviewerPromptV1.agentRole, promptVersion: highStakesReviewerPromptV1.version, storyId: input.storyId },
+      }),
+      3,
+    );
 
     let parsed: HighStakesReview;
     try {

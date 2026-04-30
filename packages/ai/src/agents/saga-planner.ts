@@ -3,6 +3,7 @@ import { sagas, plantedSeeds } from '@novel/db/schema';
 import { eq, and } from 'drizzle-orm';
 import { MODEL_CONFIG } from '@novel/core';
 import type { LLMProvider } from '../providers/types.ts';
+import { withCompletionRetryRaw } from '../parse-completion-json.ts';
 import type { Logger } from './packet-generator.js';
 import { SagaPlannerOutputSchema, type SagaPlannerOutput } from '../schemas/saga.ts';
 import { sagaPlannerPromptV1 } from '../prompts/saga-planner.v1.ts';
@@ -23,19 +24,23 @@ export class SagaPlannerAgent {
       targetChapters: input.targetChapters,
     } as Record<string, unknown>);
 
-    const response = await this.deps.provider.complete({
-      model: MODEL_CONFIG.routes.saga_planner,
-      messages: [
-        { role: 'system', content: built.system },
-        { role: 'user', content: `${built.user}\n\nReturn ONLY valid JSON matching this shape:\n{\n  "sagas": [{ "index": 0, "title": "...", "premise": "...", "startChapter": 1, "endChapter": 100, "expectedTurningPoints": ["...", "..."] }],\n  "plantedSeeds": [{ "seedKey": "...", "description": "...", "plantWindowStart": 1, "plantWindowEnd": 20, "payoffChapter": 60, "importance": "minor" }]\n}` },
-      ],
-      temperature: 0.7,
-      metadata: {
-        agentRole: sagaPlannerPromptV1.agentRole,
-        promptVersion: sagaPlannerPromptV1.version,
-        storyId: input.storyId,
-      },
-    });
+    const response = await withCompletionRetryRaw(
+      'saga_planner',
+      async () => this.deps.provider.complete({
+        model: MODEL_CONFIG.routes.saga_planner,
+        messages: [
+          { role: 'system', content: built.system },
+          { role: 'user', content: `${built.user}\n\nReturn ONLY valid JSON matching this shape:\n{\n  "sagas": [{ "index": 0, "title": "...", "premise": "...", "startChapter": 1, "endChapter": 100, "expectedTurningPoints": ["...", "..."] }],\n  "plantedSeeds": [{ "seedKey": "...", "description": "...", "plantWindowStart": 1, "plantWindowEnd": 20, "payoffChapter": 60, "importance": "minor" }]\n}` },
+        ],
+        temperature: 0.7,
+        metadata: {
+          agentRole: sagaPlannerPromptV1.agentRole,
+          promptVersion: sagaPlannerPromptV1.version,
+          storyId: input.storyId,
+        },
+      }),
+      3,
+    );
 
     let parsed: SagaPlannerOutput;
     try {

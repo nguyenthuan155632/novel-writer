@@ -2,7 +2,7 @@ import { GENERATION_CONFIG, MODEL_CONFIG } from '@novel/core';
 import type { LLMProvider } from '../providers/types.ts';
 import { getPrompt, type DualPromptTemplate } from '../prompts/registry.ts';
 import '../prompts/llm-validator.v1.ts';
-import { parseCompletionJsonObject } from '../parse-completion-json.ts';
+import { withCompletionRetry } from '../parse-completion-json.ts';
 import { LlmValidatorOutputSchema, llmValidatorJsonSchema } from '../schemas/validator.ts';
 import type { LlmValidatorOutput } from '../schemas/validator.ts';
 
@@ -39,28 +39,35 @@ export class LlmValidatorAgent {
       chapterNumber: input.chapterNumber,
     } as unknown as Record<string, unknown>);
 
-    const res = await this.deps.provider.complete({
-      model: this.deps.model ?? MODEL_CONFIG.routes.llm_validator,
-      messages: [
-        { role: 'system', content: built.system },
-        { role: 'user', content: built.user },
-      ],
-      temperature: GENERATION_CONFIG.LLM_VALIDATOR_TEMPERATURE,
-      responseSchema: llmValidatorJsonSchema,
-      metadata: {
-        agentRole: prompt.agentRole,
-        promptVersion: prompt.version,
-        traceId: input.traceId,
-        storyId: input.storyId,
-      },
-    });
-
+    let lastUsage = { inputTokens: 0, outputTokens: 0, cachedInputTokens: 0 };
     const parsed = LlmValidatorOutputSchema.parse(
-      parseCompletionJsonObject(res, 'llm_validator'),
+      await withCompletionRetry(
+        'llm_validator',
+        async () => {
+          const res = await this.deps.provider.complete({
+            model: this.deps.model ?? MODEL_CONFIG.routes.llm_validator,
+            messages: [
+              { role: 'system', content: built.system },
+              { role: 'user', content: built.user },
+            ],
+            temperature: GENERATION_CONFIG.LLM_VALIDATOR_TEMPERATURE,
+            responseSchema: llmValidatorJsonSchema,
+            metadata: {
+              agentRole: prompt.agentRole,
+              promptVersion: prompt.version,
+              traceId: input.traceId,
+              storyId: input.storyId,
+            },
+          });
+          lastUsage = res.usage;
+          return res;
+        },
+        3,
+      ),
     );
     return {
       output: parsed,
-      usage: res.usage,
+      usage: lastUsage,
       cost: 0,
     };
   }
