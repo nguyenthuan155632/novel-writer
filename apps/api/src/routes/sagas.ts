@@ -3,23 +3,13 @@ import { z } from 'zod';
 import { getDb } from '@novel/db';
 import { sagas, stories, storyBibles } from '@novel/db/schema';
 import { eq, and, asc } from 'drizzle-orm';
-import { OpenCodeProvider } from '@novel/ai/providers/opencode';
-import { LoggedLLMProvider, makeDrizzleRecorder } from '@novel/ai/llm-call-logger';
 import { SagaPlannerAgent } from '@novel/ai';
 import '@novel/ai/prompts/saga-planner.v1';
+import { buildLoggedProvider } from '../lib/llm-provider.ts';
 
 const StoryParam = z.object({ storyId: z.string().uuid() });
 const SagaParam = z.object({ storyId: z.string().uuid(), sagaId: z.string().uuid() });
 const PlanBody = z.object({ resetSeeds: z.boolean().optional() });
-
-function buildProvider() {
-  const base = new OpenCodeProvider({
-    apiKey: process.env.OPENCODE_API_KEY ?? '',
-    baseUrl: process.env.OPENCODE_BASE_URL,
-  });
-  const db = getDb();
-  return new LoggedLLMProvider({ inner: base, recordCall: makeDrizzleRecorder(db) });
-}
 
 const sagasRoute: FastifyPluginCallback = (app, _opts, done) => {
   app.get('/api/stories/:storyId/sagas', async (req, reply) => {
@@ -51,7 +41,7 @@ const sagasRoute: FastifyPluginCallback = (app, _opts, done) => {
     const [bible] = await db.select().from(storyBibles).where(eq(storyBibles.storyId, storyId)).limit(1);
     if (!bible) return reply.code(409).send({ error: 'bible_required' });
 
-    const provider = buildProvider();
+    const provider = await buildLoggedProvider();
     const agent = new SagaPlannerAgent({ provider, logger: { child: () => ({ child: () => ({}), error: () => {}, info: () => {} } as any), error: () => {}, info: () => {} } as any });
     const planned = await agent.plan({
       storyId,

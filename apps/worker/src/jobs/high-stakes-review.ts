@@ -1,10 +1,10 @@
 import { getDb } from '@novel/db';
 import { chapters, chapterSummaries } from '@novel/db/schema';
-import { eq, and, desc } from 'drizzle-orm';
+import { eq, and, desc, or } from 'drizzle-orm';
 import type { Logger } from 'pino';
 import { HighStakesReviewerAgent } from '@novel/ai';
-import { OpenCodeProvider } from '@novel/ai/providers/opencode';
-import { LoggedLLMProvider, makeDrizzleRecorder } from '@novel/ai/llm-call-logger';
+import type { LlmProviderId, ModelRoutes } from '@novel/core';
+import { buildLoggedWorkerProvider } from './provider.js';
 
 export interface HighStakesReviewJobData {
   storyId: string;
@@ -12,6 +12,8 @@ export interface HighStakesReviewJobData {
   chapterNumber: number;
   triggerReason: 'arc_end' | 'critical_severity' | 'manual';
   traceId: string;
+  llmProvider?: LlmProviderId;
+  modelRoutes?: Partial<ModelRoutes>;
 }
 
 export async function runHighStakesReviewJob(data: HighStakesReviewJobData, ctx: { logger: Logger }) {
@@ -31,18 +33,14 @@ export async function runHighStakesReviewJob(data: HighStakesReviewJobData, ctx:
     .innerJoin(chapters, eq(chapterSummaries.chapterId, chapters.id))
     .where(and(
       eq(chapters.storyId, storyId),
-      eq(chapters.status, 'completed'),
+      or(eq(chapters.status, 'completed'), eq(chapters.status, 'paused_pending_updates')),
     ))
     .orderBy(desc(chapterSummaries.chapterNumber))
     .limit(10);
 
   const arcSummary = summaries.map((s, i) => `Chapter ${chapterNumber - i}: ${s.rollingSummary ?? '(no summary)'}`).join('\n');
 
-  const baseProvider = new OpenCodeProvider({
-    apiKey: process.env.OPENCODE_API_KEY ?? '',
-    baseUrl: process.env.OPENCODE_BASE_URL,
-  });
-  const provider = new LoggedLLMProvider({ inner: baseProvider, recordCall: makeDrizzleRecorder(db) });
+  const { provider } = await buildLoggedWorkerProvider(db, data);
   const agent = new HighStakesReviewerAgent({ provider, logger: log as any });
 
   const result = await agent.review({

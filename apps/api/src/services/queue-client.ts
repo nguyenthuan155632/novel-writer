@@ -89,6 +89,8 @@ export async function enqueueHighStakesReview(data: {
   chapterNumber: number;
   triggerReason: 'arc_end' | 'critical_severity' | 'manual';
   traceId: string;
+  llmProvider?: LlmProviderId;
+  modelRoutes?: Partial<ModelRoutes>;
 }): Promise<string> {
   const queue = getHighStakesReviewQueue();
   const jobId = `review-${data.chapterId}-${data.triggerReason}`;

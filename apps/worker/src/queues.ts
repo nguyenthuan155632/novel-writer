@@ -18,6 +18,8 @@ export type RefreshArcSummaryJob = {
   storyId: string;
   arcId: string;
   traceId: string;
+  llmProvider?: LlmProviderId;
+  modelRoutes?: Partial<ModelRoutes>;
 };
 
 export type GenerateBatchJob = {
@@ -35,6 +37,8 @@ export type RefreshSagaSummaryJob = {
   storyId: string;
   sagaId: string;
   traceId: string;
+  llmProvider?: LlmProviderId;
+  modelRoutes?: Partial<ModelRoutes>;
 };
 
 export type HighStakesReviewJob = {
@@ -43,6 +47,8 @@ export type HighStakesReviewJob = {
   chapterNumber: number;
   triggerReason: 'arc_end' | 'critical_severity' | 'manual';
   traceId: string;
+  llmProvider?: LlmProviderId;
+  modelRoutes?: Partial<ModelRoutes>;
 };
 
 export const QUEUE_NAMES = {

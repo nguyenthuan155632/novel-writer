@@ -53,6 +53,10 @@ import {
 import type { GenerateChapterJob } from '../queues.js';
 import type { GenerateChapterJobResult } from './generate-chapter.types.js';
 import { loadEffectiveStoryConfig } from '../services/story-config.js';
+import {
+  enqueueRefreshArcSummary,
+  enqueueHighStakesReview,
+} from '../services/queue-publisher.js';
 
 export interface GenerateChapterDeps {
   db: Db;
@@ -724,6 +728,38 @@ export async function executeGenerateChapterPipeline(
         updatedAt: new Date(),
       })
       .where(eq(chapters.id, chapterId));
+
+    if ((finalStatus === 'completed' || finalStatus === 'paused_pending_updates') && resolvedArcId) {
+      try {
+        const refreshJobId = await enqueueRefreshArcSummary({
+          storyId: data.storyId,
+          arcId: resolvedArcId,
+          traceId: data.traceId,
+          llmProvider: data.llmProvider,
+          modelRoutes: data.modelRoutes,
+        });
+        log.info({ refreshJobId }, 'enqueued arc summary refresh');
+      } catch (enqueueErr) {
+        log.warn({ err: enqueueErr }, 'failed to enqueue arc summary refresh');
+      }
+
+      if (arc && arc.endChapter != null && data.chapterNumber === arc.endChapter) {
+        try {
+          const reviewJobId = await enqueueHighStakesReview({
+            storyId: data.storyId,
+            chapterId,
+            chapterNumber: data.chapterNumber,
+            triggerReason: 'arc_end',
+            traceId: data.traceId,
+            llmProvider: data.llmProvider,
+            modelRoutes: data.modelRoutes,
+          });
+          log.info({ reviewJobId }, 'enqueued high-stakes review for arc end');
+        } catch (enqueueErr) {
+          log.warn({ err: enqueueErr }, 'failed to enqueue high-stakes review');
+        }
+      }
+    }
 
     log.info({ chapterId, status: finalStatus, wordCount }, 'generate-chapter pipeline completed');
 

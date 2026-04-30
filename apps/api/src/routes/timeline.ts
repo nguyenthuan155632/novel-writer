@@ -2,7 +2,7 @@ import type { FastifyPluginCallback } from 'fastify';
 import { z } from 'zod';
 import { getDb } from '@novel/db';
 import { chapters, chapterSummaries } from '@novel/db/schema';
-import { eq, and, asc } from 'drizzle-orm';
+import { eq, and, asc, or } from 'drizzle-orm';
 
 const StoryParam = z.object({ storyId: z.string().uuid() });
 
@@ -19,7 +19,10 @@ const timelineRoute: FastifyPluginCallback = (app, _opts, done) => {
       })
       .from(chapters)
       .innerJoin(chapterSummaries, eq(chapters.id, chapterSummaries.chapterId))
-      .where(and(eq(chapters.storyId, storyId), eq(chapters.status, 'completed')))
+      .where(and(
+        eq(chapters.storyId, storyId),
+        or(eq(chapters.status, 'completed'), eq(chapters.status, 'paused_pending_updates')),
+      ))
       .orderBy(asc(chapters.chapterNumber));
     return reply.send({ timeline: rows });
   });

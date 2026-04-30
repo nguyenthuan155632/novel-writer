@@ -5,6 +5,7 @@ import { chapters, highStakesReviews } from '@novel/db/schema';
 import { and, eq, desc } from 'drizzle-orm';
 import { newTraceId } from '@novel/core/trace';
 import { enqueueHighStakesReview } from '../services/queue-client.ts';
+import { getQueueLlmSnapshot } from '../lib/provider-switcher.ts';
 
 const StoryParam = z.object({ storyId: z.string().uuid() });
 const TriggerBody = z.object({ chapterId: z.string().uuid() });
@@ -32,12 +33,15 @@ const reviewsRoute: FastifyPluginCallback = (app, _opts, done) => {
     if (!chapter) return reply.code(404).send({ error: 'chapter_not_found' });
 
     const traceId = (req as unknown as { traceId?: string }).traceId ?? newTraceId();
+    const llmSnapshot = await getQueueLlmSnapshot();
     const jobId = await enqueueHighStakesReview({
       storyId,
       chapterId,
       chapterNumber: chapter.chapterNumber,
       triggerReason: 'manual',
       traceId,
+      llmProvider: llmSnapshot.llmProvider,
+      modelRoutes: llmSnapshot.modelRoutes,
     });
     return reply.code(202).send({ status: 'queued', jobId, storyId, chapterId, triggerReason: 'manual' });
   });

@@ -36,6 +36,20 @@
       "when": 1777529400000,
       "tag": "0004_llm_settings",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1777545000000,
+      "tag": "0005_high_stakes_reviews",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1777545600000,
+      "tag": "0006_batches",
+      "breakpoints": true
     }
   ]
 }

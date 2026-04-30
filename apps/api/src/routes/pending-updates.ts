@@ -4,6 +4,7 @@ import { getDb, type Db } from '@novel/db';
 import {
   canonFacts,
   characters,
+  chapters,
   openThreads,
   pendingCanonUpdates,
   plantedSeeds,
@@ -27,6 +28,33 @@ const ApproveBody = z.object({
 const RejectBody = z.object({
   reason: z.string().min(1).max(1000),
 });
+
+async function maybeAutoCompleteChapter(db: Db, chapterId: string): Promise<void> {
+  const [chapter] = await db
+    .select({ status: chapters.status })
+    .from(chapters)
+    .where(eq(chapters.id, chapterId))
+    .limit(1);
+  if (chapter?.status !== 'paused_pending_updates') return;
+
+  const remaining = await db
+    .select()
+    .from(pendingCanonUpdates)
+    .where(
+      and(
+        eq(pendingCanonUpdates.chapterId, chapterId),
+        eq(pendingCanonUpdates.resolution, 'pending'),
+      ),
+    )
+    .limit(1);
+
+  if (remaining.length === 0) {
+    await db
+      .update(chapters)
+      .set({ status: 'completed', updatedAt: new Date() })
+      .where(eq(chapters.id, chapterId));
+  }
+}
 
 async function applyPendingUpdate(db: Db, update: typeof pendingCanonUpdates.$inferSelect): Promise<void> {
   const payload = update.payload;
@@ -151,6 +179,7 @@ const plugin: FastifyPluginCallback = (app, _opts, done) => {
       .set({ resolution: body.resolution, conflictStatus: 'resolved', reviewedBy: 'human', resolvedAt: new Date() })
       .where(and(eq(pendingCanonUpdates.id, updateId), eq(pendingCanonUpdates.storyId, storyId)))
       .returning();
+    await maybeAutoCompleteChapter(db, pending.chapterId);
     return reply.send({ pendingUpdate: row });
   });
 
@@ -170,6 +199,7 @@ const plugin: FastifyPluginCallback = (app, _opts, done) => {
       .where(and(eq(pendingCanonUpdates.id, updateId), eq(pendingCanonUpdates.storyId, storyId)))
       .returning();
     if (!row) return reply.code(404).send({ error: 'pending_update_not_found' });
+    await maybeAutoCompleteChapter(db, row.chapterId);
     return reply.send({ pendingUpdate: row });
   });
 

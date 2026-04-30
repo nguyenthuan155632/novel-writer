@@ -22,6 +22,7 @@ export default async function StoryLayout({
           <Link href={`/stories/${id}/bible` as any}>Bible</Link>
           <Link href={`/stories/${id}/sagas` as any}>Sagas</Link>
           <Link href={`/stories/${id}/chapters` as any}>Chapters</Link>
+          <Link href={`/stories/${id}/batch` as any}>Batch</Link>
           <Link href={`/stories/${id}/canon` as any}>Canon</Link>
           <Link href={`/stories/${id}/timeline` as any}>Timeline</Link>
           <Link href={`/stories/${id}/seeds` as any}>Seeds</Link>

@@ -3,23 +3,13 @@ import { z } from 'zod';
 import { getDb } from '@novel/db';
 import { arcs, sagas } from '@novel/db/schema';
 import { eq, and, asc } from 'drizzle-orm';
-import { OpenCodeProvider } from '@novel/ai/providers/opencode';
-import { LoggedLLMProvider, makeDrizzleRecorder } from '@novel/ai/llm-call-logger';
 import { ArcPlannerAgent } from '@novel/ai';
 import '@novel/ai/prompts/arc-planner.v1';
+import { buildLoggedProvider } from '../lib/llm-provider.ts';
 
 const SagaParam = z.object({ storyId: z.string().uuid(), sagaId: z.string().uuid() });
 const ArcParam = z.object({ storyId: z.string().uuid(), arcId: z.string().uuid() });
 const PlanBody = z.object({ currentState: z.string().min(1).max(4000) });
-
-function buildProvider() {
-  const base = new OpenCodeProvider({
-    apiKey: process.env.OPENCODE_API_KEY ?? '',
-    baseUrl: process.env.OPENCODE_BASE_URL,
-  });
-  const db = getDb();
-  return new LoggedLLMProvider({ inner: base, recordCall: makeDrizzleRecorder(db) });
-}
 
 const arcsRoute: FastifyPluginCallback = (app, _opts, done) => {
   app.get('/api/stories/:storyId/sagas/:sagaId/arcs', async (req, reply) => {
@@ -47,7 +37,7 @@ const arcsRoute: FastifyPluginCallback = (app, _opts, done) => {
     const [saga] = await db.select().from(sagas)
       .where(and(eq(sagas.storyId, storyId), eq(sagas.id, sagaId))).limit(1);
     if (!saga) return reply.code(404).send({ error: 'saga_not_found' });
-    const provider = buildProvider();
+    const provider = await buildLoggedProvider();
     const agent = new ArcPlannerAgent({ provider, logger: { child: () => ({ child: () => ({} as any), error: () => {}, info: () => {} } as any), error: () => {}, info: () => {} } as any });
     const planned = await agent.plan({ storyId, sagaId, currentState });
     const counts = await agent.persist(storyId, sagaId, planned.output);
