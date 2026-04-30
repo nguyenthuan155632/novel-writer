@@ -23,7 +23,7 @@ export default async function TimelinePage({ params }: { params: Promise<{ id: s
       {rows.length === 0 && !error && <div className="empty-state">No timeline yet.</div>}
       <ol className="timeline-list studio-panel">
         {rows.map((r) => (
-          <li key={r.number} className="timeline-item">
+          <li key={r.number} className="timeline-item py-2">
             <Link href={`/stories/${id}/chapters/${r.number}` as any}>
               Ch {r.number}: {r.title}
             </Link>

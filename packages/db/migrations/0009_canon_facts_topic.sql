@@ -1,0 +1,1 @@
+ALTER TABLE "canon_facts" ADD COLUMN IF NOT EXISTS "topic" text DEFAULT '' NOT NULL;

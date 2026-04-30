@@ -16,6 +16,7 @@ const vector1536 = customType<{ data: number[]; driverData: string }>({
 export const canonFacts = pgTable('canon_facts', {
   id: uuid('id').primaryKey().defaultRandom(),
   storyId: uuid('story_id').notNull().references(() => stories.id, { onDelete: 'cascade' }),
+  topic: text('topic').default('').notNull(),
   fact: text('fact').notNull(),
   sourceChapter: integer('source_chapter'),
   importance: text('importance').default('medium').notNull(),

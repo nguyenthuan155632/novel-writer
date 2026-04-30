@@ -19,3 +19,11 @@ export async function setLocked(storyId: string, factId: string, locked: boolean
   if (!r.ok) throw new Error(`setLocked ${r.status}`);
   return r.json();
 }
+
+export async function deleteCanonFact(storyId: string, factId: string) {
+  const r = await fetch(`${BASE}/api/stories/${storyId}/canon-facts/${factId}`, {
+    method: 'DELETE',
+  });
+  if (!r.ok) throw new Error(`deleteCanonFact ${r.status}`);
+  return r.json();
+}

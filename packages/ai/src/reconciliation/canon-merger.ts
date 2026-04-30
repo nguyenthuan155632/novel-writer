@@ -177,6 +177,7 @@ export class CanonMerger {
       }
       case 'canon_facts': {
         const factText = row.payload.fact as string;
+        const topicText = (row.payload.topic as string) ?? '';
         const importance = (row.payload.importance as string) ?? 'medium';
         const embResp = await this.deps.embeddingService.embed({
           input: factText,
@@ -184,6 +185,7 @@ export class CanonMerger {
         });
         await this.deps.db.insert(canonFacts).values({
           storyId,
+          topic: topicText,
           fact: factText,
           sourceChapter: chapterNumber,
           importance,

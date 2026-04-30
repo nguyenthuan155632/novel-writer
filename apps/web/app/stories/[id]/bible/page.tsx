@@ -27,7 +27,7 @@ export default async function BiblePage({ params }: { params: Promise<{ id: stri
           <div>
             <p className="studio-kicker">Story bible</p>
             <h1>Bible</h1>
-            <p className="studio-subtitle">Chưa có bible. Click bên dưới để generate (sẽ gọi LLM thật và tốn token).</p>
+            <p className="studio-subtitle">Chưa có bible. Click bên dưới để generate.</p>
           </div>
           <GenerateButton storyId={id} />
         </header>

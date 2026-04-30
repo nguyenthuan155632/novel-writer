@@ -96,7 +96,7 @@ export async function getRecentSummaries(db: Db, storyId: string, beforeChapter:
 export async function getTopKCanonFacts(db: Db, storyId: string, embedding: number[], topK: number, minImportance: string[] = ['high', 'locked']): Promise<CanonFactCompact[]> {
   const vectorLiteral = `[${embedding.map(n => Number(n)).join(',')}]`;
   const results = await db.execute(sql`
-    SELECT id, story_id, fact, source_chapter, importance, locked, tags, embedding, created_at
+    SELECT id, story_id, topic, fact, source_chapter, importance, locked, tags, embedding, created_at
     FROM canon_facts
     WHERE story_id = ${storyId}
     AND importance IN (${sql.join(minImportance.map(i => sql`${i}`), sql`, `)})

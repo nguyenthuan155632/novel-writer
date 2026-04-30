@@ -31,7 +31,10 @@ import {
   getRecentSummaries,
   type EmbeddingService,
   OpenRouterEmbeddingService,
+  formatValidationReport,
 } from '@novel/ai';
+import { mkdir, writeFile } from 'fs/promises';
+import { join } from 'path';
 import { OpenCodeProvider } from '@novel/ai/providers/opencode';
 import { OllamaProvider } from '@novel/ai/providers/ollama';
 import { OpenRouterProvider } from '@novel/ai/providers/openrouter';
@@ -188,7 +191,7 @@ function buildCheckCanon(ctx: ChapterContext): CheckInput['canon'] {
       .filter((v, i, a) => a.indexOf(v) === i),
     lockedFacts: ctx.cold.retrievedFacts
       .filter(f => f.importance === 'locked')
-      .map(f => ({ topic: '', fact: f.fact })),
+      .map(f => ({ topic: f.topic, fact: f.fact })),
     realmByCharacter: Object.fromEntries(
       ctx.warm.activeCharacters
         .filter(c => c.currentRealm)
@@ -289,6 +292,35 @@ function buildWorkerProvider(data: GenerateChapterJob): LLMProvider {
     apiKey: process.env.OPENCODE_API_KEY ?? '',
     baseUrl: process.env.OPENCODE_BASE_URL,
   });
+}
+
+async function writeValidationLog(
+  input: {
+    storyId: string;
+    chapterNumber: number;
+    chapterTitle?: string;
+    wordCount?: number;
+    deterministicResult?: DeterministicValidatorResult;
+    llmResult?: import('@novel/ai').LlmValidatorOutput;
+  },
+  logger: Logger,
+): Promise<string | undefined> {
+  const report = formatValidationReport({
+    ...input,
+    timestamp: new Date(),
+  });
+
+  const logDir = process.env.VALIDATION_LOG_DIR ?? join(process.cwd(), 'logs', 'validations');
+  const dir = join(logDir, input.storyId);
+  await mkdir(dir, { recursive: true });
+
+  const ts = new Date().toISOString().replace(/[:.]/g, '-');
+  const fileName = `chapter-${input.chapterNumber}-${ts}.txt`;
+  const filePath = join(dir, fileName);
+
+  await writeFile(filePath, report, 'utf-8');
+  logger.info({ filePath }, 'validation report written to text file');
+  return filePath;
 }
 
 export async function persistContextPacket(
@@ -539,6 +571,16 @@ export async function executeGenerateChapterPipeline(
       const criticalIssues = detResult.checks.filter(c => !c.pass && (c.severity === 'critical' || c.severity === 'high'));
       if (criticalIssues.length > 0) {
         log.error({ criticalIssues }, 'deterministic validation had critical issues, marking chapter as failed');
+        await writeValidationLog(
+          {
+            storyId: data.storyId,
+            chapterNumber: data.chapterNumber,
+            chapterTitle: writerResult.title,
+            wordCount: writerResult.content.split(/\s+/).length,
+            deterministicResult: detResult,
+          },
+          log,
+        ).catch(() => {});
         await db.update(chapters)
           .set({ status: 'failed', updatedAt: new Date() })
           .where(eq(chapters.id, chapterId));
@@ -587,6 +629,18 @@ export async function executeGenerateChapterPipeline(
         const criticalLlmIssues = llmValResult.output.issues.filter(
           i => i.severity === 'critical' || i.severity === 'high'
         );
+
+        await writeValidationLog(
+          {
+            storyId: data.storyId,
+            chapterNumber: data.chapterNumber,
+            chapterTitle: writerResult.title,
+            wordCount: writerResult.content.split(/\s+/).length,
+            deterministicResult: detResult,
+            llmResult: llmValResult.output,
+          },
+          log,
+        ).catch(() => {});
 
         if (criticalLlmIssues.length > 0) {
           log.warn({ criticalLlmIssues }, 'LLM validator found critical/high issues');

@@ -22,7 +22,7 @@ export default async function SagasPage({ params }: { params: Promise<{ id: stri
         <PlanSagasButton storyId={id} />
       </header>
       {error && <p className="error">Failed to load sagas: {error}</p>}
-      {sagas.length === 0 && !error && <div className="empty-state">No sagas planned yet. Click &quot;Plan sagas&quot; (uses Pro model — costs ~$0.04).</div>}
+      {sagas.length === 0 && !error && <div className="empty-state">No sagas planned yet. Click &quot;Plan sagas&quot;.</div>}
       <ul className="list-clean">
         {sagas.map((s) => (
           <li key={s.id} className="studio-card">

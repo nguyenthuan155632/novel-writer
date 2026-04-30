@@ -6,6 +6,7 @@ export const lockedFactCheck: DeterministicCheck = {
   run(input: CheckInput): CheckResult {
     const issues: string[] = [];
     for (const { topic, fact } of input.canon.lockedFacts) {
+      if (!topic) continue;
       if (input.content.includes(topic) && !input.content.includes(fact)) {
         issues.push(`Topic "${topic}" được nhắc nhưng không tuân locked fact: "${fact}".`);
       }

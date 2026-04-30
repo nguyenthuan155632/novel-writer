@@ -19,7 +19,7 @@ export const ChapterPacketSchema = z.object({
   goal: z.string().min(1).max(PACKET_LIMITS.goal),
   requiredEvents: z.array(z.object({
     description: z.string().min(1).max(PACKET_LIMITS.requiredEventDescription),
-    seedId: z.string().uuid().optional(),
+    seedId: z.string().uuid().optional().catch(undefined),
   })).max(PACKET_LIMITS.requiredEvents),
   charactersPresent: z.array(z.string().min(1)).max(PACKET_LIMITS.charactersPresent),
   setting: z.string().max(PACKET_LIMITS.setting).optional(),

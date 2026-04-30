@@ -30,6 +30,16 @@ const canonFactsRoute: FastifyPluginCallback = (app, _opts, done) => {
     return reply.send({ fact: row });
   });
 
+  app.delete('/api/stories/:storyId/canon-facts/:factId', async (req, reply) => {
+    const db = getDb();
+    const { storyId, factId } = FactParam.parse(req.params);
+    const [row] = await db.delete(canonFacts)
+      .where(and(eq(canonFacts.storyId, storyId), eq(canonFacts.id, factId)))
+      .returning();
+    if (!row) return reply.code(404).send({ error: 'fact_not_found' });
+    return reply.send({ deleted: true });
+  });
+
   done();
 };
 

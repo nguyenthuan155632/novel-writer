@@ -64,6 +64,13 @@
       "when": 1777606800000,
       "tag": "0008_add_story_total_cost",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1779212933000,
+      "tag": "0009_canon_facts_topic",
+      "breakpoints": true
     }
   ]
 }

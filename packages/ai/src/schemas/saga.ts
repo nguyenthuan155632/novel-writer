@@ -24,8 +24,8 @@ export const SagaSchema = z.object({
 });
 
 export const SagaPlannerOutputSchema = z.object({
-  sagas: z.array(SagaSchema).min(5).max(8),
-  plantedSeeds: z.array(PlantedSeedSchema).min(10).max(30),
+  sagas: z.array(SagaSchema).min(1).max(20),
+  plantedSeeds: z.array(PlantedSeedSchema).min(1).max(100),
   notes: z.string().max(1000).optional(),
 });
 
@@ -38,8 +38,8 @@ export const SAGA_PLANNER_JSON_SCHEMA: JsonSchema = {
   properties: {
     sagas: {
       type: 'array',
-      minItems: 5,
-      maxItems: 8,
+      minItems: 1,
+      maxItems: 20,
       items: {
         type: 'object',
         required: ['index', 'title', 'premise', 'startChapter', 'endChapter', 'expectedTurningPoints'],
@@ -56,8 +56,8 @@ export const SAGA_PLANNER_JSON_SCHEMA: JsonSchema = {
     },
     plantedSeeds: {
       type: 'array',
-      minItems: 10,
-      maxItems: 30,
+      minItems: 1,
+      maxItems: 100,
       items: {
         type: 'object',
         required: ['seedKey', 'description', 'plantWindowStart', 'plantWindowEnd', 'payoffChapter', 'importance'],

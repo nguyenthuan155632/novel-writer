@@ -53,6 +53,7 @@ export type ChapterSummaryCompact = {
 
 export type CanonFactCompact = {
   id: string;
+  topic: string;
   importance: string;
   fact: string;
 };

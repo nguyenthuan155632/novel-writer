@@ -32,3 +32,7 @@ export * from './agents/llm-validator.js';
 export * from './agents/auto-fixer.js';
 export * from './validators/deterministic/types.js';
 export * from './validators/deterministic/runner.js';
+export {
+  formatValidationReport,
+  type ValidationReportInput,
+} from './validators/validation-logger.js';

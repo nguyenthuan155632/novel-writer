@@ -53,7 +53,7 @@ export function RegenerateButton({
       {success && <p className="muted">{success}</p>}
       {error && <p className="error">{error}</p>}
       {missingPlanning.length > 0 && (
-        <div className="studio-panel" style={{ marginTop: 12 }}>
+        <div className="studio-panel">
           <p style={{ marginTop: 0 }}>Finish these steps first:</p>
           <ul>
             {missingPlanning.includes('bible') && <li><Link href={`/stories/${storyId}/bible` as any}>Generate Story Bible</Link></li>}

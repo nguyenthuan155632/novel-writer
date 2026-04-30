@@ -6,12 +6,13 @@ import { apiFetch } from '@/lib/api-client';
 
 interface GenerateFormProps {
   storyId: string;
+  initialChapterNumber?: number;
 }
 
-export function GenerateForm({ storyId }: GenerateFormProps) {
+export function GenerateForm({ storyId, initialChapterNumber }: GenerateFormProps) {
   const router = useRouter();
-  const [chapterNumber, setChapterNumber] = useState(1);
-  const [mode, setMode] = useState<'safe' | 'semi_auto' | 'full_auto'>('safe');
+  const [chapterNumber, setChapterNumber] = useState(initialChapterNumber ?? 1);
+  const [mode, setMode] = useState<'safe' | 'semi_auto' | 'full_auto'>('semi_auto');
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [jobId, setJobId] = useState<string | null>(null);

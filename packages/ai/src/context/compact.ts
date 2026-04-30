@@ -61,6 +61,6 @@ export function compactSummary(s: { chapterNumber: number; shortSummary: string 
   return { chapterNumber: s.chapterNumber, shortSummary: s.shortSummary };
 }
 
-export function compactFact(f: { id: string; importance: string; fact: string }): CanonFactCompact {
-  return { id: f.id, importance: f.importance, fact: f.fact };
+export function compactFact(f: { id: string; topic: string; importance: string; fact: string }): CanonFactCompact {
+  return { id: f.id, topic: f.topic, importance: f.importance, fact: f.fact };
 }
