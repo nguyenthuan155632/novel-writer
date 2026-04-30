@@ -78,8 +78,24 @@ generateExportWorker.on('failed', (job, err) => log.error({ jobId: job?.id, err 
 
 log.info('worker started');
 
+// Stale job detector: periodically reset chapters stuck in 'generating' to 'failed'
+const STALE_DETECTOR_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
+const staleDetectorInterval = setInterval(async () => {
+  try {
+    const { getDb } = await import('@novel/db');
+    const { resetStaleGeneratingChapters } = await import('./services/stale-job-detector.js');
+    const resetCount = await resetStaleGeneratingChapters({ db: getDb(), logger: log });
+    if (resetCount > 0) {
+      log.info({ resetCount }, 'stale job detector completed');
+    }
+  } catch (err) {
+    log.error({ err }, 'stale job detector error');
+  }
+}, STALE_DETECTOR_INTERVAL_MS);
+
 const shutdown = async () => {
   log.info('worker shutting down');
+  clearInterval(staleDetectorInterval);
   await Promise.all([generateChapterWorker.close(), refreshArcSummaryWorker.close(), refreshSagaSummaryWorker.close(), generateBatchWorker.close(), highStakesReviewWorker.close(), generateExportWorker.close()]);
   await connection.quit();
   process.exit(0);

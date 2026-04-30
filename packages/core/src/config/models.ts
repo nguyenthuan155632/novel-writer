@@ -15,7 +15,14 @@ const DEFAULT_MODEL_ROUTES = {
 
 export const MODEL_CONFIG = {
   routes: { ...DEFAULT_MODEL_ROUTES },
+  // Prices are per 1M tokens (USD) from OpenRouter API.
+  // Models without an exact OpenRouter entry use the closest available variant.
   pricing: {
+    // OpenAI
+    "openai/gpt-4": { input: 30, cachedInput: 0, output: 60 },
+    "openai/gpt-4o": { input: 2.5, cachedInput: 0, output: 10 },
+    "openai/gpt-4o-mini": { input: 0.15, cachedInput: 0.075, output: 0.6 },
+    // Google Gemini
     "google/gemini-2.5-flash": { input: 0, cachedInput: 0, output: 0 },
     "google/gemini-2.5-flash-lite": {
       input: 0.1,
@@ -23,6 +30,33 @@ export const MODEL_CONFIG = {
       output: 0.4,
     },
     "google/gemini-2.5-pro": { input: 1.25, cachedInput: 0.31, output: 10.0 },
+    // DeepSeek
+    "deepseek/deepseek-v3.2": { input: 0.252, cachedInput: 0.0252, output: 0.378 },
+    "deepseek/deepseek-v4": { input: 0.435, cachedInput: 0.003625, output: 0.87 },
+    "deepseek/deepseek-v4-pro": { input: 0.435, cachedInput: 0.003625, output: 0.87 },
+    // Kimi (moonshotai on OpenRouter)
+    "kimi/kimi-k2": { input: 0.57, cachedInput: 0, output: 2.3 },
+    "kimi/kimi-k2.5": { input: 0.44, cachedInput: 0.22, output: 2 },
+    "kimi/kimi-k2.6": { input: 0.75, cachedInput: 0.15, output: 3.5 },
+    // Meta Llama 3
+    "meta-llama/llama-3-70b-instruct": { input: 0.51, cachedInput: 0, output: 0.74 },
+    // Mistral
+    "mistralai/mistral-large": { input: 2, cachedInput: 0.2, output: 6 },
+    "mistralai/mixtral-8x7b": { input: 0.54, cachedInput: 0, output: 0.54 },
+    "mistralai/mixtral-8x22b": { input: 2, cachedInput: 0.2, output: 6 },
+    // Cohere
+    "cohere/command-r": { input: 0.15, cachedInput: 0, output: 0.6 },
+    "cohere/command-r-plus": { input: 2.5, cachedInput: 0, output: 10 },
+    // Nous Capybara — not available on OpenRouter
+    "nousresearch/nous-capybara-7b": { input: 0, cachedInput: 0, output: 0 },
+    "nousresearch/nous-capybara-34b": { input: 0, cachedInput: 0, output: 0 },
+    // Qwen
+    "qwen/qwen-2-72b-instruct": { input: 0.36, cachedInput: 0, output: 0.4 },
+    "qwen/qwen-2-110b-instruct": { input: 0, cachedInput: 0, output: 0 },
+    // GLM
+    "glm-5.1": { input: 1.05, cachedInput: 0.525, output: 3.5 },
+    // Grok
+    "x-ai/grok-3-mini": { input: 0.3, cachedInput: 0.075, output: 0.5 },
   },
 };
 

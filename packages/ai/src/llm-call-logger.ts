@@ -118,6 +118,7 @@ export class LoggedLLMProvider implements LLMProvider {
 
 import { llmCalls, type NewLlmCall } from '@novel/db/schema';
 import type { Db } from '@novel/db';
+import { accumulateStoryCost } from '@novel/db/services/cost-tracker';
 
 export function makeDrizzleRecorder(db: Db): (row: LlmCallRecord) => Promise<void> {
   return async (row: LlmCallRecord) => {
@@ -134,5 +135,15 @@ export function makeDrizzleRecorder(db: Db): (row: LlmCallRecord) => Promise<voi
       chapterId: row.chapterId ?? null,
     };
     await db.insert(llmCalls).values(insert);
+    if (row.storyId) {
+      const cost = parseFloat(row.estimatedCostUsd);
+      if (!isNaN(cost) && cost > 0) {
+        try {
+          await accumulateStoryCost(db, row.storyId, cost);
+        } catch (err) {
+          console.error('llm_call_logger: failed to accumulate story cost', err);
+        }
+      }
+    }
   };
 }

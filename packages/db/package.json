@@ -9,6 +9,7 @@
     ".": "./src/index.ts",
     "./schema": "./src/schema/index.ts",
     "./client": "./src/client.ts",
+    "./services/*": "./src/services/*.ts",
     "./test-helpers": "./src/test-helpers.ts"
   },
   "scripts": {
