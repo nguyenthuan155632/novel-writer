@@ -173,7 +173,7 @@ export function EditForm({ storyId, bible }: { storyId: string; bible: Bible }) 
   }
 
   return (
-    <div className="card">
+    <div className="studio-panel">
       <div className="tabs">
         {tabs.map((tab) => (
           <button
@@ -191,9 +191,11 @@ export function EditForm({ storyId, bible }: { storyId: string; bible: Bible }) 
       </div>
 
       {err && <p className="error">{err}</p>}
-      <button className="primary" onClick={save} disabled={saving} style={{ marginTop: 12 }}>
+      <div className="button-row">
+      <button className="primary" onClick={save} disabled={saving}>
         {saving ? 'Saving...' : 'Save (creates new version)'}
       </button>
+      </div>
     </div>
   );
 }

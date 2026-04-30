@@ -20,7 +20,7 @@ export function ExportButtons({ storyId }: { storyId: string }) {
   }
 
   return (
-    <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 16 }}>
+    <div className="button-row">
       <button
         onClick={() => handleExport('markdown')}
         disabled={loading !== null}
@@ -35,7 +35,7 @@ export function ExportButtons({ storyId }: { storyId: string }) {
       >
         {loading === 'epub' ? 'Exporting…' : 'Export EPUB'}
       </button>
-      {error && <span style={{ color: 'red', fontSize: 13 }}>{error}</span>}
+      {error && <span className="error">{error}</span>}
     </div>
   );
 }

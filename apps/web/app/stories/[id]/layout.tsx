@@ -14,20 +14,24 @@ export default async function StoryLayout({
   if (!story) return <div className="error">Story not found.</div>;
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: '220px 1fr', gap: 24 }}>
-      <aside>
-        <h3 style={{ marginTop: 0 }}>{story.title}</h3>
-        <nav style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+    <div className="story-workspace">
+      <aside className="story-sidebar">
+        <h3>{story.title}</h3>
+        <nav className="story-nav">
           <Link href={`/stories/${id}` as any}>Overview</Link>
           <Link href={`/stories/${id}/bible` as any}>Bible</Link>
           <Link href={`/stories/${id}/sagas` as any}>Sagas</Link>
           <Link href={`/stories/${id}/chapters` as any}>Chapters</Link>
+          <Link href={`/stories/${id}/canon` as any}>Canon</Link>
+          <Link href={`/stories/${id}/timeline` as any}>Timeline</Link>
+          <Link href={`/stories/${id}/seeds` as any}>Seeds</Link>
+          <Link href={`/stories/${id}/costs` as any}>Costs</Link>
           <Link href={`/stories/${id}/pending` as any}>Pending Updates</Link>
           <Link href={`/stories/${id}/settings` as any}>Settings</Link>
         </nav>
-        <p style={{ marginTop: 16 }}><Link href="/">← All stories</Link></p>
+        <p className="story-back-link"><Link href="/">All stories</Link></p>
       </aside>
-      <section>{children}</section>
+      <section className="studio-page">{children}</section>
     </div>
   );
 }

@@ -84,16 +84,20 @@ export default function SettingsPage({ params }: { params: Promise<{ id: string 
     }
   }
 
-  if (loading) return <p>Loading...</p>;
+  if (loading) return <div className="empty-state">Loading...</div>;
 
   return (
-    <div className="card">
-      <h2>Story Settings</h2>
-      <p style={{ marginBottom: 12, color: '#666' }}>
-        Override generation defaults for this story. Edit JSON directly or use a preset below.
-      </p>
+    <div className="studio-page">
+      <header className="studio-header">
+        <div>
+          <p className="studio-kicker">Generation controls</p>
+          <h1>Story Settings</h1>
+          <p className="studio-subtitle">Override generation defaults for this story. Edit JSON directly or use a preset below.</p>
+        </div>
+      </header>
 
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
+      <div className="studio-panel form-grid">
+      <div className="button-row">
         {PRESETS.map((p) => (
           <button key={p.label} onClick={() => applyPreset(p.overrides)}>
             {p.label}
@@ -105,18 +109,19 @@ export default function SettingsPage({ params }: { params: Promise<{ id: string 
         rows={16}
         value={json}
         onChange={(e) => setJson(e.target.value)}
-        style={{ width: '100%', boxSizing: 'border-box', fontFamily: 'monospace', fontSize: 13 }}
+        style={{ fontFamily: 'monospace', fontSize: 13 }}
       />
 
       {message && (
-        <p style={{ color: message.type === 'success' ? 'green' : 'red', marginBottom: 12 }}>
+        <p className={message.type === 'success' ? 'muted' : 'error'}>
           {message.text}
         </p>
       )}
 
-      <button className="primary" onClick={save} disabled={saving} style={{ marginTop: 12 }}>
+      <button className="primary" onClick={save} disabled={saving}>
         {saving ? 'Saving...' : 'Save'}
       </button>
+      </div>
     </div>
   );
 }

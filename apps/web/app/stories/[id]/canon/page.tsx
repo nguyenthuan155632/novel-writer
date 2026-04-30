@@ -3,20 +3,35 @@ import { CanonRow } from './CanonRow';
 
 export default async function CanonPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const facts = await listCanonFacts(id);
+  let facts: Awaited<ReturnType<typeof listCanonFacts>> = [];
+  let error: string | null = null;
+  try {
+    facts = await listCanonFacts(id);
+  } catch (e) {
+    error = (e as Error).message;
+  }
   const locked = facts.filter((f) => f.locked || f.importance === 'locked');
   const normal = facts.filter((f) => !f.locked && f.importance !== 'locked');
   return (
-    <div className="p-6 max-w-3xl">
-      <h1 className="text-xl font-semibold mb-4">Canon facts ({facts.length})</h1>
-      <section className="mb-6">
-        <h2 className="font-medium mb-2">Locked ({locked.length})</h2>
-        <ul className="space-y-2">{locked.map((f) => <CanonRow key={f.id} storyId={id} fact={f} />)}</ul>
+    <>
+      <header className="studio-header">
+        <div>
+          <p className="studio-kicker">Continuity</p>
+          <h1>Canon facts ({facts.length})</h1>
+          <p className="studio-subtitle">Review locked and normal facts used for narrative consistency.</p>
+        </div>
+      </header>
+      {error && <p className="error">Failed to load canon facts: {error}</p>}
+      <section className="studio-panel">
+        <h2 style={{ marginTop: 0 }}>Locked ({locked.length})</h2>
+        {locked.length === 0 && <div className="empty-state compact">No locked facts.</div>}
+        <ul className="list-clean">{locked.map((f) => <CanonRow key={f.id} storyId={id} fact={f} />)}</ul>
       </section>
-      <section>
-        <h2 className="font-medium mb-2">Normal ({normal.length})</h2>
-        <ul className="space-y-2">{normal.map((f) => <CanonRow key={f.id} storyId={id} fact={f} />)}</ul>
+      <section className="studio-panel">
+        <h2 style={{ marginTop: 0 }}>Normal ({normal.length})</h2>
+        {normal.length === 0 && !error && <div className="empty-state compact">No normal facts.</div>}
+        <ul className="list-clean">{normal.map((f) => <CanonRow key={f.id} storyId={id} fact={f} />)}</ul>
       </section>
-    </div>
+    </>
   );
 }

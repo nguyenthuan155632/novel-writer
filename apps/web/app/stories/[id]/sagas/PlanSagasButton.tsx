@@ -21,11 +21,11 @@ export function PlanSagasButton({ storyId }: { storyId: string }) {
           } catch (e: any) { setError(e.message); }
           finally { setLoading(false); }
         }}
-        className="rounded bg-purple-600 px-4 py-2 text-white disabled:opacity-50"
+        className="primary"
       >
         {loading ? 'Planning…' : 'Plan sagas'}
       </button>
-      {error && <span className="ml-2 text-red-600 text-sm">{error}</span>}
+      {error && <span className="error" style={{ marginLeft: 8 }}>{error}</span>}
     </div>
   );
 }

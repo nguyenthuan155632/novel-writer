@@ -35,38 +35,46 @@ export default async function ChapterDetailPage({
   }
 
   if (error) return <p className="error">{error}</p>;
-  if (!chapter) return <p>Chapter not found.</p>;
+  if (!chapter) return <div className="empty-state">Chapter not found.</div>;
   const canRetry =
     chapter.status === 'failed' ||
     chapter.status === 'paused_pending_updates' ||
     (chapter.status === 'generating' && chapter.validationStatus === 'failed');
 
   return (
-    <div>
-      <h1>Ch. {chapter.chapterNumber}{chapter.title ? ` — ${chapter.title}` : ''}</h1>
-      <p className="muted">
-        Status: {chapter.status} · Words: {chapter.wordCount} · Validation: {chapter.validationStatus} · Packet: {chapter.packetAuditStatus}
-      </p>
-      {canRetry && (
-        <RegenerateButton storyId={id} chapterNumber={chapter.chapterNumber} />
-      )}
+    <>
+      <header className="studio-header">
+        <div>
+          <p className="studio-kicker">Chapter {chapter.chapterNumber}</p>
+          <h1>{chapter.title ?? `Ch. ${chapter.chapterNumber}`}</h1>
+          <p className="meta-line">
+            <span className="status-pill">{chapter.status}</span>
+            <span>{chapter.wordCount} words</span>
+            <span>Validation: {chapter.validationStatus}</span>
+            <span>Packet: {chapter.packetAuditStatus}</span>
+          </p>
+        </div>
+        {canRetry && (
+          <RegenerateButton storyId={id} chapterNumber={chapter.chapterNumber} />
+        )}
+      </header>
       {chapter.summary && (
         <details open style={{ marginBottom: 16 }}>
           <summary><strong>Summary</strong></summary>
-          <div className="card" style={{ marginTop: 8 }}>
-            <p style={{ whiteSpace: 'pre-wrap' }}>{chapter.summary}</p>
+          <div className="studio-panel" style={{ marginTop: 8 }}>
+            <p className="prose-panel">{chapter.summary}</p>
           </div>
         </details>
       )}
       {chapter.content ? (
-        <div className="card">
-          <div style={{ whiteSpace: 'pre-wrap', maxHeight: '60vh', overflow: 'auto' }}>
+        <div className="studio-panel">
+          <div className="prose-panel scroll-panel">
             {chapter.content}
           </div>
         </div>
       ) : (
-        <p className="muted">No content yet.</p>
+        <div className="empty-state">No content yet.</div>
       )}
-    </div>
+    </>
   );
 }

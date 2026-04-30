@@ -4,29 +4,38 @@ import { PlanSagasButton } from './PlanSagasButton';
 
 export default async function SagasPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const sagas = await listSagas(id);
+  let sagas: Awaited<ReturnType<typeof listSagas>> = [];
+  let error: string | null = null;
+  try {
+    sagas = await listSagas(id);
+  } catch (e) {
+    error = (e as Error).message;
+  }
   return (
-    <div className="p-6">
-      <div className="flex items-center justify-between mb-4">
-        <h1 className="text-xl font-semibold">Sagas</h1>
+    <>
+      <header className="studio-header">
+        <div>
+          <p className="studio-kicker">Long-form structure</p>
+          <h1>Sagas</h1>
+          <p className="studio-subtitle">Plan major story movements before generating chapters.</p>
+        </div>
         <PlanSagasButton storyId={id} />
-      </div>
-      {sagas.length === 0 && <p className="text-gray-500 text-sm">No sagas planned yet. Click &quot;Plan sagas&quot; (uses Pro model — costs ~$0.04).</p>}
-      <ul className="space-y-2">
+      </header>
+      {error && <p className="error">Failed to load sagas: {error}</p>}
+      {sagas.length === 0 && !error && <div className="empty-state">No sagas planned yet. Click &quot;Plan sagas&quot; (uses Pro model — costs ~$0.04).</div>}
+      <ul className="list-clean">
         {sagas.map((s) => (
-          <li key={s.id} className="border rounded p-3">
-            <div className="flex justify-between text-sm">
-              <Link href={`/stories/${id}/sagas/${s.id}` as any} className="font-semibold text-blue-700">
+          <li key={s.id} className="studio-card">
+            <div className="studio-card-title">
+              <Link href={`/stories/${id}/sagas/${s.id}` as any}>
                 {s.sagaNumber + 1}. {s.title}
               </Link>
-              {/* Space */}
-              &nbsp;&nbsp;
-              <span className="text-gray-500">Chapters {s.startChapter}–{s.endChapter}</span>
+              <span className="muted">Chapters {s.startChapter}–{s.endChapter}</span>
             </div>
-            <p className="text-sm mt-1 text-gray-700">{s.premise}</p>
+            <p className="muted">{s.premise}</p>
           </li>
         ))}
       </ul>
-    </div>
+    </>
   );
 }

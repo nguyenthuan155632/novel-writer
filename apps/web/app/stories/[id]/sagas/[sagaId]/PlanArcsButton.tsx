@@ -34,23 +34,24 @@ export function PlanArcsButton({
   }
 
   return (
-    <div className="border rounded p-3 mt-4">
-      <label className="block text-sm font-medium mb-1">Current state for Arc Planner</label>
+    <div className="studio-panel form-grid">
+      <div className="field-group">
+      <label>Current state for Arc Planner</label>
       <textarea
-        className="w-full border rounded p-2 text-sm"
         rows={4}
         value={currentState}
         onChange={(e) => setCurrentState(e.target.value)}
       />
+      </div>
       <button
-        className="rounded bg-purple-600 px-4 py-2 text-white disabled:opacity-50 mt-2"
+        className="primary"
         type="button"
         disabled={loading}
         onClick={handlePlanArcs}
       >
         {loading ? 'Planning arcs...' : 'Plan arcs'}
       </button>
-      {error && <p className="text-red-600 text-sm mt-2">{error}</p>}
+      {error && <p className="error">{error}</p>}
     </div>
   );
 }

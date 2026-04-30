@@ -5,10 +5,30 @@ import { PlanArcsButton } from './PlanArcsButton';
 
 export default async function SagaDetail({ params }: { params: Promise<{ id: string; sagaId: string }> }) {
   const { id, sagaId } = await params;
-  const [saga, arcs] = await Promise.all([
-    getSaga(id, sagaId),
-    listArcs(id, sagaId),
-  ]);
+  let saga: Awaited<ReturnType<typeof getSaga>> | null = null;
+  let arcs: Awaited<ReturnType<typeof listArcs>> = [];
+  let error: string | null = null;
+  try {
+    [saga, arcs] = await Promise.all([
+      getSaga(id, sagaId),
+      listArcs(id, sagaId),
+    ]);
+  } catch (e) {
+    error = (e as Error).message;
+  }
+  if (!saga) {
+    return (
+      <>
+        <header className="studio-header">
+          <div>
+            <p className="studio-kicker">Saga</p>
+            <h1>Saga</h1>
+          </div>
+        </header>
+        {error && <p className="error">Failed to load saga: {error}</p>}
+      </>
+    );
+  }
   const defaultCurrentState = [
     `Saga: ${saga.title}`,
     saga.premise ? `Premise: ${saga.premise}` : '',
@@ -17,39 +37,47 @@ export default async function SagaDetail({ params }: { params: Promise<{ id: str
   ].filter(Boolean).join('\n\n');
 
   return (
-    <div className="p-6 max-w-3xl">
-      <h1 className="text-2xl font-semibold mb-1">{saga.title}</h1>
-      <p className="text-sm text-gray-500 mb-4">Chapters {saga.startChapter}–{saga.endChapter} · summary v{saga.summaryVersion}</p>
-      <h2 className="font-medium mt-4">Premise</h2>
-      <p className="text-sm">{saga.premise}</p>
-      <h2 className="font-medium mt-4">Turning points</h2>
-      <ol className="list-decimal pl-6 text-sm">
+    <>
+      <header className="studio-header">
+        <div>
+          <p className="studio-kicker">Saga</p>
+          <h1>{saga.title}</h1>
+          <p className="meta-line">Chapters {saga.startChapter}–{saga.endChapter} · summary v{saga.summaryVersion}</p>
+        </div>
+      </header>
+      <section className="studio-panel">
+      <h2 style={{ marginTop: 0 }}>Premise</h2>
+      <p>{saga.premise}</p>
+      <h2>Turning points</h2>
+      <ol>
         {saga.expectedTurningPoints.map((t, i) => <li key={i}>{t}</li>)}
       </ol>
-      <h2 className="font-medium mt-4">Rolling summary</h2>
-      <pre className="whitespace-pre-wrap text-sm bg-gray-50 p-2 rounded">
+      <h2>Rolling summary</h2>
+      <pre>
         {saga.rollingSummary ?? '(not yet generated)'}
       </pre>
-      <h2 className="font-medium mt-4">Arcs</h2>
+      </section>
+      <section className="studio-panel">
+      <h2 style={{ marginTop: 0 }}>Arcs</h2>
       {arcs.length === 0 ? (
-        <p className="text-sm text-gray-500">No arcs planned yet. Plan arcs before generating chapters in this saga.</p>
+        <p className="muted">No arcs planned yet. Plan arcs before generating chapters in this saga.</p>
       ) : (
-        <ul className="space-y-2 text-sm">
+        <ul className="list-clean">
           {arcs.map((arc) => (
-            <li key={arc.id} className="border rounded p-3">
-              <div className="flex justify-between">
-                <Link href={`/stories/${id}/arcs/${arc.id}` as any} className="font-semibold text-blue-700">
+            <li key={arc.id} className="studio-card">
+              <div className="studio-card-title">
+                <Link href={`/stories/${id}/arcs/${arc.id}` as any}>
                   {(arc.arcNumber ?? 0) + 1}. {arc.title}
                 </Link>
-                &nbsp;&nbsp;
-                <span className="text-gray-500">Chapters {arc.startChapter}–{arc.endChapter}</span>
+                <span className="muted">Chapters {arc.startChapter}–{arc.endChapter}</span>
               </div>
-              <p className="mt-1 text-gray-700">{arc.premise}</p>
+              <p className="muted">{arc.premise}</p>
             </li>
           ))}
         </ul>
       )}
+      </section>
       <PlanArcsButton storyId={id} sagaId={sagaId} defaultCurrentState={defaultCurrentState} />
-    </div>
+    </>
   );
 }

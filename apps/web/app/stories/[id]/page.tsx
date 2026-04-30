@@ -10,14 +10,24 @@ export default async function StoryOverview({ params }: { params: Promise<{ id: 
   const { id } = await params;
   const s = await apiFetch<Story>(`/api/stories/${id}`);
   return (
-    <div>
-      <h1>{s.title}</h1>
-      <p className="muted">Genre: {s.genre} · Tone: {s.tone ?? '—'} · Target: {s.targetChapterCount} chương · Status: {s.status}</p>
-      <ExportButtons storyId={id} />
-      <div className="card" style={{ marginTop: 16 }}>
-        <h3 style={{ marginTop: 0 }}>Premise</h3>
-        <p style={{ whiteSpace: 'pre-wrap' }}>{s.premise}</p>
+    <>
+      <header className="studio-header">
+        <div>
+          <p className="studio-kicker">Story workspace</p>
+          <h1>{s.title}</h1>
+          <p className="meta-line">
+            <span>{s.genre}</span>
+            <span>· Tone: {s.tone ?? '—'}</span>
+            <span>· Target: {s.targetChapterCount} chương</span>
+            <span className="status-pill">{s.status}</span>
+          </p>
+        </div>
+        <ExportButtons storyId={id} />
+      </header>
+      <div className="studio-panel">
+        <h2 style={{ marginTop: 0 }}>Premise</h2>
+        <p className="prose-panel">{s.premise}</p>
       </div>
-    </div>
+    </>
   );
 }

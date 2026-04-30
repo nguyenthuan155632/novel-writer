@@ -46,14 +46,14 @@ export function RegenerateButton({
   }
 
   return (
-    <div style={{ margin: '16px 0' }}>
+    <div className="studio-panel">
       <button className="primary" type="button" onClick={handleRegenerate} disabled={loading}>
         {loading ? 'Re-enqueuing...' : 'Re-generate Chapter'}
       </button>
-      {success && <p style={{ color: 'var(--color-success, #0a7f3f)' }}>{success}</p>}
+      {success && <p className="muted">{success}</p>}
       {error && <p className="error">{error}</p>}
       {missingPlanning.length > 0 && (
-        <div className="card" style={{ marginTop: 12 }}>
+        <div className="studio-panel" style={{ marginTop: 12 }}>
           <p style={{ marginTop: 0 }}>Finish these steps first:</p>
           <ul>
             {missingPlanning.includes('bible') && <li><Link href={`/stories/${storyId}/bible` as any}>Generate Story Bible</Link></li>}

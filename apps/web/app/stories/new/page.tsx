@@ -30,27 +30,43 @@ export default function NewStoryPage() {
   }
 
   return (
-    <div>
-      <h1>New Story</h1>
-      <form onSubmit={submit} style={{ maxWidth: 700 }}>
-        <label>Title</label>
-        <input value={title} onChange={(e) => setTitle(e.target.value)} required />
+    <div className="studio-page">
+      <header className="studio-header">
+        <div>
+          <p className="studio-kicker">New manuscript</p>
+          <h1>New Story</h1>
+          <p className="studio-subtitle">Start with the creative brief that will guide the bible, planning, and chapter pipeline.</p>
+        </div>
+      </header>
+      <form onSubmit={submit} className="studio-panel form-grid">
+        <div className="field-group">
+          <label>Title</label>
+          <input value={title} onChange={(e) => setTitle(e.target.value)} required />
+        </div>
 
-        <label>Premise (≥ 20 chars)</label>
-        <textarea value={premise} onChange={(e) => setPremise(e.target.value)} rows={6} required minLength={20} />
+        <div className="field-group">
+          <label>Premise (≥ 20 chars)</label>
+          <textarea value={premise} onChange={(e) => setPremise(e.target.value)} rows={6} required minLength={20} />
+        </div>
 
-        <label>Genre</label>
-        <input value={genre} onChange={(e) => setGenre(e.target.value)} />
+        <div className="field-group">
+          <label>Genre</label>
+          <input value={genre} onChange={(e) => setGenre(e.target.value)} />
+        </div>
 
-        <label>Tone (optional)</label>
-        <input value={tone} onChange={(e) => setTone(e.target.value)} placeholder="vd: dark, slow-burn" />
+        <div className="field-group">
+          <label>Tone (optional)</label>
+          <input value={tone} onChange={(e) => setTone(e.target.value)} placeholder="vd: dark, slow-burn" />
+        </div>
 
-        <label>Target chapter count</label>
-        <input type="number" min={1} value={target} onChange={(e) => setTarget(Number(e.target.value))} />
+        <div className="field-group">
+          <label>Target chapter count</label>
+          <input type="number" min={1} value={target} onChange={(e) => setTarget(Number(e.target.value))} />
+        </div>
 
         {error && <p className="error" style={{ marginTop: 12 }}>{error}</p>}
 
-        <div style={{ marginTop: 16 }}>
+        <div className="button-row">
           <button className="primary" type="submit" disabled={submitting}>
             {submitting ? 'Creating...' : 'Create Story'}
           </button>

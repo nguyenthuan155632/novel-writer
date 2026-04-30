@@ -63,12 +63,12 @@ export function RejectionButton({ storyId, updateId }: { storyId: string; update
       {!showInput ? (
         <button onClick={() => setShowInput(true)} disabled={loading}>Reject</button>
       ) : (
-        <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+        <div className="button-row">
           <input
             placeholder="Reason..."
             value={reason}
             onChange={(e) => setReason(e.target.value)}
-            style={{ width: 150 }}
+            style={{ width: 180 }}
           />
           <button onClick={reject} disabled={loading || !reason.trim()}>
             {loading ? 'Rejecting...' : 'Confirm'}

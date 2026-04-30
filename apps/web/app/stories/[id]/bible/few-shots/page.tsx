@@ -71,29 +71,32 @@ export default function FewShotsPage({ params }: { params: Promise<{ id: string 
     }
   }
 
-  if (loading) return <p>Loading...</p>;
+  if (loading) return <div className="empty-state">Loading...</div>;
 
   return (
-    <div className="card">
-      <h2>Style Few-Shots</h2>
-      <p style={{ marginBottom: 12, color: '#666' }}>
-        Up to 5 example passages (20–2000 chars each) used to guide chapter style.
-      </p>
+    <div className="studio-page">
+      <header className="studio-header">
+        <div>
+          <p className="studio-kicker">Voice samples</p>
+          <h1>Style Few-Shots</h1>
+          <p className="studio-subtitle">Up to 5 example passages (20–2000 chars each) used to guide chapter style.</p>
+        </div>
+      </header>
 
+      <div className="studio-panel form-grid">
       {shots.map((shot, i) => (
-        <div key={i} style={{ marginBottom: 12 }}>
+        <div key={i} className="field-group">
           <label>Shot {i + 1}</label>
           <textarea
             rows={6}
             value={shot}
             onChange={(e) => updateShot(i, e.target.value)}
-            style={{ width: '100%', boxSizing: 'border-box' }}
             placeholder="Paste an example passage here..."
           />
         </div>
       ))}
 
-      <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+      <div className="button-row">
         <button onClick={addShot} disabled={shots.length >= 5}>
           Add another
         </button>
@@ -103,12 +106,7 @@ export default function FewShotsPage({ params }: { params: Promise<{ id: string 
       </div>
 
       {message && (
-        <p
-          style={{
-            color: message.type === 'success' ? 'green' : 'red',
-            marginBottom: 12,
-          }}
-        >
+        <p className={message.type === 'success' ? 'muted' : 'error'}>
           {message.text}
         </p>
       )}
@@ -116,6 +114,7 @@ export default function FewShotsPage({ params }: { params: Promise<{ id: string 
       <button className="primary" onClick={save} disabled={saving}>
         {saving ? 'Saving...' : 'Save'}
       </button>
+      </div>
     </div>
   );
 }

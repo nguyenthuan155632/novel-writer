@@ -5,10 +5,16 @@ export default async function GenerateChapterPage({ params }: { params: Promise<
   const { id } = await params;
 
   return (
-    <div>
-      <h1>Generate Chapter</h1>
-      <p><Link href={`/stories/${id}/chapters` as any}>← Back to chapters</Link></p>
+    <>
+      <header className="studio-header">
+        <div>
+          <p className="studio-kicker">Draft pipeline</p>
+          <h1>Generate Chapter</h1>
+          <p className="studio-subtitle">Queue the next chapter with the generation mode that fits the current planning state.</p>
+        </div>
+        <Link href={`/stories/${id}/chapters` as any}>Back to chapters</Link>
+      </header>
       <GenerateForm storyId={id} />
-    </div>
+    </>
   );
 }

@@ -3,21 +3,34 @@ import { getTimeline } from '@/lib/api/timeline';
 
 export default async function TimelinePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const rows = await getTimeline(id);
+  let rows: Awaited<ReturnType<typeof getTimeline>> = [];
+  let error: string | null = null;
+  try {
+    rows = await getTimeline(id);
+  } catch (e) {
+    error = (e as Error).message;
+  }
   return (
-    <div className="p-6 max-w-3xl">
-      <h1 className="text-xl font-semibold mb-4">Timeline ({rows.length} chapters)</h1>
-      <ol className="border-l-2 border-gray-200 pl-4 space-y-3">
+    <>
+      <header className="studio-header">
+        <div>
+          <p className="studio-kicker">Narrative timeline</p>
+          <h1>Timeline ({rows.length} chapters)</h1>
+          <p className="studio-subtitle">Follow the story spine through generated chapter summaries.</p>
+        </div>
+      </header>
+      {error && <p className="error">Failed to load timeline: {error}</p>}
+      {rows.length === 0 && !error && <div className="empty-state">No timeline yet.</div>}
+      <ol className="timeline-list studio-panel">
         {rows.map((r) => (
-          <li key={r.number} className="relative">
-            <span className="absolute -left-[1.4rem] top-1 w-3 h-3 rounded-full bg-blue-500" />
-            <Link href={`/stories/${id}/chapters/${r.number}` as any} className="font-semibold text-blue-700">
+          <li key={r.number} className="timeline-item">
+            <Link href={`/stories/${id}/chapters/${r.number}` as any}>
               Ch {r.number}: {r.title}
             </Link>
-            <p className="text-sm text-gray-700 mt-1">{r.shortSummary}</p>
+            <p className="muted">{r.shortSummary}</p>
           </li>
         ))}
       </ol>
-    </div>
+    </>
   );
 }

@@ -44,7 +44,7 @@ export function GenerateForm({ storyId }: GenerateFormProps) {
 
   if (jobId) {
     return (
-      <div className="card">
+      <div className="studio-panel">
         <p>Job enqueued! <strong>{jobId}</strong></p>
         <p className="muted">Check the chapter list for updates, or refresh this page.</p>
         <button onClick={() => router.push(`/stories/${storyId}/chapters` as any)}>Go to Chapters</button>
@@ -53,26 +53,30 @@ export function GenerateForm({ storyId }: GenerateFormProps) {
   }
 
   return (
-    <form onSubmit={handleSubmit} style={{ maxWidth: 400 }}>
-      <label>Chapter Number</label>
-      <input
-        type="number"
-        min={1}
-        value={chapterNumber}
-        onChange={(e) => setChapterNumber(Number(e.target.value))}
-      />
-      <label>Mode</label>
-      <select value={mode} onChange={(e) => setMode(e.target.value as 'safe' | 'semi_auto' | 'full_auto')}>
-        <option value="safe">Safe</option>
-        <option value="semi_auto">Semi-Auto</option>
-        <option value="full_auto">Full Auto</option>
-      </select>
-      <button className="primary" type="submit" disabled={loading} style={{ marginTop: 16 }}>
+    <form onSubmit={handleSubmit} className="studio-panel form-grid">
+      <div className="field-group">
+        <label>Chapter Number</label>
+        <input
+          type="number"
+          min={1}
+          value={chapterNumber}
+          onChange={(e) => setChapterNumber(Number(e.target.value))}
+        />
+      </div>
+      <div className="field-group">
+        <label>Mode</label>
+        <select value={mode} onChange={(e) => setMode(e.target.value as 'safe' | 'semi_auto' | 'full_auto')}>
+          <option value="safe">Safe</option>
+          <option value="semi_auto">Semi-Auto</option>
+          <option value="full_auto">Full Auto</option>
+        </select>
+      </div>
+      <button className="primary" type="submit" disabled={loading}>
         {loading ? 'Enqueuing...' : 'Generate Chapter'}
       </button>
       {err && <p className="error">{err}</p>}
       {missingPlanning.length > 0 && (
-        <div className="card" style={{ marginTop: 12 }}>
+        <div className="studio-panel">
           <p style={{ marginTop: 0 }}>Finish these steps first:</p>
           <ul>
             {missingPlanning.includes('bible') && <li><Link href={`/stories/${storyId}/bible` as any}>Generate Story Bible</Link></li>}

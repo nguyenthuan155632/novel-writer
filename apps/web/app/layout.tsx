@@ -7,28 +7,21 @@ export const metadata = { title: 'Novel Writer', description: 'AI Novel Factory'
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="vi">
-      <body style={{ fontFamily: 'system-ui, sans-serif', margin: 0 }}>
-        <header
-          style={{
-            padding: 16,
-            borderBottom: '1px solid #ddd',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            gap: 16,
-          }}
-        >
-          <a href="/" style={{ textDecoration: 'none', color: 'inherit', fontWeight: 600 }}>
+      <body>
+        <div className="app-shell">
+        <header className="topbar">
+          <a href="/" className="brand-mark">
             Novel Writer
           </a>
-          <nav style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-            <a href="/admin" style={{ color: 'inherit' }}>
+          <nav className="topbar-nav">
+            <a href="/admin" className="nav-link">
               Admin
             </a>
             <ProviderSwitcher />
           </nav>
         </header>
-        <main style={{ padding: 24, maxWidth: 1100, margin: '0 auto' }}>{children}</main>
+        <main className="main-shell">{children}</main>
+        </div>
       </body>
     </html>
   );

@@ -22,23 +22,34 @@ export default async function BiblePage({ params }: { params: Promise<{ id: stri
 
   if (!bible) {
     return (
-      <div>
-        <h1>Bible</h1>
-        <p>Chưa có bible. Click bên dưới để generate (sẽ gọi LLM thật và tốn token).</p>
-        <GenerateButton storyId={id} />
-      </div>
+      <>
+        <header className="studio-header">
+          <div>
+            <p className="studio-kicker">Story bible</p>
+            <h1>Bible</h1>
+            <p className="studio-subtitle">Chưa có bible. Click bên dưới để generate (sẽ gọi LLM thật và tốn token).</p>
+          </div>
+          <GenerateButton storyId={id} />
+        </header>
+      </>
     );
   }
 
   return (
-    <div>
-      <h1>Bible <span className="muted">v{bible.version}</span></h1>
-      <a href={`/stories/${id}/bible/few-shots`} className="text-blue-600 underline text-sm">Edit style few-shots →</a>
-      <details style={{ marginBottom: 16 }}>
+    <>
+      <header className="studio-header">
+        <div>
+          <p className="studio-kicker">Story bible</p>
+          <h1>Bible <span className="muted">v{bible.version}</span></h1>
+          <p className="studio-subtitle">Maintain the world, systems, voice, and compact context used by chapter generation.</p>
+        </div>
+        <a href={`/stories/${id}/bible/few-shots`}>Edit style few-shots</a>
+      </header>
+      <details className="studio-panel">
         <summary>Re-generate (sẽ tạo bible mới — version cũ vẫn được giữ)</summary>
         <div style={{ marginTop: 8 }}><GenerateButton storyId={id} /></div>
       </details>
       <EditForm storyId={id} bible={bible} />
-    </div>
+    </>
   );
 }

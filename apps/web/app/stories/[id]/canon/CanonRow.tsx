@@ -7,16 +7,17 @@ export function CanonRow({ storyId, fact }: { storyId: string; fact: CanonFact }
   const [pending, start] = useTransition();
   const router = useRouter();
   const locked = fact.locked || fact.importance === 'locked';
+  const subject = [fact.subjectType, fact.subjectKey].filter(Boolean).join('/');
   return (
-    <li className="border rounded p-3 text-sm flex justify-between gap-2">
-      <div>
-        <div><code className="text-xs text-gray-500">{fact.subjectType}/{fact.subjectKey}</code></div>
+    <li className="studio-card fact-row">
+      <div className="fact-row-body">
+        {subject && <div><code className="muted">{subject}</code></div>}
         <div>{fact.fact}</div>
       </div>
       <button
         disabled={pending}
         onClick={() => start(async () => { await setLocked(storyId, fact.id, !locked); router.refresh(); })}
-        className={`text-xs px-2 py-1 rounded h-fit ${locked ? 'bg-amber-100 text-amber-800' : 'bg-gray-100 text-gray-700'}`}
+        className={locked ? 'danger' : ''}
       >
         {locked ? 'Unlock' : 'Lock'}
       </button>

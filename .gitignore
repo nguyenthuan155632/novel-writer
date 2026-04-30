@@ -8,3 +8,5 @@ dist/
 *.tsbuildinfo
 coverage/
 
+# Superpowers
+*state/

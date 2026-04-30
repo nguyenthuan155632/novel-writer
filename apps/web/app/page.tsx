@@ -21,23 +21,32 @@ export default async function Home() {
   }
 
   return (
-    <div>
-      <h1>Stories</h1>
-      <p><Link href="/stories/new"><button className="primary">+ New Story</button></Link></p>
+    <div className="studio-page">
+      <header className="studio-header">
+        <div>
+          <p className="studio-kicker">Writing Studio</p>
+          <h1>Stories</h1>
+          <p className="studio-subtitle">Shape long-form fiction from premise to chapters, canon, and production review.</p>
+        </div>
+        <div className="studio-actions">
+          <Link href="/stories/new"><button className="primary">New Story</button></Link>
+        </div>
+      </header>
       {error && <p className="error">Failed to load: {error}</p>}
-      <div style={{ display: 'grid', gap: 12 }}>
+      <div className="studio-grid">
         {stories.map((s) => (
-          <Link key={s.id} href={`/stories/${s.id}`} style={{ textDecoration: 'none', color: 'inherit' }}>
-            <div className="card">
-              <strong>{s.title}</strong> <span className="muted">[{s.status}]</span>
-              <div className="muted" style={{ marginTop: 4 }}>{s.premise.slice(0, 140)}...</div>
-              <div className="muted" style={{ marginTop: 4, fontSize: 13 }}>
+          <Link key={s.id} href={`/stories/${s.id}`} className="studio-card">
+            <div className="studio-card-title">
+              <strong>{s.title}</strong>
+              <span className="status-pill">{s.status}</span>
+            </div>
+            <p className="muted">{s.premise.slice(0, 140)}...</p>
+            <div className="meta-line" style={{ marginTop: 10 }}>
                 {s.genre} · target {s.targetChapterCount} chương
-              </div>
             </div>
           </Link>
         ))}
-        {stories.length === 0 && !error && <p className="muted">No stories yet.</p>}
+        {stories.length === 0 && !error && <div className="empty-state">No stories yet.</div>}
       </div>
     </div>
   );

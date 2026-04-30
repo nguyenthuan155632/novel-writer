@@ -31,18 +31,24 @@ export default async function PendingUpdatesPage({ params }: { params: Promise<{
   }
 
   return (
-    <div>
-      <h1>Pending Canon Updates</h1>
+    <>
+      <header className="studio-header">
+        <div>
+          <p className="studio-kicker">Canon queue</p>
+          <h1>Pending Canon Updates</h1>
+          <p className="studio-subtitle">Approve or reject proposed continuity changes from generated chapters.</p>
+        </div>
+      </header>
       {error && <p className="error">{error}</p>}
-      {updates.length === 0 && !error && <p className="muted">No pending updates.</p>}
-      <div style={{ display: 'grid', gap: 12 }}>
+      {updates.length === 0 && !error && <div className="empty-state">No pending updates.</div>}
+      <div className="studio-grid">
         {updates.map((u) => (
-          <div key={u.id} className="card">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+          <div key={u.id} className="studio-panel">
+            <div className="studio-card-title">
               <strong>{u.updateType}</strong>
-              <span className="muted" style={{ fontSize: 13 }}>{u.conflictStatus}</span>
+              <span className="status-pill">{u.conflictStatus}</span>
             </div>
-            <p className="muted" style={{ fontSize: 13, marginTop: 4 }}>
+            <p className="muted">
               Target: {u.targetTable}{u.targetId ? ` / ${u.targetId}` : ''}
             </p>
             <details style={{ marginTop: 8 }}>
@@ -59,13 +65,13 @@ export default async function PendingUpdatesPage({ params }: { params: Promise<{
                 </ul>
               </div>
             )}
-            <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
+            <div className="button-row" style={{ marginTop: 12 }}>
               <ApprovalButton storyId={id} updateId={u.id} />
               <RejectionButton storyId={id} updateId={u.id} />
             </div>
           </div>
         ))}
       </div>
-    </div>
+    </>
   );
 }

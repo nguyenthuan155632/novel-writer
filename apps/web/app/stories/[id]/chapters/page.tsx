@@ -21,22 +21,31 @@ export default async function ChaptersPage({ params }: { params: Promise<{ id: s
   }
 
   return (
-    <div>
-      <h1>Chapters</h1>
-      <p><Link href={`/stories/${id}/chapters/generate` as any}><button className="primary">+ Generate Chapter</button></Link></p>
+    <>
+      <header className="studio-header">
+        <div>
+          <p className="studio-kicker">Draft pipeline</p>
+          <h1>Chapters</h1>
+          <p className="studio-subtitle">Review generated chapters and continue the manuscript.</p>
+        </div>
+        <div className="studio-actions">
+          <Link href={`/stories/${id}/chapters/generate` as any}><button className="primary">Generate Chapter</button></Link>
+        </div>
+      </header>
       {error && <p className="error">{error}</p>}
-      {chapters.length === 0 && !error && <p className="muted">No chapters yet. Generate one to start.</p>}
-      <div style={{ display: 'grid', gap: 8, marginTop: 16 }}>
+      {chapters.length === 0 && !error && <div className="empty-state">No chapters yet. Generate one to start.</div>}
+      <div className="studio-grid">
         {chapters.map((ch) => (
-          <Link key={ch.id} href={`/stories/${id}/chapters/${ch.chapterNumber}` as any} style={{ textDecoration: 'none', color: 'inherit' }}>
-            <div className="card">
+          <Link key={ch.id} href={`/stories/${id}/chapters/${ch.chapterNumber}` as any} className="studio-card">
+            <div className="studio-card-title">
               <strong>Ch. {ch.chapterNumber}</strong>
-              {ch.title && <> — {ch.title}</>} <span className="muted">[{ch.status}]</span>
-              <span className="muted" style={{ marginLeft: 8 }}>{ch.wordCount} words</span>
+              <span className="status-pill">{ch.status}</span>
             </div>
+            {ch.title && <p>{ch.title}</p>}
+            <p className="muted" style={{ marginTop: 6 }}>{ch.wordCount} words</p>
           </Link>
         ))}
       </div>
-    </div>
+    </>
   );
 }
