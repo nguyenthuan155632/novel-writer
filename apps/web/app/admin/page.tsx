@@ -13,7 +13,7 @@ export default async function AdminPage() {
       <ModelSettings />
 
       {/* 1. Cache hit rate */}
-      <section className="mb-8 admin-section">
+      {/* <section className="mb-8 admin-section">
         <h2 className="font-medium mb-2">Cache hit rate</h2>
         <table className="w-full text-sm">
           <thead className="border-b text-left">
@@ -37,10 +37,10 @@ export default async function AdminPage() {
             ))}
           </tbody>
         </table>
-      </section>
+      </section> */}
 
       {/* 2. Cost rolling 7-day */}
-      <section className="mb-8">
+      {/* <section className="mb-8">
         <h2 className="font-medium mb-2">Cost (rolling 7 days)</h2>
         <table className="w-full text-sm">
           <thead className="border-b text-left">
@@ -62,10 +62,10 @@ export default async function AdminPage() {
             ))}
           </tbody>
         </table>
-      </section>
+      </section> */}
 
       {/* 3. Validator failures */}
-      <section className="mb-8">
+      {/* <section className="mb-8">
         <h2 className="font-medium mb-2">Validator failures</h2>
         <table className="w-full text-sm">
           <thead className="border-b text-left">
@@ -85,20 +85,20 @@ export default async function AdminPage() {
             ))}
           </tbody>
         </table>
-      </section>
+      </section> */}
 
       {/* 4. Auto-fixer stat */}
-      <section className="mb-8">
+      {/* <section className="mb-8">
         <h2 className="font-medium mb-2">Auto-fixer</h2>
         <p className="text-sm">
           Attempted: <strong>{metrics.autoFix.attempted}</strong> / Succeeded:{' '}
           <strong>{metrics.autoFix.succeeded}</strong> / Rate:{' '}
           <strong>{metrics.autoFix.successRatePct.toFixed(1)}%</strong>
         </p>
-      </section>
+      </section> */}
 
       {/* 5. Pending canon aging */}
-      <section className="mb-8">
+      {/* <section className="mb-8">
         <h2 className="font-medium mb-2">Pending canon aging</h2>
         <table className="w-full text-sm">
           <thead className="border-b text-left">
@@ -116,7 +116,7 @@ export default async function AdminPage() {
             ))}
           </tbody>
         </table>
-      </section>
+      </section> */}
     </div>
   );
 }

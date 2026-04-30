@@ -14,6 +14,38 @@ export interface LlmCallRecord {
   traceId?: string;
 }
 
+/** Shape of `bindings` passed to `logPrompts.log` (stdout debugging). */
+export interface LlmPromptLogPayload {
+  model: string;
+  agentRole: string;
+  promptVersion?: string;
+  traceId?: string;
+  storyId?: string;
+  maxOutputTokens?: number;
+  messages: { role: string; content: string }[];
+}
+
+/**
+ * Human-readable block for terminal: metadata as lines, each message body with real newlines
+ * (JSON.stringify escapes \\n inside strings and stays hard to read).
+ */
+export function formatLlmPromptPayloadForTerminal(payload: LlmPromptLogPayload): string {
+  const lines: string[] = [];
+  lines.push(`model: ${payload.model}`);
+  lines.push(`agentRole: ${payload.agentRole}`);
+  if (payload.promptVersion != null) lines.push(`promptVersion: ${payload.promptVersion}`);
+  if (payload.traceId != null) lines.push(`traceId: ${payload.traceId}`);
+  if (payload.storyId != null) lines.push(`storyId: ${payload.storyId}`);
+  if (payload.maxOutputTokens != null) lines.push(`maxOutputTokens: ${String(payload.maxOutputTokens)}`);
+  lines.push('');
+  payload.messages.forEach((m, i) => {
+    lines.push(`--- [${i}] ${m.role} ---`);
+    lines.push(m.content);
+    lines.push('');
+  });
+  return lines.join('\n');
+}
+
 export interface LoggedLLMProviderOptions {
   inner: LLMProvider;
   recordCall: (row: LlmCallRecord) => Promise<void> | void;
@@ -43,18 +75,16 @@ export class LoggedLLMProvider implements LLMProvider {
         max != null && max > 0 && s.length > max
           ? `${s.slice(0, max)}…[truncated ${s.length - max} chars]`
           : s;
-      logPrompts.log(
-        {
-          model: req.model,
-          agentRole: meta.agentRole ?? 'unknown',
-          promptVersion: meta.promptVersion,
-          traceId: meta.traceId,
-          storyId: meta.storyId,
-          maxOutputTokens: req.maxOutputTokens,
-          messages: req.messages.map(m => ({ role: m.role, content: truncate(m.content) })),
-        },
-        'llm request prompt',
-      );
+      const payload = {
+        model: req.model,
+        agentRole: meta.agentRole ?? 'unknown',
+        promptVersion: meta.promptVersion,
+        traceId: meta.traceId,
+        storyId: meta.storyId,
+        maxOutputTokens: req.maxOutputTokens,
+        messages: req.messages.map(m => ({ role: m.role, content: truncate(m.content) })),
+      };
+      logPrompts.log(payload, 'LLM REQUEST PROMPT');
     }
     let res: CompletionResponse | undefined;
     try {

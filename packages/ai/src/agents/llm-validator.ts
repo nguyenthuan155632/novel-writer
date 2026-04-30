@@ -2,6 +2,7 @@ import { GENERATION_CONFIG, MODEL_CONFIG } from '@novel/core';
 import type { LLMProvider } from '../providers/types.ts';
 import { getPrompt, type DualPromptTemplate } from '../prompts/registry.ts';
 import '../prompts/llm-validator.v1.ts';
+import { parseCompletionJsonObject } from '../parse-completion-json.ts';
 import { LlmValidatorOutputSchema, llmValidatorJsonSchema } from '../schemas/validator.ts';
 import type { LlmValidatorOutput } from '../schemas/validator.ts';
 
@@ -54,7 +55,9 @@ export class LlmValidatorAgent {
       },
     });
 
-    const parsed = LlmValidatorOutputSchema.parse(JSON.parse(res.content));
+    const parsed = LlmValidatorOutputSchema.parse(
+      parseCompletionJsonObject(res, 'llm_validator'),
+    );
     return {
       output: parsed,
       usage: res.usage,

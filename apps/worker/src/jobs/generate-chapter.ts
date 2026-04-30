@@ -35,7 +35,12 @@ import {
 import { OpenCodeProvider } from '@novel/ai/providers/opencode';
 import { OllamaProvider } from '@novel/ai/providers/ollama';
 import { OpenRouterProvider } from '@novel/ai/providers/openrouter';
-import { LoggedLLMProvider, makeDrizzleRecorder } from '@novel/ai/llm-call-logger';
+import {
+  LoggedLLMProvider,
+  makeDrizzleRecorder,
+  formatLlmPromptPayloadForTerminal,
+  type LlmPromptLogPayload,
+} from '@novel/ai/llm-call-logger';
 import type { LLMProvider, CompletionUsage } from '@novel/ai/providers/types';
 import {
   estimateCostUsd,
@@ -770,8 +775,23 @@ export async function runGenerateChapterJob(
     ...(logLlmPrompts
       ? {
           logPrompts: {
-            log: (bindings, msg) =>
-              ctx.logger.child({ component: 'llm_prompt', storyId: bindings.storyId }).info(bindings, msg),
+            log: (bindings, msg) => {
+              // Pino emits one-line JSON; real multiline pretty output goes to stdout.
+              ctx.logger
+                .child({ component: 'llm_prompt', storyId: bindings.storyId })
+                .info(
+                  {
+                    model: bindings.model,
+                    agentRole: bindings.agentRole,
+                    traceId: bindings.traceId,
+                    storyId: bindings.storyId,
+                  },
+                  msg,
+                );
+              console.log(
+                `\n── ${msg} ──\n${formatLlmPromptPayloadForTerminal(bindings as unknown as LlmPromptLogPayload)}\n`,
+              );
+            },
           },
         }
       : {}),

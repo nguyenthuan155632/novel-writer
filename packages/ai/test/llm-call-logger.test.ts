@@ -1,6 +1,19 @@
 import { describe, it, expect, vi } from 'vitest';
-import { LoggedLLMProvider } from '../src/llm-call-logger.ts';
+import { LoggedLLMProvider, formatLlmPromptPayloadForTerminal } from '../src/llm-call-logger.ts';
 import { MockProvider } from '../src/providers/mock.ts';
+
+describe('formatLlmPromptPayloadForTerminal', () => {
+  it('prints message bodies with real newlines, not JSON-escaped \\n', () => {
+    const out = formatLlmPromptPayloadForTerminal({
+      model: 'm',
+      agentRole: 'writer',
+      messages: [{ role: 'user', content: 'a\nb\nc' }],
+    });
+    expect(out).toContain('--- [0] user ---');
+    expect(out).toMatch(/a\nb\nc/);
+    expect(out).not.toContain(String.raw`a\nb`);
+  });
+});
 
 describe('LoggedLLMProvider', () => {
   it('records a row per call with cost estimate', async () => {
@@ -67,7 +80,7 @@ describe('LoggedLLMProvider', () => {
     });
 
     expect(promptLog).toHaveBeenCalledTimes(1);
-    expect(promptLog.mock.calls[0]![1]).toBe('llm request prompt');
+    expect(promptLog.mock.calls[0]![1]).toBe('LLM REQUEST PROMPT');
     const bindings = promptLog.mock.calls[0]![0] as { messages: { role: string; content: string }[] };
     expect(bindings.messages[0]!.content).toContain('hell');
     expect(bindings.messages[0]!.content).toContain('truncated');

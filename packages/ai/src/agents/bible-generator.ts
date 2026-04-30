@@ -1,3 +1,4 @@
+import { parseCompletionJsonObject } from '../parse-completion-json.ts';
 import type { LLMProvider } from '../providers/types.ts';
 import { BibleSchema, bibleJsonSchema, type Bible } from '../schemas/bible.ts';
 import { getPrompt, type PromptTemplate } from '../prompts/registry.ts';
@@ -35,6 +36,6 @@ export async function generateBible(params: GenerateBibleParams): Promise<Genera
     },
   });
 
-  const parsed = BibleSchema.parse(JSON.parse(res.content));
+  const parsed = BibleSchema.parse(parseCompletionJsonObject(res, 'bible_generator'));
   return { bible: parsed, usage: res.usage, rawContent: res.content };
 }

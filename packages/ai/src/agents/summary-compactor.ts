@@ -1,4 +1,5 @@
 import { MODEL_CONFIG } from '@novel/core';
+import { withCompletionRetry } from '../parse-completion-json.ts';
 import type { LLMProvider } from '../providers/types.ts';
 import { SummaryCompactorOutputSchema, SUMMARY_COMPACTOR_JSON_SCHEMA, type SummaryCompactorOutput } from '../schemas/summary.ts';
 import { summaryCompactorPromptV1, type SummaryCompactorPromptInput } from '../prompts/summary-compactor.v1.ts';
@@ -29,24 +30,35 @@ export class SummaryCompactor {
     const log = this.deps.logger.child({ traceId: ctx.traceId, agent: 'summary_compactor' });
     const built = summaryCompactorPromptV1.build(input as unknown as Record<string, unknown>);
 
-    const res = await this.deps.provider.complete({
-      model: this.deps.model ?? MODEL_CONFIG.routes.summary_compactor,
-      messages: [{ role: 'system', content: built.system }, { role: 'user', content: built.user }],
-      responseSchema: SUMMARY_COMPACTOR_JSON_SCHEMA,
-      temperature: 0.2,
-      metadata: {
-        agentRole: summaryCompactorPromptV1.agentRole,
-        promptVersion: summaryCompactorPromptV1.version,
-        traceId: ctx.traceId,
-        storyId: ctx.storyId,
-      },
-    });
-
+    let lastResContent = '';
+    let lastUsage = { inputTokens: 0, outputTokens: 0, cachedInputTokens: 0 };
     let parsed: SummaryCompactorOutput;
     try {
-      parsed = SummaryCompactorOutputSchema.parse(JSON.parse(res.content));
+      parsed = SummaryCompactorOutputSchema.parse(
+        await withCompletionRetry(
+          'summary_compactor',
+          async () => {
+            const res = await this.deps.provider.complete({
+              model: this.deps.model ?? MODEL_CONFIG.routes.summary_compactor,
+              messages: [{ role: 'system', content: built.system }, { role: 'user', content: built.user }],
+              responseSchema: SUMMARY_COMPACTOR_JSON_SCHEMA,
+              temperature: 0.2,
+              metadata: {
+                agentRole: summaryCompactorPromptV1.agentRole,
+                promptVersion: summaryCompactorPromptV1.version,
+                traceId: ctx.traceId,
+                storyId: ctx.storyId,
+              },
+            });
+            lastResContent = res.content ?? '';
+            lastUsage = res.usage;
+            return res;
+          },
+          3,
+        ),
+      );
     } catch (err) {
-      log.error({ err, raw: res.content.slice(0, 500) }, 'summary compactor parse failed');
+      log.error({ err, raw: lastResContent.slice(0, 500) }, 'summary compactor parse failed');
       throw err;
     }
 
@@ -60,8 +72,8 @@ export class SummaryCompactor {
     return {
       output: parsed,
       promptVersion: summaryCompactorPromptV1.version,
-      rawContent: res.content,
-      usage: res.usage,
+      rawContent: lastResContent,
+      usage: lastUsage,
     };
   }
 }

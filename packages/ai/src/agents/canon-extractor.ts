@@ -1,4 +1,5 @@
 import { MODEL_CONFIG } from '@novel/core';
+import { withCompletionRetry } from '../parse-completion-json.ts';
 import type { LLMProvider } from '../providers/types.ts';
 import { ExtractorOutputSchema, EXTRACTOR_JSON_SCHEMA, type ExtractorOutput } from '../schemas/extractor.ts';
 import { canonExtractorPromptV1, type CanonExtractorPromptInput } from '../prompts/canon-extractor.v1.ts';
@@ -29,24 +30,35 @@ export class CanonExtractor {
     const log = this.deps.logger.child({ traceId: ctx.traceId, agent: 'canon_extractor' });
     const built = canonExtractorPromptV1.build(input as unknown as Record<string, unknown>);
 
-    const res = await this.deps.provider.complete({
-      model: this.deps.model ?? MODEL_CONFIG.routes.canon_extractor,
-      messages: [{ role: 'system', content: built.system }, { role: 'user', content: built.user }],
-      responseSchema: EXTRACTOR_JSON_SCHEMA,
-      temperature: 0.2,
-      metadata: {
-        agentRole: canonExtractorPromptV1.agentRole,
-        promptVersion: canonExtractorPromptV1.version,
-        traceId: ctx.traceId,
-        storyId: ctx.storyId,
-      },
-    });
-
+    let lastResContent = '';
+    let lastUsage = { inputTokens: 0, outputTokens: 0, cachedInputTokens: 0 };
     let parsed: ExtractorOutput;
     try {
-      parsed = ExtractorOutputSchema.parse(JSON.parse(res.content));
+      parsed = ExtractorOutputSchema.parse(
+        await withCompletionRetry(
+          'canon_extractor',
+          async () => {
+            const res = await this.deps.provider.complete({
+              model: this.deps.model ?? MODEL_CONFIG.routes.canon_extractor,
+              messages: [{ role: 'system', content: built.system }, { role: 'user', content: built.user }],
+              responseSchema: EXTRACTOR_JSON_SCHEMA,
+              temperature: 0.2,
+              metadata: {
+                agentRole: canonExtractorPromptV1.agentRole,
+                promptVersion: canonExtractorPromptV1.version,
+                traceId: ctx.traceId,
+                storyId: ctx.storyId,
+              },
+            });
+            lastResContent = res.content ?? '';
+            lastUsage = res.usage;
+            return res;
+          },
+          3,
+        ),
+      );
     } catch (err) {
-      log.error({ err, raw: res.content.slice(0, 500) }, 'canon extractor parse failed');
+      log.error({ err, raw: lastResContent.slice(0, 500) }, 'canon extractor parse failed');
       throw err;
     }
 
@@ -61,8 +73,8 @@ export class CanonExtractor {
     return {
       output: parsed,
       promptVersion: canonExtractorPromptV1.version,
-      rawContent: res.content,
-      usage: res.usage,
+      rawContent: lastResContent,
+      usage: lastUsage,
     };
   }
 }
