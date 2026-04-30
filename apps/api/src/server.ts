@@ -19,7 +19,6 @@ import batchesRoute from './routes/batches.ts';
 import adminRoute from './routes/admin.ts';
 import exportsRoute from './routes/exports.ts';
 import storySettingsRoute from './routes/story-settings.ts';
-import promptVersionsRoute from './routes/prompt-versions.ts';
 
 export function buildServer() {
   const app = Fastify({ logger: false });
@@ -41,7 +40,6 @@ export function buildServer() {
   app.register(adminRoute);
   app.register(exportsRoute);
   app.register(storySettingsRoute);
-  app.register(promptVersionsRoute);
   app.register(cors, { origin: true, methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'] });
   return app;
 }

@@ -1,4 +1,4 @@
-import { eq, lt, sql } from 'drizzle-orm';
+import { and, eq, lt } from 'drizzle-orm';
 import { chapters } from '@novel/db/schema';
 import type { Db } from '@novel/db';
 import type { Logger } from 'pino';
@@ -17,8 +17,7 @@ export async function resetStaleGeneratingChapters(deps: StaleJobDetectorDeps): 
   const staleRows = await db
     .select({ id: chapters.id, storyId: chapters.storyId, chapterNumber: chapters.chapterNumber })
     .from(chapters)
-    .where(eq(chapters.status, 'generating'))
-    .having(sql`${chapters.updatedAt} < ${cutoff}`);
+    .where(and(eq(chapters.status, 'generating'), lt(chapters.updatedAt, cutoff)));
 
   if (staleRows.length === 0) {
     return 0;
