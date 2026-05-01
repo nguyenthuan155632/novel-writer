@@ -1,4 +1,5 @@
 import { CONTEXT_CONFIG, type ContextConfig } from '@novel/core';
+import type { GenreDef, PersonalityDef, StoryOptions, GenreFamily } from '@novel/core';
 import type { Db } from '@novel/db';
 import type { EmbeddingService } from '../embeddings/types.js';
 import type { ChapterPacket } from '../schemas/packet.js';
@@ -10,6 +11,9 @@ import {
   getTopKCanonFacts, getPastChapterSummaries, getPlantedSeedsForStory,
 } from './retrieval.js';
 import { shrinkToFit } from './shrink.js';
+import { renderGenreContract } from '../prompts/contracts/genre-contract.js';
+import { renderPersonalityContract } from '../prompts/contracts/personality-contract.js';
+import { renderStoryOptionsBlock } from '../prompts/contracts/story-options-block.js';
 
 interface BuilderLogger {
   child(bindings: Record<string, unknown>): BuilderLogger;
@@ -27,6 +31,7 @@ export type BuildContextDeps = {
   packet: ChapterPacket;
   embeddingService: EmbeddingService;
   traceId: string;
+  domain: { genreDef: GenreDef; personalityDef: PersonalityDef; storyOptions: StoryOptions; genreFamily: GenreFamily };
   config?: Partial<ContextConfig>;
   logger?: BuilderLogger;
 };
@@ -37,7 +42,7 @@ export async function buildContext(deps: BuildContextDeps): Promise<ChapterConte
 
   const bible = await getStoryBible(db, storyId);
 
-  const hot = buildHotTier(bible, cfg);
+  const hot = buildHotTier(bible, deps.domain, cfg);
 
   const [saga, arc] = await Promise.all([
     getSagaForChapter(db, storyId, chapterNumber),
@@ -139,14 +144,28 @@ export async function buildContext(deps: BuildContextDeps): Promise<ChapterConte
   return ctx;
 }
 
-function buildHotTier(bible: { worldRules: string; forbiddenRules: string; styleGuide: string; cultivationSystem: string; bloodlineSystem: string; compactSummary: string | null; styleFewShots: StyleFewShot[] | string[] } | null, cfg: ContextConfig): HotTier {
+function buildHotTier(
+  bible: {
+    worldRules: string; forbiddenRules: string; styleGuide: string;
+    powerSystem?: string | null; powerSystemKind?: string | null;
+    cultivationSystem?: string | null; bloodlineSystem?: string | null;
+    compactSummary: string | null;
+    styleFewShots: StyleFewShot[] | string[];
+  } | null,
+  domain: { genreDef: GenreDef; personalityDef: PersonalityDef; storyOptions: StoryOptions },
+  cfg: ContextConfig,
+): HotTier {
   if (!bible) {
     return {
       systemRules: '',
       bibleCompact: '',
       styleGuide: '',
-      powerRules: '',
+      powerSystem: '',
+      powerSystemKind: 'none',
       styleFewShots: [],
+      genreContract: renderGenreContract(domain.genreDef, domain.storyOptions),
+      personalityContract: renderPersonalityContract(domain.personalityDef),
+      storyOptionsBlock: renderStoryOptionsBlock(domain.storyOptions),
     };
   }
 
@@ -154,12 +173,19 @@ function buildHotTier(bible: { worldRules: string; forbiddenRules: string; style
     ? bible.styleFewShots.map(s => typeof s === 'string' ? { excerpt: s } : s)
     : [];
 
+  const powerSystemText = bible.powerSystem
+    ?? [bible.cultivationSystem, bible.bloodlineSystem].filter(Boolean).join('\n\n');
+
   return {
     systemRules: `${bible.worldRules}\n\n# QUY TẮC CẤM\n${bible.forbiddenRules}`,
     bibleCompact: bible.compactSummary ?? '',
     styleGuide: bible.styleGuide,
-    powerRules: `${bible.cultivationSystem}\n\n${bible.bloodlineSystem}`,
+    powerSystem: powerSystemText,
+    powerSystemKind: bible.powerSystemKind ?? 'cultivation',
     styleFewShots: fewShots.slice(0, cfg.STYLE_FEWSHOT_COUNT),
+    genreContract: renderGenreContract(domain.genreDef, domain.storyOptions),
+    personalityContract: renderPersonalityContract(domain.personalityDef),
+    storyOptionsBlock: renderStoryOptionsBlock(domain.storyOptions),
   };
 }
 

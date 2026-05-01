@@ -6,8 +6,12 @@ export type HotTier = {
   systemRules: string;
   bibleCompact: string;
   styleGuide: string;
-  powerRules: string;
+  powerSystem: string;
+  powerSystemKind: string;
   styleFewShots: StyleFewShot[];
+  genreContract: string;
+  personalityContract: string;
+  storyOptionsBlock: string;
 };
 
 export type CharacterCompact = {
