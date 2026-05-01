@@ -30,6 +30,7 @@ describe('schema smoke', () => {
     await db.insert(storyBibles).values({
       storyId: story.id,
       worldRules: 'r',
+      powerSystem: 'p',
       cultivationSystem: 'c',
       bloodlineSystem: 'b',
       styleGuide: 's',
@@ -105,6 +106,20 @@ describe('schema smoke', () => {
       db.execute(sql`update llm_provider_settings set model_routes = '[]'::jsonb where provider = 'opencode'`)
     ).rejects.toThrow();
   });
+
+describe('schema columns added in 0012/0013', () => {
+  it('stories table has mainCharacterPersonality + genreLockedAt', () => {
+    const cols = Object.keys(stories);
+    expect(cols).toContain('mainCharacterPersonality');
+    expect(cols).toContain('genreLockedAt');
+  });
+
+  it('story_bibles has powerSystem + powerSystemKind; cult/blood nullable', () => {
+    const cols = Object.keys(storyBibles);
+    expect(cols).toContain('powerSystem');
+    expect(cols).toContain('powerSystemKind');
+  });
+});
 
   afterAll(async () => {
     await getSqlClient(TEST_DB_URL).end();
