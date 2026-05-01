@@ -1,7 +1,9 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
 import type { ChapterDetail } from '@/lib/api/chapters';
+import { fetchChapters, type ChapterSummary } from '@/lib/api/chapters';
 import {
   DEFAULT_READER_SETTINGS,
   FONT_OPTIONS,
@@ -67,6 +69,28 @@ export function ReaderView({ storyId, storyTitle, chapter }: ReaderViewProps) {
   const theme = useMemo(() => getThemePreset(settings.theme), [settings.theme]);
   const font = useMemo(() => getFontOption(settings.fontFamily), [settings.fontFamily]);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [chapters, setChapters] = useState<ChapterSummary[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchChapters(storyId)
+      .then((list) => {
+        if (cancelled) return;
+        const sorted = [...list].sort((a, b) => a.chapterNumber - b.chapterNumber);
+        setChapters(sorted);
+      })
+      .catch(() => {
+        // Drawer + prev/next simply stay empty on failure. Reader content still renders.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [storyId]);
+
+  const currentIndex = chapters.findIndex((c) => c.chapterNumber === chapter.chapterNumber);
+  const prevChapter = currentIndex > 0 ? chapters[currentIndex - 1] : null;
+  const nextChapter =
+    currentIndex >= 0 && currentIndex < chapters.length - 1 ? chapters[currentIndex + 1] : null;
 
   return (
     <div
@@ -167,7 +191,39 @@ export function ReaderView({ storyId, storyTitle, chapter }: ReaderViewProps) {
         ) : (
           <p style={{ opacity: 0.7 }}>Content not yet available.</p>
         )}
-        {/* Prev/Next added in Task 5 */}
+        <nav
+          aria-label="Chapter navigation"
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            gap: 12,
+            marginTop: 48,
+            paddingTop: 16,
+            borderTop: `1px solid ${theme.text}22`,
+          }}
+        >
+          {prevChapter ? (
+            <Link
+              href={`/read/${storyId}/${prevChapter.chapterNumber}`}
+              style={{ color: theme.text, fontWeight: 600, minHeight: 44, display: 'inline-flex', alignItems: 'center' }}
+            >
+              ← Previous
+            </Link>
+          ) : (
+            <span />
+          )}
+          {nextChapter ? (
+            <Link
+              href={`/read/${storyId}/${nextChapter.chapterNumber}`}
+              style={{ color: theme.text, fontWeight: 600, minHeight: 44, display: 'inline-flex', alignItems: 'center' }}
+            >
+              Next →
+            </Link>
+          ) : (
+            <span />
+          )}
+        </nav>
       </main>
       {settingsOpen && (
         <>
@@ -323,10 +379,109 @@ export function ReaderView({ storyId, storyTitle, chapter }: ReaderViewProps) {
           </div>
         </>
       )}
-      {/* storyId intentionally used by later tasks (chapter list + prev/next) */}
-      <span hidden data-story-id={storyId} />
-      {/* drawerOpen used by chapter list drawer in Task 5 */}
-      <span hidden data-drawer-open={String(drawerOpen)} />
+      {drawerOpen && (
+        <>
+          <button
+            type="button"
+            aria-label="Close chapter list"
+            onClick={() => setDrawerOpen(false)}
+            style={{
+              position: 'fixed',
+              inset: 0,
+              zIndex: 5,
+              background: 'rgba(0, 0, 0, 0.35)',
+              border: 0,
+              padding: 0,
+            }}
+          />
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label="Chapter list"
+            style={{
+              position: 'fixed',
+              left: 0,
+              right: 0,
+              bottom: 0,
+              zIndex: 6,
+              maxHeight: '80vh',
+              background: theme.background,
+              color: theme.text,
+              borderTop: `1px solid ${theme.text}33`,
+              borderTopLeftRadius: 16,
+              borderTopRightRadius: 16,
+              boxShadow: '0 -16px 40px rgba(0, 0, 0, 0.2)',
+              display: 'flex',
+              flexDirection: 'column',
+            }}
+          >
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: '14px 16px',
+                borderBottom: `1px solid ${theme.text}22`,
+              }}
+            >
+              <strong>Chapters</strong>
+              <button
+                type="button"
+                onClick={() => setDrawerOpen(false)}
+                aria-label="Close"
+                style={{
+                  minWidth: 44,
+                  minHeight: 44,
+                  background: 'transparent',
+                  border: 0,
+                  color: theme.text,
+                  fontSize: 20,
+                  cursor: 'pointer',
+                }}
+              >
+                ×
+              </button>
+            </div>
+            <div style={{ overflowY: 'auto', padding: 8 }}>
+              {chapters.length === 0 ? (
+                <p style={{ padding: 16, opacity: 0.7 }}>No chapters available yet.</p>
+              ) : (
+                <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: 4 }}>
+                  {chapters.map((c) => {
+                    const active = c.chapterNumber === chapter.chapterNumber;
+                    return (
+                      <li key={c.id}>
+                        <Link
+                          href={`/read/${storyId}/${c.chapterNumber}`}
+                          onClick={() => setDrawerOpen(false)}
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            gap: 12,
+                            padding: '12px 14px',
+                            minHeight: 44,
+                            borderRadius: 8,
+                            color: theme.text,
+                            background: active ? `${theme.text}14` : 'transparent',
+                            fontWeight: active ? 700 : 500,
+                            textDecoration: 'none',
+                          }}
+                        >
+                          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {c.chapterNumber}. {c.title ?? `Chương ${c.chapterNumber}`}
+                          </span>
+                          {active ? <span aria-hidden="true">●</span> : null}
+                        </Link>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }
