@@ -2,7 +2,16 @@ import { randomUUID } from 'node:crypto';
 import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest';
 import { buildServer } from '../../src/server.ts';
 import { getDb } from '@novel/db';
-import { arcs, sagas, stories, storyBibles } from '@novel/db/schema';
+import {
+  arcs,
+  canonFacts,
+  chapters,
+  openThreads,
+  sagas,
+  stories,
+  storyBibles,
+  timelineEvents,
+} from '@novel/db/schema';
 import { eq } from 'drizzle-orm';
 import {
   resetActiveProviderForTests,
@@ -64,6 +73,27 @@ async function createPlannedStory(chapterNumber = 1): Promise<string> {
   });
   expect(chapterNumber).toBeGreaterThanOrEqual(1);
   return storyId;
+}
+
+async function createChapter(
+  storyId: string,
+  chapterNumber: number,
+  overrides?: Partial<typeof chapters.$inferInsert>,
+): Promise<string> {
+  const db = getDb(TEST_DB);
+  const [row] = await db
+    .insert(chapters)
+    .values({
+      storyId,
+      chapterNumber,
+      title: `Chapter ${chapterNumber}`,
+      content: `Content for chapter ${chapterNumber}`,
+      status: 'draft',
+      wordCount: 100,
+      ...overrides,
+    })
+    .returning({ id: chapters.id });
+  return row!.id;
 }
 
 describe('chapters routes', () => {
@@ -209,5 +239,124 @@ describe('chapters routes', () => {
     mockGetStatus.mockResolvedValueOnce(null);
     const r = await app.inject({ method: 'GET', url: `/api/stories/${storyId}/chapters/1/status` });
     expect(r.statusCode).toBe(404);
+  });
+
+  it('DELETE /api/stories/:storyId/chapters/:chapterNumber deletes the latest chapter', async () => {
+    const storyId = await createPlannedStory();
+    await createChapter(storyId, 1);
+    await createChapter(storyId, 2);
+
+    const r = await app.inject({
+      method: 'DELETE',
+      url: `/api/stories/${storyId}/chapters/2`,
+    });
+
+    expect(r.statusCode).toBe(204);
+
+    const db = getDb(TEST_DB);
+    const remaining = await db
+      .select()
+      .from(chapters)
+      .where(eq(chapters.storyId, storyId));
+    expect(remaining).toHaveLength(1);
+    expect(remaining[0]!.chapterNumber).toBe(1);
+
+    await db.delete(stories).where(eq(stories.id, storyId));
+  });
+
+  it('DELETE returns 400 when chapter is not the latest', async () => {
+    const storyId = await createPlannedStory();
+    await createChapter(storyId, 1);
+    await createChapter(storyId, 2);
+
+    const r = await app.inject({
+      method: 'DELETE',
+      url: `/api/stories/${storyId}/chapters/1`,
+    });
+
+    expect(r.statusCode).toBe(400);
+    expect(JSON.parse(r.body).error).toBe('only_latest_chapter_can_be_deleted');
+
+    const db = getDb(TEST_DB);
+    await db.delete(stories).where(eq(stories.id, storyId));
+  });
+
+  it('DELETE returns 404 for missing chapter', async () => {
+    const storyId = '00000000-0000-0000-0000-000000000000';
+    const r = await app.inject({
+      method: 'DELETE',
+      url: `/api/stories/${storyId}/chapters/99`,
+    });
+
+    expect(r.statusCode).toBe(404);
+    expect(JSON.parse(r.body).error).toBe('chapter_not_found');
+  });
+
+  it('DELETE returns 409 when chapter is generating', async () => {
+    const storyId = await createPlannedStory();
+    await createChapter(storyId, 1, { status: 'generating' });
+
+    const r = await app.inject({
+      method: 'DELETE',
+      url: `/api/stories/${storyId}/chapters/1`,
+    });
+
+    expect(r.statusCode).toBe(409);
+    expect(JSON.parse(r.body).error).toBe('chapter_is_generating');
+
+    const db = getDb(TEST_DB);
+    await db.delete(stories).where(eq(stories.id, storyId));
+  });
+
+  it('DELETE cleans up timeline_events, open_threads, and canon_facts', async () => {
+    const storyId = await createPlannedStory();
+    await createChapter(storyId, 1);
+
+    const db = getDb(TEST_DB);
+    await db.insert(timelineEvents).values({
+      storyId,
+      chapterNumber: 1,
+      eventText: 'An event',
+    });
+    await db.insert(openThreads).values({
+      storyId,
+      title: 'A thread',
+      openedChapter: 1,
+      plannedResolutionChapter: 1,
+    });
+    await db.insert(canonFacts).values({
+      storyId,
+      fact: 'A fact',
+      sourceChapter: 1,
+    });
+
+    const r = await app.inject({
+      method: 'DELETE',
+      url: `/api/stories/${storyId}/chapters/1`,
+    });
+
+    expect(r.statusCode).toBe(204);
+
+    const events = await db
+      .select()
+      .from(timelineEvents)
+      .where(eq(timelineEvents.storyId, storyId));
+    expect(events).toHaveLength(0);
+
+    const threads = await db
+      .select()
+      .from(openThreads)
+      .where(eq(openThreads.storyId, storyId));
+    expect(threads).toHaveLength(1);
+    expect(threads[0]!.openedChapter).toBeNull();
+    expect(threads[0]!.plannedResolutionChapter).toBeNull();
+
+    const facts = await db
+      .select()
+      .from(canonFacts)
+      .where(eq(canonFacts.storyId, storyId));
+    expect(facts).toHaveLength(0);
+
+    await db.delete(stories).where(eq(stories.id, storyId));
   });
 });
