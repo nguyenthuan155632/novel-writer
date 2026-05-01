@@ -25,10 +25,10 @@ describe('enqueueGenerateChapter', () => {
   });
 
   it('uses deterministic jobId for idempotency', async () => {
-    await enqueueGenerateChapter({ storyId: 's1', chapterNumber: 1, mode: 'safe' });
+    await enqueueGenerateChapter({ storyId: 's1', chapterNumber: 1, mode: 'safe', traceId: 'trace-1' });
     expect(mockAdd).toHaveBeenCalledWith(
       'generate-chapter',
-      expect.objectContaining({ storyId: 's1', chapterNumber: 1 }),
+      expect.objectContaining({ storyId: 's1', chapterNumber: 1, traceId: 'trace-1' }),
       expect.objectContaining({ jobId: 'gen-s1-1' }),
     );
   });
@@ -40,12 +40,12 @@ describe('enqueueGenerateChapter', () => {
       remove,
     });
 
-    await enqueueGenerateChapter({ storyId: 's1', chapterNumber: 1, mode: 'safe' });
+    await enqueueGenerateChapter({ storyId: 's1', chapterNumber: 1, mode: 'safe', traceId: 'trace-1' });
 
     expect(remove).toHaveBeenCalled();
     expect(mockAdd).toHaveBeenCalledWith(
       'generate-chapter',
-      expect.objectContaining({ storyId: 's1', chapterNumber: 1 }),
+      expect.objectContaining({ storyId: 's1', chapterNumber: 1, traceId: 'trace-1' }),
       expect.objectContaining({ jobId: 'gen-s1-1' }),
     );
   });

@@ -1,8 +1,16 @@
 import type { FastifyPluginCallback } from 'fastify';
 import { z } from 'zod';
 import { getDb } from '@novel/db';
-import { arcs, chapters, sagas, storyBibles } from '@novel/db/schema';
-import { eq, and, asc, desc, gte, isNull, lte, or } from 'drizzle-orm';
+import {
+  arcs,
+  canonFacts,
+  chapters,
+  openThreads,
+  sagas,
+  storyBibles,
+  timelineEvents,
+} from '@novel/db/schema';
+import { eq, and, asc, desc, gte, isNull, lte, or, sql } from 'drizzle-orm';
 import { newTraceId } from '@novel/core/trace';
 import {
   enqueueGenerateChapter,
@@ -154,6 +162,61 @@ const plugin: FastifyPluginCallback = (app, _opts, done) => {
     req.raw.on('close', () => {
       clearInterval(pollInterval);
     });
+  });
+
+  app.delete('/api/stories/:storyId/chapters/:chapterNumber', async (req, reply) => {
+    const { storyId, chapterNumber } = ChapterDetailParams.parse(req.params);
+    const db = getDb();
+
+    const [chapter] = await db
+      .select()
+      .from(chapters)
+      .where(and(eq(chapters.storyId, storyId), eq(chapters.chapterNumber, chapterNumber)))
+      .limit(1);
+
+    if (!chapter) {
+      return reply.code(404).send({ error: 'chapter_not_found' });
+    }
+
+    if (chapter.status === 'generating') {
+      return reply.code(409).send({ error: 'chapter_is_generating' });
+    }
+
+    const [maxRow] = await db
+      .select({ max: sql<number>`MAX(${chapters.chapterNumber})` })
+      .from(chapters)
+      .where(eq(chapters.storyId, storyId));
+
+    const max = maxRow?.max ?? 0;
+    if (chapterNumber < max) {
+      return reply.code(400).send({ error: 'only_latest_chapter_can_be_deleted' });
+    }
+
+    await db.transaction(async (tx) => {
+      await tx
+        .delete(timelineEvents)
+        .where(and(eq(timelineEvents.storyId, storyId), eq(timelineEvents.chapterNumber, chapterNumber)));
+
+      await tx
+        .update(openThreads)
+        .set({ openedChapter: sql`NULL` })
+        .where(and(eq(openThreads.storyId, storyId), eq(openThreads.openedChapter, chapterNumber)));
+
+      await tx
+        .update(openThreads)
+        .set({ plannedResolutionChapter: sql`NULL` })
+        .where(and(eq(openThreads.storyId, storyId), eq(openThreads.plannedResolutionChapter, chapterNumber)));
+
+      await tx
+        .delete(canonFacts)
+        .where(and(eq(canonFacts.storyId, storyId), eq(canonFacts.sourceChapter, chapterNumber)));
+
+      await tx
+        .delete(chapters)
+        .where(eq(chapters.id, chapter.id));
+    });
+
+    return reply.code(204).send();
   });
 
   done();
