@@ -39,6 +39,8 @@ import {
   type EmbeddingService,
   OpenRouterEmbeddingService,
   formatValidationReport,
+  loadStoryDomainContext,
+  type StoryDomainContext,
 } from "@novel/ai";
 import { mkdir, writeFile } from "fs/promises";
 import { join } from "path";
@@ -84,7 +86,7 @@ function serializeContextForWriter(ctx: ChapterContext): string {
   if (ctx.hot.bibleCompact)
     parts.push(`# BIBLE COMPACT\n${ctx.hot.bibleCompact}`);
   if (ctx.hot.styleGuide) parts.push(`# STYLE GUIDE\n${ctx.hot.styleGuide}`);
-  if (ctx.hot.powerRules) parts.push(`# POWER RULES\n${ctx.hot.powerRules}`);
+  if (ctx.hot.powerSystem) parts.push(`# POWER RULES\n${ctx.hot.powerSystem}`);
 
   for (const shot of ctx.hot.styleFewShots) {
     parts.push(`# STYLE EXAMPLE\n${shot.excerpt}`);
@@ -489,6 +491,8 @@ export async function executeGenerateChapterPipeline(
     chapterId = inserted!.id;
   }
 
+  const domain = await loadStoryDomainContext(db, data.storyId);
+
   try {
     const bible = await getStoryBible(db, data.storyId);
     const activeCharacters = await getActiveCharacters(
@@ -637,7 +641,7 @@ Trạng thái hiện tại: ${currentRealms || '(chưa xác định)'}`;
     let packetResult: PacketGenerationResult;
     let attemptCount = 1;
 
-    packetResult = await packetGen.generate(packetInput, {
+    packetResult = await packetGen.generate({ ...packetInput, genreDef: domain.genreDef, personalityDef: domain.personalityDef, storyOptions: domain.storyOptions }, {
       traceId,
       storyId: data.storyId,
     });
@@ -671,7 +675,7 @@ Trạng thái hiện tại: ${currentRealms || '(chưa xác định)'}`;
       overdueTurningPoints,
     };
 
-    const auditResult = auditPacket(auditInput);
+    const auditResult = auditPacket(auditInput, { genreFamily: domain.genreFamily });
 
     if (auditResult.requiresRegenerate && attemptCount < 2) {
       log.warn(
@@ -679,7 +683,7 @@ Trạng thái hiện tại: ${currentRealms || '(chưa xác định)'}`;
         "packet audit failed, regenerating with hints",
       );
       const hints = auditResult.issues.map((i) => i.message);
-      packetResult = await packetGen.generate(packetInput, {
+      packetResult = await packetGen.generate({ ...packetInput, genreDef: domain.genreDef, personalityDef: domain.personalityDef, storyOptions: domain.storyOptions }, {
         traceId,
         storyId: data.storyId,
         auditHints: hints,
@@ -723,6 +727,7 @@ Trạng thái hiện tại: ${currentRealms || '(chưa xác định)'}`;
       traceId,
       logger: log,
       config: effectiveConfig?.context,
+      domain,
     });
 
     await persistContextPacket(db, {
@@ -751,6 +756,7 @@ Trạng thái hiện tại: ${currentRealms || '(chưa xác định)'}`;
       chapterNumber: data.chapterNumber,
       storyId: data.storyId,
       traceId,
+      genreDef: domain.genreDef,
     });
     accumulateUsage(writerResult.usage, tokenAcc);
     totalCost += estimateCostUsd(writerModel, writerResult.usage);
@@ -764,7 +770,7 @@ Trạng thái hiện tại: ${currentRealms || '(chưa xác định)'}`;
       canon: checkCanon,
     };
 
-    const checks = buildChecks(bible.forbiddenRules);
+    const checks = buildChecks(bible.forbiddenRules, domain.genreFamily);
     const detResult: DeterministicValidatorResult = runDeterministicValidator(
       checkInput,
       checks,
@@ -833,6 +839,8 @@ Trạng thái hiện tại: ${currentRealms || '(chưa xác định)'}`;
         chapterNumber: data.chapterNumber,
         storyId: data.storyId,
         traceId,
+        genreDef: domain.genreDef,
+        personalityDef: domain.personalityDef,
       });
       accumulateUsage(llmValResult.usage, tokenAcc);
       totalCost += estimateCostUsd(llmValidatorModel, llmValResult.usage);
@@ -920,6 +928,7 @@ Trạng thái hiện tại: ${currentRealms || '(chưa xác định)'}`;
             issues: nonCriticalIssues,
             storyId: data.storyId,
             traceId,
+            genreDef: domain.genreDef,
           });
           accumulateUsage(fixResult.usage, tokenAcc);
           totalCost += estimateCostUsd(autoFixerModel, fixResult.usage);

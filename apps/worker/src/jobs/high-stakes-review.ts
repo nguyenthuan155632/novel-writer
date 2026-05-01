@@ -2,7 +2,7 @@ import { getDb } from '@novel/db';
 import { chapters, chapterSummaries } from '@novel/db/schema';
 import { eq, and, desc, or } from 'drizzle-orm';
 import type { Logger } from 'pino';
-import { HighStakesReviewerAgent } from '@novel/ai';
+import { HighStakesReviewerAgent, loadStoryDomainContext } from '@novel/ai';
 import type { LlmProviderId, ModelRoutes } from '@novel/core';
 import { buildLoggedWorkerProvider } from './provider.js';
 
@@ -40,6 +40,7 @@ export async function runHighStakesReviewJob(data: HighStakesReviewJobData, ctx:
 
   const arcSummary = summaries.map((s, i) => `Chapter ${chapterNumber - i}: ${s.rollingSummary ?? '(no summary)'}`).join('\n');
 
+  const domain = await loadStoryDomainContext(db, storyId);
   const { provider, modelRoutes } = await buildLoggedWorkerProvider(db, data);
   const agent = new HighStakesReviewerAgent({
     provider,
@@ -55,6 +56,8 @@ export async function runHighStakesReviewJob(data: HighStakesReviewJobData, ctx:
     chapter: { title: chapter.title ?? `Chapter ${chapterNumber}`, content: chapter.content ?? '' },
     arcSummary,
     bibleCompact: '',
+    genreDef: domain.genreDef,
+    personalityDef: domain.personalityDef,
   });
 
   log.info({ approve: result.output.approve, reviewId: result.reviewId }, 'high-stakes review completed');
