@@ -1,6 +1,6 @@
-import type { FastifyPluginCallback } from 'fastify';
-import { z } from 'zod';
-import { getDb } from '@novel/db';
+import type { FastifyPluginCallback } from "fastify";
+import { z } from "zod";
+import { getDb } from "@novel/db";
 import {
   arcs,
   canonFacts,
@@ -9,14 +9,14 @@ import {
   sagas,
   storyBibles,
   timelineEvents,
-} from '@novel/db/schema';
-import { eq, and, asc, desc, gte, isNull, lte, or, sql } from 'drizzle-orm';
-import { newTraceId } from '@novel/core/trace';
+} from "@novel/db/schema";
+import { eq, and, asc, desc, gte, isNull, lte, or, sql } from "drizzle-orm";
+import { newTraceId } from "@novel/core/trace";
 import {
   enqueueGenerateChapter,
   getGenerateChapterStatus,
-} from '../services/queue-client.js';
-import { getQueueLlmSnapshot } from '../lib/provider-switcher.ts';
+} from "../services/queue-client.js";
+import { getQueueLlmSnapshot } from "../lib/provider-switcher.ts";
 
 const ChapterParams = z.object({
   storyId: z.string().uuid(),
@@ -29,48 +29,55 @@ const ChapterDetailParams = z.object({
 
 const PostGenerateBody = z.object({
   chapterNumber: z.number().int().positive(),
-  mode: z.enum(['safe', 'semi_auto', 'full_auto']).default('safe'),
+  mode: z.enum(["safe", "semi_auto", "full_auto"]).default("safe"),
 });
 
 async function getMissingPlanningSteps(
   db: ReturnType<typeof getDb>,
   storyId: string,
   chapterNumber: number,
-): Promise<Array<'bible' | 'saga' | 'arc'>> {
-  const missing: Array<'bible' | 'saga' | 'arc'> = [];
+): Promise<Array<"bible" | "saga" | "arc">> {
+  const missing: Array<"bible" | "saga" | "arc"> = [];
 
-  const [bible] = await db.select({ id: storyBibles.id })
+  const [bible] = await db
+    .select({ id: storyBibles.id })
     .from(storyBibles)
     .where(eq(storyBibles.storyId, storyId))
     .orderBy(desc(storyBibles.version))
     .limit(1);
-  if (!bible) missing.push('bible');
+  if (!bible) missing.push("bible");
 
-  const [saga] = await db.select({ id: sagas.id })
+  const [saga] = await db
+    .select({ id: sagas.id })
     .from(sagas)
-    .where(and(
-      eq(sagas.storyId, storyId),
-      lte(sagas.startChapter, chapterNumber),
-      or(isNull(sagas.endChapter), gte(sagas.endChapter, chapterNumber)),
-    ))
+    .where(
+      and(
+        eq(sagas.storyId, storyId),
+        lte(sagas.startChapter, chapterNumber),
+        or(isNull(sagas.endChapter), gte(sagas.endChapter, chapterNumber)),
+      ),
+    )
     .limit(1);
-  if (!saga) missing.push('saga');
+  if (!saga) missing.push("saga");
 
-  const [arc] = await db.select({ id: arcs.id })
+  const [arc] = await db
+    .select({ id: arcs.id })
     .from(arcs)
-    .where(and(
-      eq(arcs.storyId, storyId),
-      lte(arcs.startChapter, chapterNumber),
-      or(isNull(arcs.endChapter), gte(arcs.endChapter, chapterNumber)),
-    ))
+    .where(
+      and(
+        eq(arcs.storyId, storyId),
+        lte(arcs.startChapter, chapterNumber),
+        or(isNull(arcs.endChapter), gte(arcs.endChapter, chapterNumber)),
+      ),
+    )
     .limit(1);
-  if (!arc) missing.push('arc');
+  if (!arc) missing.push("arc");
 
   return missing;
 }
 
 const plugin: FastifyPluginCallback = (app, _opts, done) => {
-  app.get('/api/stories/:storyId/chapters', async (req, reply) => {
+  app.get("/api/stories/:storyId/chapters", async (req, reply) => {
     const { storyId } = ChapterParams.parse(req.params);
     const db = getDb();
     const rows = await db
@@ -83,37 +90,50 @@ const plugin: FastifyPluginCallback = (app, _opts, done) => {
       })
       .from(chapters)
       .where(eq(chapters.storyId, storyId))
-      .orderBy(asc(chapters.chapterNumber));
+      .orderBy(desc(chapters.chapterNumber));
     return reply.send({ chapters: rows });
   });
 
-  app.get('/api/stories/:storyId/chapters/:chapterNumber', async (req, reply) => {
-    const { storyId, chapterNumber } = ChapterDetailParams.parse(req.params);
-    const db = getDb();
-    const [row] = await db
-      .select()
-      .from(chapters)
-      .where(and(eq(chapters.storyId, storyId), eq(chapters.chapterNumber, chapterNumber)))
-      .limit(1);
-    if (!row) return reply.code(404).send({ error: 'chapter_not_found' });
-    return reply.send({ chapter: row });
-  });
+  app.get(
+    "/api/stories/:storyId/chapters/:chapterNumber",
+    async (req, reply) => {
+      const { storyId, chapterNumber } = ChapterDetailParams.parse(req.params);
+      const db = getDb();
+      const [row] = await db
+        .select()
+        .from(chapters)
+        .where(
+          and(
+            eq(chapters.storyId, storyId),
+            eq(chapters.chapterNumber, chapterNumber),
+          ),
+        )
+        .limit(1);
+      if (!row) return reply.code(404).send({ error: "chapter_not_found" });
+      return reply.send({ chapter: row });
+    },
+  );
 
-  app.post('/api/stories/:storyId/chapters/generate', async (req, reply) => {
+  app.post("/api/stories/:storyId/chapters/generate", async (req, reply) => {
     const { storyId } = ChapterParams.parse(req.params);
     const body = PostGenerateBody.parse(req.body);
     const db = getDb();
-    const missing = await getMissingPlanningSteps(db, storyId, body.chapterNumber);
+    const missing = await getMissingPlanningSteps(
+      db,
+      storyId,
+      body.chapterNumber,
+    );
     if (missing.length > 0) {
       return reply.code(409).send({
-        error: 'planning_required',
+        error: "planning_required",
         missing,
         chapterNumber: body.chapterNumber,
       });
     }
 
     const llmSnapshot = await getQueueLlmSnapshot();
-    const traceId = (req as unknown as { traceId?: string }).traceId ?? newTraceId();
+    const traceId =
+      (req as unknown as { traceId?: string }).traceId ?? newTraceId();
     const { jobId } = await enqueueGenerateChapter({
       storyId,
       chapterNumber: body.chapterNumber,
@@ -122,102 +142,138 @@ const plugin: FastifyPluginCallback = (app, _opts, done) => {
       llmProvider: llmSnapshot.llmProvider,
       modelRoutes: llmSnapshot.modelRoutes,
     });
-    return reply.code(202).send({ jobId, storyId, chapterNumber: body.chapterNumber });
+    return reply
+      .code(202)
+      .send({ jobId, storyId, chapterNumber: body.chapterNumber });
   });
 
-  app.get('/api/stories/:storyId/chapters/:chapterNumber/status', async (req, reply) => {
-    const { storyId, chapterNumber } = ChapterDetailParams.parse(req.params);
-    const status = await getGenerateChapterStatus(storyId, chapterNumber);
-    if (!status) return reply.code(404).send({ error: 'no_active_job' });
-    return reply.send(status);
-  });
-
-  app.get('/api/stories/:storyId/chapters/:chapterNumber/stream', async (req, reply) => {
-    const { storyId, chapterNumber } = ChapterDetailParams.parse(req.params);
-    reply.raw.writeHead(200, {
-      'Content-Type': 'text/event-stream',
-      'Cache-Control': 'no-cache',
-      Connection: 'keep-alive',
-    });
-
-    const sendEvent = (event: string, data: unknown) => {
-      reply.raw.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
-    };
-
-    sendEvent('connected', { storyId, chapterNumber });
-
-    const pollInterval = setInterval(async () => {
+  app.get(
+    "/api/stories/:storyId/chapters/:chapterNumber/status",
+    async (req, reply) => {
+      const { storyId, chapterNumber } = ChapterDetailParams.parse(req.params);
       const status = await getGenerateChapterStatus(storyId, chapterNumber);
-      if (!status) {
-        sendEvent('status', { state: 'unknown' });
-      } else {
-        sendEvent('status', status);
-        if (status.state === 'completed' || status.state === 'failed') {
-          clearInterval(pollInterval);
-          reply.raw.end();
+      if (!status) return reply.code(404).send({ error: "no_active_job" });
+      return reply.send(status);
+    },
+  );
+
+  app.get(
+    "/api/stories/:storyId/chapters/:chapterNumber/stream",
+    async (req, reply) => {
+      const { storyId, chapterNumber } = ChapterDetailParams.parse(req.params);
+      reply.raw.writeHead(200, {
+        "Content-Type": "text/event-stream",
+        "Cache-Control": "no-cache",
+        Connection: "keep-alive",
+      });
+
+      const sendEvent = (event: string, data: unknown) => {
+        reply.raw.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+      };
+
+      sendEvent("connected", { storyId, chapterNumber });
+
+      const pollInterval = setInterval(async () => {
+        const status = await getGenerateChapterStatus(storyId, chapterNumber);
+        if (!status) {
+          sendEvent("status", { state: "unknown" });
+        } else {
+          sendEvent("status", status);
+          if (status.state === "completed" || status.state === "failed") {
+            clearInterval(pollInterval);
+            reply.raw.end();
+          }
         }
+      }, 2000);
+
+      req.raw.on("close", () => {
+        clearInterval(pollInterval);
+      });
+    },
+  );
+
+  app.delete(
+    "/api/stories/:storyId/chapters/:chapterNumber",
+    async (req, reply) => {
+      const { storyId, chapterNumber } = ChapterDetailParams.parse(req.params);
+      const db = getDb();
+
+      const [chapter] = await db
+        .select()
+        .from(chapters)
+        .where(
+          and(
+            eq(chapters.storyId, storyId),
+            eq(chapters.chapterNumber, chapterNumber),
+          ),
+        )
+        .limit(1);
+
+      if (!chapter) {
+        return reply.code(404).send({ error: "chapter_not_found" });
       }
-    }, 2000);
 
-    req.raw.on('close', () => {
-      clearInterval(pollInterval);
-    });
-  });
+      if (chapter.status === "generating") {
+        return reply.code(409).send({ error: "chapter_is_generating" });
+      }
 
-  app.delete('/api/stories/:storyId/chapters/:chapterNumber', async (req, reply) => {
-    const { storyId, chapterNumber } = ChapterDetailParams.parse(req.params);
-    const db = getDb();
+      const [maxRow] = await db
+        .select({ max: sql<number>`MAX(${chapters.chapterNumber})` })
+        .from(chapters)
+        .where(eq(chapters.storyId, storyId));
 
-    const [chapter] = await db
-      .select()
-      .from(chapters)
-      .where(and(eq(chapters.storyId, storyId), eq(chapters.chapterNumber, chapterNumber)))
-      .limit(1);
+      const max = maxRow?.max ?? 0;
+      if (chapterNumber < max) {
+        return reply
+          .code(400)
+          .send({ error: "only_latest_chapter_can_be_deleted" });
+      }
 
-    if (!chapter) {
-      return reply.code(404).send({ error: 'chapter_not_found' });
-    }
+      await db.transaction(async (tx) => {
+        await tx
+          .delete(timelineEvents)
+          .where(
+            and(
+              eq(timelineEvents.storyId, storyId),
+              eq(timelineEvents.chapterNumber, chapterNumber),
+            ),
+          );
 
-    if (chapter.status === 'generating') {
-      return reply.code(409).send({ error: 'chapter_is_generating' });
-    }
+        await tx
+          .update(openThreads)
+          .set({ openedChapter: sql`NULL` })
+          .where(
+            and(
+              eq(openThreads.storyId, storyId),
+              eq(openThreads.openedChapter, chapterNumber),
+            ),
+          );
 
-    const [maxRow] = await db
-      .select({ max: sql<number>`MAX(${chapters.chapterNumber})` })
-      .from(chapters)
-      .where(eq(chapters.storyId, storyId));
+        await tx
+          .update(openThreads)
+          .set({ plannedResolutionChapter: sql`NULL` })
+          .where(
+            and(
+              eq(openThreads.storyId, storyId),
+              eq(openThreads.plannedResolutionChapter, chapterNumber),
+            ),
+          );
 
-    const max = maxRow?.max ?? 0;
-    if (chapterNumber < max) {
-      return reply.code(400).send({ error: 'only_latest_chapter_can_be_deleted' });
-    }
+        await tx
+          .delete(canonFacts)
+          .where(
+            and(
+              eq(canonFacts.storyId, storyId),
+              eq(canonFacts.sourceChapter, chapterNumber),
+            ),
+          );
 
-    await db.transaction(async (tx) => {
-      await tx
-        .delete(timelineEvents)
-        .where(and(eq(timelineEvents.storyId, storyId), eq(timelineEvents.chapterNumber, chapterNumber)));
+        await tx.delete(chapters).where(eq(chapters.id, chapter.id));
+      });
 
-      await tx
-        .update(openThreads)
-        .set({ openedChapter: sql`NULL` })
-        .where(and(eq(openThreads.storyId, storyId), eq(openThreads.openedChapter, chapterNumber)));
-
-      await tx
-        .update(openThreads)
-        .set({ plannedResolutionChapter: sql`NULL` })
-        .where(and(eq(openThreads.storyId, storyId), eq(openThreads.plannedResolutionChapter, chapterNumber)));
-
-      await tx
-        .delete(canonFacts)
-        .where(and(eq(canonFacts.storyId, storyId), eq(canonFacts.sourceChapter, chapterNumber)));
-
-      await tx
-        .delete(chapters)
-        .where(eq(chapters.id, chapter.id));
-    });
-
-    return reply.code(204).send();
-  });
+      return reply.code(204).send();
+    },
+  );
 
   done();
 };

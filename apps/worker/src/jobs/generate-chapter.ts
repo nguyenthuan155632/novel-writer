@@ -104,7 +104,10 @@ function serializeContextForWriter(ctx: ChapterContext): string {
   }
   if (ctx.warm.arcOpenThreads.length > 0) {
     const threads = ctx.warm.arcOpenThreads
-      .map((t) => `- ${t.title} [${t.state}] (from ch${t.introducedChapter})`)
+      .map((t) => {
+        const deadline = t.plannedResolutionChapter ? ` → resolve by ch${t.plannedResolutionChapter}` : '';
+        return `- ${t.title} [${t.state}] (from ch${t.introducedChapter})${deadline}`;
+      })
       .join("\n");
     parts.push(`# OPEN THREADS\n${threads}`);
   }
@@ -137,7 +140,7 @@ function serializeContextForWriter(ctx: ChapterContext): string {
     const due = ctx.cold.seedsToPlantNow
       .map(
         (s) =>
-          `- MUST PLANT: "${s.seedText}" (id=${s.id}) → ${s.payoffDescription} — window ends ch${s.plantWindowEnd}`,
+          `- Nên plant trong chương này: "${s.seedText}" (id=${s.id}) → ${s.payoffDescription} — cửa sổ kết thúc ch${s.plantWindowEnd}`,
       )
       .join("\n");
     parts.push(`# SEEDS DUE THIS CHAPTER\n${due}`);
@@ -150,6 +153,8 @@ function serializeContextForWriter(ctx: ChapterContext): string {
     parts.push(`Conflict: ${p.conflict}`);
     parts.push(`Cliffhanger: ${p.cliffhanger}`);
     parts.push(`Characters present: ${p.charactersPresent.join(", ")}`);
+    if (p.requiredEvents.length > 0)
+      parts.push(`Required events (nên xảy ra trong chương này):\n${p.requiredEvents.map((e, i) => `  ${i + 1}. ${e.description}`).join("\n")}`);
     if (p.forbiddenMoves.length > 0)
       parts.push(`Forbidden: ${p.forbiddenMoves.join("; ")}`);
   }
@@ -529,10 +534,10 @@ export async function executeGenerateChapterPipeline(
     if (arc?.endChapter != null && arc?.startChapter != null) {
       const urgency =
         arcProgressPct >= 80
-          ? `KHẨN: chỉ còn ${chaptersRemainingInArc} chương để đạt mục tiêu arc — chương này PHẢI đẩy plot tới climax/breakthrough, KHÔNG filler, KHÔNG kéo dài training/đi đường.`
+          ? `Chỉ còn ${chaptersRemainingInArc} chương trong arc — nên đẩy plot về phía climax, tránh filler hoặc kéo dài không cần thiết.`
           : arcProgressPct >= 50
-            ? `Đã qua nửa arc — mỗi chương phải có tiến triển rõ rệt về cấp độ tu luyện hoặc resolve thread. Tránh lặp lại tình huống của 2 chương gần nhất.`
-            : `Đang ở giai đoạn xây dựng arc — vẫn cần mỗi chương đẩy ít nhất 1 thread tiến lên.`;
+            ? `Đã qua nửa arc — mỗi chương nên có tiến triển rõ rệt về nhân vật hoặc resolve ít nhất 1 thread.`
+            : `Giai đoạn xây dựng arc — mỗi chương nên đẩy ít nhất 1 thread tiến lên.`;
       pacingHint = `\n\n# PACING (arc ${arcPosition}/${arcSpan} ≈ ${arcProgressPct}%)\n${urgency}`;
     }
 
@@ -553,21 +558,50 @@ export async function executeGenerateChapterPipeline(
       const tpList = tps
         .map((tp, i) => {
           const marker =
-            i < expectedTpIndex ? "[ĐÃ PHẢI XẢY RA]" :
-            i === expectedTpIndex ? "[ĐANG/SẮP XẢY RA NGAY]" :
+            i < expectedTpIndex ? "[trễ tiến độ]" :
+            i === expectedTpIndex ? "[đang diễn ra]" :
             "[sắp tới]";
           return `${i + 1}. ${marker} ${tp}`;
         })
         .join("\n");
       pacingHint += `\n\n# SAGA PACING (saga ${sagaPosition}/${sagaSpan} ≈ ${sagaProgressPct}%)
-Đối chiếu với # 5 CHƯƠNG GẦN NHẤT: nếu turning point được đánh dấu [ĐÃ PHẢI XẢY RA] mà chưa thấy trong các chương đó → chương này PHẢI đẩy nó xảy ra ngay (ưu tiên hơn cả arc goal). Không được nhảy cóc qua TP chưa xảy ra.
+Đối chiếu với # 5 CHƯƠNG GẦN NHẤT: nếu turning point được đánh dấu [trễ tiến độ] mà chưa thấy trong các chương đó, chương này nên đẩy nó xảy ra để truyện bắt kịp nhịp saga.
 Turning points của saga:
 ${tpList}`;
+
+      const overdueTps = tps.slice(0, expectedTpIndex);
+      if (overdueTps.length > 0) {
+        const currentRealms = activeCharacters
+          .filter(c => c.status === 'alive' && c.currentRealm)
+          .map(c => `${c.name}: ${c.currentRealm}`)
+          .join(', ');
+        pacingHint += `\n\n# TIẾN ĐỘ NHÂN VẬT
+Các turning point sau đang trễ tiến độ — đối chiếu với cảnh giới/trạng thái nhân vật hiện tại và xem xét nên advance trong chương này:
+${overdueTps.map(tp => `  - ${tp}`).join('\n')}
+Trạng thái hiện tại: ${currentRealms || '(chưa xác định)'}`;
+      }
     }
+
+    const arcExpectedChanges = Array.isArray(arc?.expectedChanges)
+      ? (arc.expectedChanges as string[])
+      : [];
+    const arcPlanText = [
+      arc?.premise
+        ? `Premise (kế hoạch gốc, KHÔNG đổi):\n${arc.premise}`
+        : "",
+      arcExpectedChanges.length > 0
+        ? `Expected changes (nên xảy ra trong arc):\n${arcExpectedChanges.map((c, i) => `  ${i + 1}. ${c}`).join("\n")}`
+        : "",
+      arc?.rollingSummary
+        ? `Đã xảy ra (rolling — chỉ dùng để tránh lặp, KHÔNG phải mục tiêu):\n${arc.rollingSummary}`
+        : "",
+    ]
+      .filter(Boolean)
+      .join("\n\n");
 
     const packetInput = {
       bibleCompact: bible.compactSummary ?? "",
-      arcSummary: arc?.rollingSummary ?? arc?.summary ?? "",
+      arcSummary: arcPlanText,
       recentChapterSummaries: recentSummaries.map((s) => ({
         chapterNumber: s.chapterNumber,
         summary: s.summary,
@@ -591,7 +625,7 @@ ${tpList}`;
       })),
       forbiddenRules: bible.forbiddenRules,
       chapterNumber: data.chapterNumber,
-      arcGoals: (arc?.mainConflict ?? "") + pacingHint,
+      arcGoals: (arc?.mainConflict ?? arc?.premise ?? "") + pacingHint,
     };
 
     const packetModel = modelForRole(effectiveConfig, "packet_generator");
@@ -610,6 +644,17 @@ ${tpList}`;
     accumulateUsage(packetResult.usage, tokenAcc);
     totalCost += estimateCostUsd(packetModel, packetResult.usage);
 
+    const overdueTurningPoints: string[] =
+      saga?.startChapter != null && saga?.endChapter != null && Array.isArray(saga.expectedTurningPoints)
+        ? (() => {
+            const tps = saga.expectedTurningPoints as string[];
+            const sagaSpanLocal = Math.max(1, saga.endChapter! - saga.startChapter! + 1);
+            const sagaPosLocal = data.chapterNumber - saga.startChapter! + 1;
+            const expectedIdx = Math.min(tps.length - 1, Math.floor((sagaPosLocal - 1) / (sagaSpanLocal / tps.length)));
+            return tps.slice(0, expectedIdx);
+          })()
+        : [];
+
     const auditInput = {
       packet: packetResult.packet,
       characters: activeCharacters.map((c) => ({
@@ -623,6 +668,7 @@ ${tpList}`;
         seedText: s.seedText,
         plantWindowEnd: s.plantWindowEnd,
       })),
+      overdueTurningPoints,
     };
 
     const auditResult = auditPacket(auditInput);

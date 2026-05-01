@@ -54,9 +54,34 @@ export async function buildContext(deps: BuildContextDeps): Promise<ChapterConte
 
   const arcSeeds = filterArcSeeds(allSeeds, chapterNumber);
 
+  const sagaPlanText = [
+    saga?.premise ? `Premise saga: ${saga.premise}` : '',
+    Array.isArray(saga?.expectedTurningPoints) && (saga.expectedTurningPoints as string[]).length > 0
+      ? `Turning points (nên theo thứ tự):\n${(saga.expectedTurningPoints as string[]).map((tp, i) => `  ${i + 1}. ${tp}`).join('\n')}`
+      : '',
+    saga?.rollingSummary ? `Đã xảy ra (rolling):\n${saga.rollingSummary}` : '',
+  ].filter(Boolean).join('\n\n');
+
+  const arcExpectedChanges = Array.isArray(arc?.expectedChanges) ? (arc.expectedChanges as string[]) : [];
+  const arcExpectedPower = Array.isArray(arc?.expectedPowerChanges) ? (arc.expectedPowerChanges as string[]) : [];
+  const arcExpectedChar = Array.isArray(arc?.expectedCharacterChanges) ? (arc.expectedCharacterChanges as string[]) : [];
+  const arcPlanText = [
+    arc?.premise ? `Premise arc (kế hoạch gốc, KHÔNG đổi):\n${arc.premise}` : '',
+    arcExpectedChanges.length > 0
+      ? `Expected changes (nên xảy ra trong arc):\n${arcExpectedChanges.map((c, i) => `  ${i + 1}. ${c}`).join('\n')}`
+      : '',
+    arcExpectedPower.length > 0
+      ? `Thay đổi cảnh giới/sức mạnh dự kiến:\n${arcExpectedPower.map(c => `  - ${c}`).join('\n')}`
+      : '',
+    arcExpectedChar.length > 0
+      ? `Thay đổi nhân vật dự kiến:\n${arcExpectedChar.map(c => `  - ${c}`).join('\n')}`
+      : '',
+    arc?.rollingSummary ? `Đã xảy ra (rolling — chỉ tránh lặp):\n${arc.rollingSummary}` : '',
+  ].filter(Boolean).join('\n\n');
+
   const warm: WarmTier = {
-    sagaSummary: saga?.rollingSummary ?? '',
-    arcSummary: arc?.rollingSummary ?? arc?.summary ?? '',
+    sagaSummary: sagaPlanText,
+    arcSummary: arcPlanText,
     activeCharacters: characters,
     arcOpenThreads: threads,
     arcPlantedSeeds: arcSeeds,

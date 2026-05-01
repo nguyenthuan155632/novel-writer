@@ -6,6 +6,7 @@ export type AuditInput = {
   characters: { name: string; status: string; currentRealm?: string }[];
   forbiddenRules: string;
   duePlantedSeeds: { id: string; seedText: string; plantWindowEnd: number }[];
+  overdueTurningPoints?: string[];
 };
 
 export type AuditIssue = {
@@ -70,6 +71,30 @@ export function auditPacket(input: AuditInput): AuditResult {
         code: 'realm_jump_excess',
         severity: 'critical',
         message: `Packet đề xuất ${breakCount} đột phá trong cùng 1 chương (max ${GENERATION_CONFIG.MAX_REALM_JUMP_PER_CHAPTER}).`,
+      });
+    }
+  }
+
+  if (input.overdueTurningPoints && input.overdueTurningPoints.length > 0) {
+    const packetText = [
+      input.packet.goal,
+      input.packet.conflict,
+      ...input.packet.requiredEvents.map(e => e.description),
+    ].join(' ').toLowerCase();
+
+    const missedTps = input.overdueTurningPoints.filter(tp => {
+      const keywords = tp
+        .toLowerCase()
+        .split(/[\s,，、.。!！?？]+/)
+        .filter(w => w.length >= 3);
+      return !keywords.some(kw => packetText.includes(kw));
+    });
+
+    if (missedTps.length > 0) {
+      issues.push({
+        code: 'overdue_turning_point',
+        severity: 'high',
+        message: `Packet không đề cập tới turning point quá hạn: ${missedTps.map(tp => `"${tp}"`).join('; ')}. Goal/requiredEvents phải thể hiện ít nhất 1 TP này.`,
       });
     }
   }
