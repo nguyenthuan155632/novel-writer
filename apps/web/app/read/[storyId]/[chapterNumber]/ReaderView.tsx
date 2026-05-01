@@ -113,19 +113,23 @@ export function ReaderView({ storyId, storyTitle, chapter }: ReaderViewProps) {
 
   // Auto-generate the next chapter when the reader is within 5 chapters of the latest
   // AND the latest chapter is fully completed (not still generating).
-  // Condition: currentChapterNumber >= latestChapterNumber - 5
+  // Condition: currentChapterNumber >= latestChapterNumber - 50
   // Tracks which chapter number we last triggered generation for.
   // Using a number (not a boolean) lets the effect re-fire when the latest
   // chapter advances (e.g. user navigates forward and a new chapter completes).
   const generationTriggered = useRef<number>(-1);
   const [autoGenerating, setAutoGenerating] = useState(false);
+  const [manualGenerating, setManualGenerating] = useState(false);
+
+  // Derived at component scope so it can be used in both the effect and render.
+  const latestChapter =
+    chapters.length > 0 ? chapters[chapters.length - 1] : null;
 
   useEffect(() => {
-    if (chapters.length === 0) return;
-    const latestChapter = chapters[chapters.length - 1];
+    if (!latestChapter) return;
     // Guard: only trigger if the last chapter is complete — not mid-generation.
     if (latestChapter.status !== "completed") return;
-    if (chapter.chapterNumber < latestChapter.chapterNumber - 5) return;
+    if (chapter.chapterNumber < latestChapter.chapterNumber - 50) return;
     const nextToGenerate = latestChapter.chapterNumber + 1;
     // Avoid duplicate requests for the same target chapter.
     if (generationTriggered.current === nextToGenerate) return;
@@ -136,7 +140,20 @@ export function ReaderView({ storyId, storyTitle, chapter }: ReaderViewProps) {
         // Silently ignore — chapter may already exist or be queued.
       })
       .finally(() => setAutoGenerating(false));
-  }, [chapters, chapter.chapterNumber, storyId]);
+  }, [latestChapter, chapter.chapterNumber, storyId]);
+
+  const handleManualGenerate = useCallback(() => {
+    if (!latestChapter || manualGenerating || autoGenerating) return;
+    const nextToGenerate = latestChapter.chapterNumber + 1;
+    // Reset the auto-gen guard so it can pick up the new chapter once ready.
+    generationTriggered.current = nextToGenerate;
+    setManualGenerating(true);
+    generateChapter(storyId, nextToGenerate, "semi_auto")
+      .catch(() => {
+        // Silently ignore — chapter may already exist or be queued.
+      })
+      .finally(() => setManualGenerating(false));
+  }, [latestChapter, manualGenerating, autoGenerating, storyId]);
 
   return (
     <div
@@ -554,7 +571,15 @@ export function ReaderView({ storyId, storyTitle, chapter }: ReaderViewProps) {
                 ×
               </button>
             </div>
-            <div style={{ overflowY: "auto", padding: 8 }}>
+            <div
+              style={{
+                overflowY: "auto",
+                padding: 8,
+                flex: 1,
+                minHeight: 0,
+                overscrollBehavior: "contain",
+              }}
+            >
               {chapters.length === 0 ? (
                 <p style={{ padding: 16, opacity: 0.7 }}>
                   No chapters available yet.
@@ -690,9 +715,12 @@ export function ReaderView({ storyId, storyTitle, chapter }: ReaderViewProps) {
         >
           ☰
         </button>
-        {nextChapter ? (
-          <Link
-            href={`/read/${storyId}/${nextChapter.chapterNumber}`}
+        <div style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+          <button
+            type="button"
+            aria-label="Generate next chapter"
+            disabled={manualGenerating || autoGenerating}
+            onClick={handleManualGenerate}
             style={{
               display: "inline-flex",
               alignItems: "center",
@@ -700,19 +728,44 @@ export function ReaderView({ storyId, storyTitle, chapter }: ReaderViewProps) {
               minHeight: 44,
               minWidth: 44,
               padding: "8px 14px",
-              borderRadius: 999,
+              borderRadius: "50%",
               border: `1px solid ${theme.text}33`,
+              background:
+                manualGenerating || autoGenerating
+                  ? `${theme.text}11`
+                  : "transparent",
               color: theme.text,
               fontWeight: 600,
               fontSize: 14,
-              textDecoration: "none",
+              cursor:
+                manualGenerating || autoGenerating ? "not-allowed" : "pointer",
+              opacity: manualGenerating || autoGenerating ? 0.6 : 1,
             }}
           >
-            Tiếp →
-          </Link>
-        ) : (
-          <span />
-        )}
+            {manualGenerating || autoGenerating ? "⏳" : "✨"}
+          </button>
+          {nextChapter && (
+            <Link
+              href={`/read/${storyId}/${nextChapter.chapterNumber}`}
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 6,
+                minHeight: 44,
+                minWidth: 80,
+                padding: "8px 14px",
+                borderRadius: 999,
+                border: `1px solid ${theme.text}33`,
+                color: theme.text,
+                fontWeight: 600,
+                fontSize: 14,
+                textDecoration: "none",
+              }}
+            >
+              Tiếp →
+            </Link>
+          )}
+        </div>
       </nav>
 
       {autoGenerating && (
