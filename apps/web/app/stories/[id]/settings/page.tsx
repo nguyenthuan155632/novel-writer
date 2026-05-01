@@ -8,7 +8,7 @@ import {
   TONES, PACINGS, MAIN_CONFLICT_TYPES, POWER_SYSTEM_STYLES, WORLD_ERAS,
   ROMANCE_LEVELS, COMEDY_LEVELS, DARK_LEVELS, POVS, MORALITIES,
   type GenreSlug, type PersonalitySlug, type StoryOptions,
-} from '@novel/core';
+} from '@novel/core/catalog';
 
 function deepMerge(target: Record<string, unknown>, source: Record<string, unknown>): Record<string, unknown> {
   const result = { ...target };

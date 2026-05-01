@@ -13,7 +13,8 @@
     "./trace": "./src/trace.ts",
     "./types/*": "./src/types/*.ts",
     "./utils/*": "./src/utils/*.ts",
-    "./policy/*": "./src/policy/*.ts"
+    "./policy/*": "./src/policy/*.ts",
+    "./catalog": "./src/catalog/index.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",

@@ -7,7 +7,7 @@ import {
   TONES, PACINGS, MAIN_CONFLICT_TYPES, POWER_SYSTEM_STYLES, WORLD_ERAS,
   ROMANCE_LEVELS, COMEDY_LEVELS, DARK_LEVELS, POVS, MORALITIES,
   type GenreSlug, type PersonalitySlug, type StoryOptions,
-} from '@novel/core';
+} from '@novel/core/catalog';
 
 const GENRE_DEFAULT_OPTIONS: Partial<Record<GenreSlug, Partial<StoryOptions>>> = {
   tien_hiep:   { tone: 'serious',  pacing: 'medium', powerSystemStyle: 'realm',   worldEra: 'otherworld', pov: 'third_limited', protagonistMorality: 'pragmatic' },

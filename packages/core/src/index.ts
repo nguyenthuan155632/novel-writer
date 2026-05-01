@@ -24,8 +24,8 @@ export { resolveEffectiveMode, type Mode, type ModeContext, type ModeEscalationD
 export { checkAgainstCaps } from './policy/budget-guardrails.ts';
 export { shouldRunReviewer, type TriggerContext } from './policy/high-stakes-triggers.ts';
 export { mergeOverrides, getEffectiveConfig, type EffectiveConfig, type ConfigOverrides, type StoryOverridesProvider } from './config/effective.ts';
-export * from './utils/tokens.js';
-export * from './utils/hash.js';
+export * from './utils/tokens.ts';
+export * from './utils/hash.ts';
 export { EXPORT_CONFIG, type ExportFormat } from './config/export-config.ts';
 export { AdminMetricsService, type AnyDb, type CacheHitRate, type CostRollingPoint, type ValidatorFailureRow, type AutoFixStat, type PendingCanonAgingBucket, type AdminMetrics } from './services/admin-metrics.ts';
 export { renderMarkdown, type MarkdownExportInput } from './services/exporters/markdown-exporter.ts';
