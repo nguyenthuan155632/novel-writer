@@ -18,7 +18,7 @@ export type PersonalitySlug =
   | 'lac_quan_vo_tu'
   | 'tham_lam_vi_ki'
   | 'trung_thanh_tuyet_doi'
-  | 'tri_tue sieu viet';
+  | 'calm_rational';
 
 export interface PersonalityDef {
   slug: PersonalitySlug;
@@ -223,13 +223,13 @@ export const PERSONALITIES: readonly PersonalityDef[] = [
     driftSignals: ['phản bội', 'đặt câu hỏi về lòng trung thành', 'hành động vì lợi ích cá nhân'],
   },
   {
-    slug: 'tri_tue_sieu_viet',
-    viLabel: 'Trí tuệ siêu việt',
-    viDescription: 'Nhân vật thiên tài vượt trội, suy nghĩ nhanh và sâu hơn người thường, thường cô đơn vì không ai hiểu mình.',
-    voiceHints: 'Giọng văn phức tạp, nhiều lớp nghĩa, mô tả suy luận nhanh và sâu, câu văn đầy ẩn dụ trí tuệ.',
-    decisionStyle: 'Phân tích siêu việt, nhìn thấy kết quả nhiều bước trước, hành động dựa trên mô hình phức tạp.',
-    dialogueStyle: 'Nói chuyện nhanh, nhiều tầng nghĩa, hay dùng phép ẩn dụ và ví dụ trừu tượng.',
-    conflictResponse: 'Dùng trí tuệ để thao túng và dự đoán đối phương, giải quyết xung đột trước khi nổ ra.',
-    driftSignals: ['mắc lỗi logic cơ bản', 'hành động ngu ngốc', 'không nhìn thấy hậu quả rõ ràng'],
+    slug: 'calm_rational',
+    viLabel: 'Bình tĩnh, lý trí',
+    viDescription: 'Nhân vật giữ được sự bình tĩnh trong mọi tình huống, suy nghĩ lý trí và không để cảm xúc chi phối quyết định.',
+    voiceHints: 'Giọng văn điềm tĩnh, có hệ thống, mô tả sự kiện một cách khách quan, câu văn cân bằng giữa mô tả và hành động.',
+    decisionStyle: 'Phân tích lạnh, cân nhắc lợi hại một cách công bằng, tránh quyết định bốc đồng.',
+    dialogueStyle: 'Nói chuyện điềm đạm, lý lẽ rõ ràng, không dùng từ ngữ cảm xúc quá mức.',
+    conflictResponse: 'Giữ bình tĩnh, tìm cách giảm leo thang, dùng lý lẽ để thuyết phục hoặc tránh xa xung đột.',
+    driftSignals: ['mất bình tĩnh đột ngột', 'đưa ra quyết định cảm tính', 'nói lắp hoặc lúng túng'],
   },
 ];
