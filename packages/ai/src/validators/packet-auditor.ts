@@ -1,4 +1,4 @@
-import { GENERATION_CONFIG } from '@novel/core';
+import { GENERATION_CONFIG, type GenreFamily } from '@novel/core';
 import type { ChapterPacket } from '../schemas/packet.ts';
 
 export type AuditInput = {
@@ -9,17 +9,15 @@ export type AuditInput = {
   overdueTurningPoints?: string[];
 };
 
+export type AuditCtx = { genreFamily: GenreFamily };
+
 export type AuditIssue = {
   code: string;
   severity: 'critical' | 'high' | 'medium' | 'low';
   message: string;
 };
 
-export type AuditResult = {
-  pass: boolean;
-  issues: AuditIssue[];
-  requiresRegenerate: boolean;
-};
+export type AuditResult = { pass: boolean; issues: AuditIssue[]; requiresRegenerate: boolean };
 
 const REALM_ORDER = [
   'phàm nhân', 'luyện khí', 'trúc cơ', 'kim đan', 'nguyên anh',
@@ -32,10 +30,10 @@ function realmRank(r?: string): number {
   return REALM_ORDER.findIndex(x => lower.includes(x));
 }
 
-export function auditPacket(input: AuditInput): AuditResult {
+export function auditPacket(input: AuditInput, ctx: AuditCtx): AuditResult {
   const issues: AuditIssue[] = [];
-
   const charByName = new Map(input.characters.map(c => [c.name.toLowerCase(), c]));
+
   for (const name of input.packet.charactersPresent) {
     const c = charByName.get(name.toLowerCase());
     if (c && c.status === 'dead') {
@@ -61,32 +59,30 @@ export function auditPacket(input: AuditInput): AuditResult {
     issues.push({ code: 'missing_cliffhanger', severity: 'high', message: 'Packet thiếu cliffhanger rõ ràng.' });
   }
 
-  for (const c of input.packet.charactersPresent) {
-    const canonChar = charByName.get(c.toLowerCase());
-    if (!canonChar) continue;
-    const startRank = realmRank(canonChar.currentRealm);
-    const breakCount = input.packet.requiredEvents.filter(e => /đột phá|breakthrough|thăng cấp/i.test(e.description)).length;
-    if (breakCount > 0 && startRank >= 0 && breakCount > GENERATION_CONFIG.MAX_REALM_JUMP_PER_CHAPTER) {
-      issues.push({
-        code: 'realm_jump_excess',
-        severity: 'critical',
-        message: `Packet đề xuất ${breakCount} đột phá trong cùng 1 chương (max ${GENERATION_CONFIG.MAX_REALM_JUMP_PER_CHAPTER}).`,
-      });
+  if (ctx.genreFamily === 'cultivation') {
+    for (const c of input.packet.charactersPresent) {
+      const canonChar = charByName.get(c.toLowerCase());
+      if (!canonChar) continue;
+      const startRank = realmRank(canonChar.currentRealm);
+      const breakCount = input.packet.requiredEvents.filter(e => /đột phá|breakthrough|thăng cấp/i.test(e.description)).length;
+      if (breakCount > 0 && startRank >= 0 && breakCount > GENERATION_CONFIG.MAX_REALM_JUMP_PER_CHAPTER) {
+        issues.push({
+          code: 'realm_jump_excess',
+          severity: 'critical',
+          message: `Packet đề xuất ${breakCount} đột phá trong cùng 1 chương (max ${GENERATION_CONFIG.MAX_REALM_JUMP_PER_CHAPTER}).`,
+        });
+      }
     }
   }
 
   if (input.overdueTurningPoints && input.overdueTurningPoints.length > 0) {
     const packetText = [
-      input.packet.goal,
-      input.packet.conflict,
+      input.packet.goal, input.packet.conflict,
       ...input.packet.requiredEvents.map(e => e.description),
     ].join(' ').toLowerCase();
 
     const missedTps = input.overdueTurningPoints.filter(tp => {
-      const keywords = tp
-        .toLowerCase()
-        .split(/[\s,，、.。!！?？]+/)
-        .filter(w => w.length >= 3);
+      const keywords = tp.toLowerCase().split(/[\s,，、.。!！?？]+/).filter(w => w.length >= 3);
       return !keywords.some(kw => packetText.includes(kw));
     });
 
@@ -101,10 +97,5 @@ export function auditPacket(input: AuditInput): AuditResult {
 
   const hasCritical = issues.some(i => i.severity === 'critical');
   const hasHigh = issues.some(i => i.severity === 'high');
-
-  return {
-    pass: !hasCritical && !hasHigh,
-    issues,
-    requiresRegenerate: hasCritical || hasHigh,
-  };
+  return { pass: !hasCritical && !hasHigh, issues, requiresRegenerate: hasCritical || hasHigh };
 }

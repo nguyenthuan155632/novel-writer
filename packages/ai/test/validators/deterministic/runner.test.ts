@@ -27,7 +27,7 @@ function makeInput(overrides: Partial<CheckInput> = {}): CheckInput {
 
 describe('buildChecks', () => {
   it('returns all checks sorted by severity', () => {
-    const checks = buildChecks('');
+    const checks = buildChecks('', 'cultivation');
     expect(checks.length).toBe(12);
     expect(checks[0]!.severity).toBe('critical');
     expect(checks[checks.length - 1]!.severity).toBe('low');
@@ -36,14 +36,14 @@ describe('buildChecks', () => {
 
 describe('runDeterministicValidator', () => {
   it('passes for valid content', () => {
-    const checks = buildChecks('');
+    const checks = buildChecks('', 'cultivation');
     const result = runDeterministicValidator(makeInput(), checks);
     expect(result.pass).toBe(true);
     expect(result.shortCircuited).toBe(false);
   });
 
   it('short-circuits on critical severity failure', () => {
-    const checks = buildChecks('');
+    const checks = buildChecks('', 'cultivation');
     const input = makeInput({
       content: 'Minh Đức bước vào rừng.',
       canon: {
@@ -61,7 +61,7 @@ describe('runDeterministicValidator', () => {
   });
 
   it('reports all issues when no critical failure', () => {
-    const checks = buildChecks('');
+    const checks = buildChecks('', 'cultivation');
     const input = makeInput({
       content: 'Nội dung không có xung đột.',
       canon: {
@@ -76,5 +76,26 @@ describe('runDeterministicValidator', () => {
     const result = runDeterministicValidator(input, checks);
     expect(result.pass).toBe(false);
     expect(result.shortCircuited).toBe(false);
+  });
+});
+
+describe('buildChecks gating by genreFamily', () => {
+  it('includes realm_jump and new_bloodline_source for cultivation', () => {
+    const checks = buildChecks('forbidden text', 'cultivation');
+    const ids = checks.map(c => c.id);
+    expect(ids).toContain('realm_jump');
+    expect(ids).toContain('new_bloodline_source');
+  });
+
+  it('omits realm_jump and new_bloodline_source for ability', () => {
+    const checks = buildChecks('forbidden text', 'ability');
+    const ids = checks.map(c => c.id);
+    expect(ids).not.toContain('realm_jump');
+    expect(ids).not.toContain('new_bloodline_source');
+  });
+
+  it('omits realm_jump for urban', () => {
+    const checks = buildChecks('forbidden text', 'urban');
+    expect(checks.map(c => c.id)).not.toContain('realm_jump');
   });
 });

@@ -1,3 +1,4 @@
+import type { GenreFamily } from '@novel/core';
 import type { CheckInput, CheckResult, DeterministicCheck, Severity } from './types.ts';
 import { wordCountCheck } from './word-count.ts';
 import { deadCharacterCheck } from './dead-character.ts';
@@ -14,16 +15,17 @@ import { repetitionCheck } from './repetition.ts';
 
 const SEVERITY_ORDER: Severity[] = ['critical', 'high', 'medium', 'low'];
 
-export function buildChecks(forbiddenRulesText: string): DeterministicCheck[] {
+export function buildChecks(forbiddenRulesText: string, genreFamily: GenreFamily): DeterministicCheck[] {
+  const isCultivation = genreFamily === 'cultivation';
+
   const allChecks: DeterministicCheck[] = [
     deadCharacterCheck,
-    realmJumpCheck,
+    ...(isCultivation ? [realmJumpCheck, newBloodlineSourceCheck] : []),
     lockedFactCheck,
     makeForbiddenMoveCheck(forbiddenRulesText),
     wordCountCheck,
     unknownCharacterCheck,
     unknownLocationCheck,
-    newBloodlineSourceCheck,
     cliffhangerCheck,
     conflictPresenceCheck,
     styleRedFlagsCheck,
