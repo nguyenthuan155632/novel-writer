@@ -1,77 +1,155 @@
-import { getDb } from '@novel/db';
-import { batches } from '@novel/db/schema';
-import { eq } from 'drizzle-orm';
-import { createLogger } from '@novel/core/logger';
-import type { LlmProviderId, ModelRoutes } from '@novel/core';
+import { getDb } from "@novel/db";
+import { batches } from "@novel/db/schema";
+import { eq } from "drizzle-orm";
+import { createLogger } from "@novel/core/logger";
+import type { LlmProviderId, ModelRoutes } from "@novel/core";
 
-const log = createLogger('generate-batch');
+const log = createLogger("generate-batch");
+
+const MAX_CHAPTER_RETRIES = 3;
+const CHAPTER_RETRY_DELAY_MS = [10_000, 30_000, 60_000];
 
 export interface GenerateBatchJobData {
   batchId: string;
   storyId: string;
   startChapter: number;
   endChapter: number;
-  mode: 'safe' | 'semi_auto' | 'full_auto';
+  mode: "safe" | "semi_auto" | "full_auto";
   traceId: string;
   llmProvider?: LlmProviderId;
   modelRoutes?: Partial<ModelRoutes>;
 }
 
-export async function runGenerateBatchJob(data: GenerateBatchJobData, ctx: { logger: any }): Promise<{ status: string; completed: number }> {
+export async function runGenerateBatchJob(
+  data: GenerateBatchJobData,
+  ctx: { logger: any },
+): Promise<{ status: string; completed: number }> {
   const db = getDb();
   const { batchId, storyId, startChapter, endChapter, mode, traceId } = data;
   const jobLog = ctx.logger ?? log;
 
-  jobLog.info({ batchId, storyId, startChapter, endChapter }, 'batch job started');
+  jobLog.info(
+    { batchId, storyId, startChapter, endChapter },
+    "batch job started",
+  );
 
-  const [batch] = await db.select().from(batches).where(eq(batches.id, batchId)).limit(1);
-  if (!batch || batch.status === 'cancelled') {
-    return { status: 'cancelled', completed: 0 };
+  const [batch] = await db
+    .select()
+    .from(batches)
+    .where(eq(batches.id, batchId))
+    .limit(1);
+  if (!batch || batch.status === "cancelled") {
+    return { status: "cancelled", completed: 0 };
   }
 
-  let completed = 0;
+  // Resume support: read prior progress from DB so a re-queued batch resumes where it stopped.
+  let completed = batch.completedChapters ?? 0;
   let totalCostUsd = Number(batch.totalCostUsd ?? 0);
+  const resumeFrom = startChapter + completed;
 
-  for (let chapterNumber = startChapter; chapterNumber <= endChapter; chapterNumber++) {
-    const { runGenerateChapterJob } = await import('./generate-chapter.js');
-    const result = await runGenerateChapterJob({
-      storyId,
-      chapterNumber,
-      mode,
-      traceId: `${traceId}:ch${chapterNumber}`,
-      llmProvider: data.llmProvider,
-      modelRoutes: data.modelRoutes,
-    }, { logger: jobLog.child({ chapterNumber }) });
+  jobLog.info(
+    { batchId, resumeFrom, completed },
+    "batch resuming from chapter",
+  );
 
-    completed++;
-    totalCostUsd += result.totalCostUsd;
+  for (
+    let chapterNumber = resumeFrom;
+    chapterNumber <= endChapter;
+    chapterNumber++
+  ) {
+    const { runGenerateChapterJob } = await import("./generate-chapter.js");
 
-    if (result.status === 'paused_pending_updates') {
-      await db.update(batches)
-        .set({
-          status: 'paused',
-          pausedReason: `chapter_${chapterNumber}_pending_updates`,
-          completedChapters: completed,
-          totalCostUsd: totalCostUsd.toFixed(6),
-        })
-        .where(eq(batches.id, batchId));
-      return { status: 'paused', completed };
+    type ChapterResult = Awaited<ReturnType<typeof runGenerateChapterJob>>;
+    let result: ChapterResult | null = null;
+    let lastError: unknown = null;
+
+    // Per-chapter retry loop
+    for (let attempt = 0; attempt < MAX_CHAPTER_RETRIES; attempt++) {
+      if (attempt > 0) {
+        const delay =
+          CHAPTER_RETRY_DELAY_MS[attempt - 1] ??
+          CHAPTER_RETRY_DELAY_MS[CHAPTER_RETRY_DELAY_MS.length - 1]!;
+        jobLog.warn(
+          { batchId, chapterNumber, attempt, delayMs: delay },
+          "retrying chapter after backoff delay",
+        );
+        await new Promise<void>((resolve) => setTimeout(resolve, delay));
+      }
+
+      try {
+        const chapterTraceId =
+          attempt === 0
+            ? `${traceId}:ch${chapterNumber}`
+            : `${traceId}:ch${chapterNumber}:retry${attempt}`;
+
+        result = await runGenerateChapterJob(
+          {
+            storyId,
+            chapterNumber,
+            mode,
+            traceId: chapterTraceId,
+            llmProvider: data.llmProvider,
+            modelRoutes: data.modelRoutes,
+          },
+          { logger: jobLog.child({ chapterNumber, attempt }) },
+        );
+
+        if (result.status !== "failed") {
+          // Succeeded or paused_pending_updates — stop retrying
+          lastError = null;
+          break;
+        }
+
+        jobLog.warn(
+          { batchId, chapterNumber, attempt, status: result.status },
+          "chapter returned failed status, will retry",
+        );
+        lastError = new Error(`chapter_${chapterNumber}_failed`);
+      } catch (err) {
+        lastError = err;
+        result = null;
+        jobLog.warn(
+          { batchId, chapterNumber, attempt, err },
+          "chapter threw an error, will retry",
+        );
+      }
     }
 
-    if (result.status === 'failed') {
-      await db.update(batches)
+    // All retry attempts exhausted — still failing or erroring
+    if (lastError !== null || result === null || result.status === "failed") {
+      await db
+        .update(batches)
         .set({
-          status: 'failed',
+          status: "failed",
           pausedReason: `chapter_${chapterNumber}_failed`,
           completedChapters: completed,
           totalCostUsd: totalCostUsd.toFixed(6),
           finishedAt: new Date(),
         })
         .where(eq(batches.id, batchId));
-      return { status: 'failed', completed };
+      return { status: "failed", completed };
     }
 
-    await db.update(batches)
+    // Chapter succeeded — now it's safe to count it and persist cost
+    completed++;
+    totalCostUsd += result.totalCostUsd;
+
+    if (result.status === "paused_pending_updates") {
+      // Chapter was written but canon needs review — stop immediately, no retry needed
+      await db
+        .update(batches)
+        .set({
+          status: "paused",
+          pausedReason: `chapter_${chapterNumber}_pending_updates`,
+          completedChapters: completed,
+          totalCostUsd: totalCostUsd.toFixed(6),
+        })
+        .where(eq(batches.id, batchId));
+      return { status: "paused", completed };
+    }
+
+    await db
+      .update(batches)
       .set({
         completedChapters: completed,
         totalCostUsd: totalCostUsd.toFixed(6),
@@ -79,13 +157,14 @@ export async function runGenerateBatchJob(data: GenerateBatchJobData, ctx: { log
       .where(eq(batches.id, batchId));
   }
 
-  await db.update(batches)
+  await db
+    .update(batches)
     .set({
-      status: 'completed',
+      status: "completed",
       completedChapters: completed,
       totalCostUsd: totalCostUsd.toFixed(6),
       finishedAt: new Date(),
     })
     .where(eq(batches.id, batchId));
-  return { status: 'completed', completed };
+  return { status: "completed", completed };
 }

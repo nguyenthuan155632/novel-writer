@@ -142,8 +142,18 @@ export function ReaderView({ storyId, storyTitle, chapter }: ReaderViewProps) {
       .finally(() => setAutoGenerating(false));
   }, [latestChapter, chapter.chapterNumber, storyId]);
 
+  // Disable manual generation when the latest chapter is still being generated.
+  const isLatestGenerating =
+    latestChapter != null && latestChapter.status !== "completed";
+
   const handleManualGenerate = useCallback(() => {
-    if (!latestChapter || manualGenerating || autoGenerating) return;
+    if (
+      !latestChapter ||
+      manualGenerating ||
+      autoGenerating ||
+      isLatestGenerating
+    )
+      return;
     const nextToGenerate = latestChapter.chapterNumber + 1;
     // Reset the auto-gen guard so it can pick up the new chapter once ready.
     generationTriggered.current = nextToGenerate;
@@ -719,7 +729,7 @@ export function ReaderView({ storyId, storyTitle, chapter }: ReaderViewProps) {
           <button
             type="button"
             aria-label="Generate next chapter"
-            disabled={manualGenerating || autoGenerating}
+            disabled={manualGenerating || autoGenerating || isLatestGenerating}
             onClick={handleManualGenerate}
             style={{
               display: "inline-flex",
@@ -731,18 +741,25 @@ export function ReaderView({ storyId, storyTitle, chapter }: ReaderViewProps) {
               borderRadius: "50%",
               border: `1px solid ${theme.text}33`,
               background:
-                manualGenerating || autoGenerating
+                manualGenerating || autoGenerating || isLatestGenerating
                   ? `${theme.text}11`
                   : "transparent",
               color: theme.text,
               fontWeight: 600,
               fontSize: 14,
               cursor:
-                manualGenerating || autoGenerating ? "not-allowed" : "pointer",
-              opacity: manualGenerating || autoGenerating ? 0.6 : 1,
+                manualGenerating || autoGenerating || isLatestGenerating
+                  ? "not-allowed"
+                  : "pointer",
+              opacity:
+                manualGenerating || autoGenerating || isLatestGenerating
+                  ? 0.6
+                  : 1,
             }}
           >
-            {manualGenerating || autoGenerating ? "⏳" : "✨"}
+            {manualGenerating || autoGenerating || isLatestGenerating
+              ? "⏳"
+              : "✨"}
           </button>
           {nextChapter && (
             <Link
