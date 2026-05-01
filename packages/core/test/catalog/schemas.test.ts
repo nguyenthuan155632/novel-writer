@@ -56,4 +56,8 @@ describe('findGenre / findPersonality', () => {
   it('findPersonality returns the def for a known slug', () => {
     expect(findPersonality('tram_on').viLabel).toBe('Trầm ổn, có trách nhiệm');
   });
+
+  it('findPersonality throws for unknown', () => {
+    expect(() => findPersonality('hero')).toThrow(/Unknown personality/);
+  });
 });
