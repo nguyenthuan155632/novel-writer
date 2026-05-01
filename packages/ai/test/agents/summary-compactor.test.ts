@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { SummaryCompactor } from '../../src/agents/summary-compactor.ts';
 import { MockProvider } from '../../src/providers/mock.ts';
 import type { Logger } from '../../src/agents/summary-compactor.ts';
-import '../../src/prompts/summary-compactor.v1.ts';
+import '../../src/prompts/summary-compactor.v2.ts';
 
 const silentLogger: Logger = {
   child: () => silentLogger,
@@ -11,7 +11,7 @@ const silentLogger: Logger = {
 };
 
 const VALID_SUMMARY_OUTPUT = JSON.stringify({
-  summary: 'Trong chương này, Lam Trach đối mặt với thử thách Hỏa Long. Sau một trận chiến cam go, anh hấp thu tinh hoa và đột phá nguyên anh. Đồng thờ i, bí ẩn về huyết mạch được hé lộ.',
+  summary: 'Trong chương này, Lam Trach đối mặt với thử thách Hỏa Long. Sau một trận chiến cam go, anh hấp thu tinh hoa và đột phá nguyên anh. Đồng thời, bí ẩn về huyết mạch được hé lộ.',
   keyEvents: ['Lam Trach đột phá nguyên anh', 'Hỏa Long tinh bị hấp thu'],
   charactersPresent: ['Lam Trach', 'Sư phụ'],
   moodShift: 'lighter',
@@ -34,7 +34,7 @@ describe('SummaryCompactor', () => {
     expect(r.output.keyEvents).toHaveLength(2);
     expect(r.output.charactersPresent).toHaveLength(2);
     expect(r.output.moodShift).toBe('lighter');
-    expect(r.promptVersion).toBe('v1');
+    expect(r.promptVersion).toBe('v2');
   });
 
   it('throws on schema-invalid JSON', async () => {

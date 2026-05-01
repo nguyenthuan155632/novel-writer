@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { CanonExtractor } from '../../src/agents/canon-extractor.ts';
 import { MockProvider } from '../../src/providers/mock.ts';
 import type { Logger } from '../../src/agents/canon-extractor.ts';
-import '../../src/prompts/canon-extractor.v1.ts';
+import '../../src/prompts/canon-extractor.v2.ts';
 
 const silentLogger: Logger = {
   child: () => silentLogger,
@@ -56,7 +56,7 @@ describe('CanonExtractor', () => {
     expect(r.output.newCanonFacts[0]!.fact).toBe('Lam Trach đột phá nguyên anh');
     expect(r.output.threadUpdates).toHaveLength(1);
     expect(r.output.newTimelineEvents).toHaveLength(1);
-    expect(r.promptVersion).toBe('v1');
+    expect(r.promptVersion).toBe('v2');
   });
 
   it('throws on schema-invalid JSON', async () => {

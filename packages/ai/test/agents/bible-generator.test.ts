@@ -8,6 +8,7 @@ const VALID_BIBLE_JSON = JSON.stringify({
   world_rules: 'A'.repeat(200),
   power_system: 'B'.repeat(200),
   power_system_kind: 'cultivation',
+  cultivation_system: 'C'.repeat(200),
   style_guide: 'D'.repeat(120),
   forbidden_rules: 'E'.repeat(40),
   ending_direction: 'F'.repeat(60),
