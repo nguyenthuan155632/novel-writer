@@ -5,7 +5,7 @@ import type { LLMProvider } from '../providers/types.ts';
 import { withCompletionRetryRaw } from '../parse-completion-json.ts';
 import type { Logger } from './packet-generator.ts';
 import { HighStakesReviewSchema, HIGH_STAKES_REVIEW_JSON_SCHEMA, type HighStakesReview } from '../schemas/high-stakes-review.ts';
-import { highStakesReviewerPromptV1 } from '../prompts/high-stakes-reviewer.v1.ts';
+import { highStakesReviewerPromptV2 } from '../prompts/high-stakes-reviewer.v2.ts';
 
 export interface HighStakesReviewInput {
   storyId: string;
@@ -15,6 +15,8 @@ export interface HighStakesReviewInput {
   chapter: { title: string; content: string };
   arcSummary: string;
   bibleCompact: string;
+  genreDef: import('@novel/core').GenreDef;
+  personalityDef: import('@novel/core').PersonalityDef;
 }
 
 export interface HighStakesReviewResult {
@@ -36,11 +38,13 @@ export class HighStakesReviewerAgent {
   async review(input: HighStakesReviewInput): Promise<HighStakesReviewResult> {
     const db = getDb();
     const log = this.deps.logger.child({ agent: 'high_stakes_reviewer', storyId: input.storyId, chapterId: input.chapterId });
-    const built = highStakesReviewerPromptV1.build({
+    const built = highStakesReviewerPromptV2.build({
       chapterTitle: input.chapter.title,
       chapterContent: input.chapter.content,
       arcSummary: input.arcSummary,
       bibleCompact: input.bibleCompact,
+      genreDef: input.genreDef,
+      personalityDef: input.personalityDef,
     } as Record<string, unknown>);
 
     const response = await withCompletionRetryRaw(
@@ -50,7 +54,7 @@ export class HighStakesReviewerAgent {
         messages: [{ role: 'system', content: built.system }, { role: 'user', content: built.user }],
         responseSchema: HIGH_STAKES_REVIEW_JSON_SCHEMA,
         temperature: 0.3,
-        metadata: { agentRole: highStakesReviewerPromptV1.agentRole, promptVersion: highStakesReviewerPromptV1.version, storyId: input.storyId },
+        metadata: { agentRole: highStakesReviewerPromptV2.agentRole, promptVersion: highStakesReviewerPromptV2.version, storyId: input.storyId },
       }),
       3,
     );
@@ -73,7 +77,7 @@ export class HighStakesReviewerAgent {
       recommendedActions: parsed.recommendedActions,
       tokens: response.usage.inputTokens + response.usage.outputTokens,
       costUsd: costUsd.toFixed(6),
-      promptVersion: highStakesReviewerPromptV1.version,
+      promptVersion: highStakesReviewerPromptV2.version,
     }).returning({ id: highStakesReviews.id });
     const row = rows[0]!;
 
@@ -81,7 +85,7 @@ export class HighStakesReviewerAgent {
     return {
       reviewId: row.id,
       output: parsed,
-      promptVersion: highStakesReviewerPromptV1.version,
+      promptVersion: highStakesReviewerPromptV2.version,
       usage: response.usage,
     };
   }

@@ -1,7 +1,6 @@
-import { GENERATION_CONFIG, MODEL_CONFIG } from '@novel/core';
+import { GENERATION_CONFIG, MODEL_CONFIG, type GenreDef } from '@novel/core';
 import type { LLMProvider } from '../providers/types.ts';
-import { getPrompt, type DualPromptTemplate } from '../prompts/registry.ts';
-import '../prompts/writer.v1.ts';
+import { writerPromptV2 } from '../prompts/writer.v2.ts';
 
 export interface WriterDeps {
   provider: LLMProvider;
@@ -15,6 +14,7 @@ export interface WriterInput {
   chapterNumber: number;
   storyId: string;
   traceId: string;
+  genreDef: GenreDef;
 }
 
 export interface WriterResult {
@@ -28,8 +28,10 @@ export class WriterAgent {
   constructor(private readonly deps: WriterDeps) {}
 
   async write(input: WriterInput): Promise<WriterResult> {
-    const prompt = getPrompt('writer', 'v1') as DualPromptTemplate;
-    const built = prompt.build({ serializedContext: input.serializedContext } as unknown as Record<string, unknown>);
+    const built = writerPromptV2.build({
+      serializedContext: input.serializedContext,
+      genreDef: input.genreDef,
+    } as unknown as Record<string, unknown>);
 
     const res = await this.deps.provider.complete({
       model: this.deps.model ?? MODEL_CONFIG.routes.writer,
@@ -40,20 +42,15 @@ export class WriterAgent {
       temperature: GENERATION_CONFIG.WRITER_TEMPERATURE,
       topP: GENERATION_CONFIG.WRITER_TOP_P,
       metadata: {
-        agentRole: prompt.agentRole,
-        promptVersion: prompt.version,
+        agentRole: writerPromptV2.agentRole,
+        promptVersion: writerPromptV2.version,
         traceId: input.traceId,
         storyId: input.storyId,
       },
     });
 
     const { title, content } = parseTitleAndContent(res.content);
-    return {
-      title,
-      content,
-      usage: res.usage,
-      cost: 0,
-    };
+    return { title, content, usage: res.usage, cost: 0 };
   }
 }
 
