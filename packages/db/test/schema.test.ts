@@ -30,6 +30,7 @@ describe('schema smoke', () => {
     await db.insert(storyBibles).values({
       storyId: story.id,
       worldRules: 'r',
+      powerSystem: 'p',
       cultivationSystem: 'c',
       bloodlineSystem: 'b',
       styleGuide: 's',
@@ -104,6 +105,43 @@ describe('schema smoke', () => {
     await expect(
       db.execute(sql`update llm_provider_settings set model_routes = '[]'::jsonb where provider = 'opencode'`)
     ).rejects.toThrow();
+  });
+
+  describe('schema columns added in 0012/0013', () => {
+    it('stories table has mainCharacterPersonality + genreLockedAt', () => {
+      const cols = Object.keys(stories);
+      expect(cols).toContain('mainCharacterPersonality');
+      expect(cols).toContain('genreLockedAt');
+    });
+
+    it('story_bibles has powerSystem + powerSystemKind; cult/blood nullable', () => {
+      const cols = Object.keys(storyBibles);
+      expect(cols).toContain('powerSystem');
+      expect(cols).toContain('powerSystemKind');
+    });
+
+    it('defaults genre to tien_hiep and personality to tram_on', async () => {
+      const inserted = await db.insert(stories).values({ title: 'DefaultTest', premise: 'p' }).returning();
+      expect(inserted[0]!.genre).toBe('tien_hiep');
+      expect(inserted[0]!.mainCharacterPersonality).toBe('tram_on');
+      await db.delete(stories).where(eq(stories.id, inserted[0]!.id));
+    });
+
+    it('allows null cultivationSystem and bloodlineSystem', async () => {
+      const storyRows = await db.insert(stories).values({ title: 'NullCult', premise: 'p' }).returning();
+      const story = storyRows[0]!;
+      const bibleRows = await db.insert(storyBibles).values({
+        storyId: story.id,
+        worldRules: 'w',
+        powerSystem: 'p',
+        powerSystemKind: 'urban',
+        styleGuide: 's',
+        forbiddenRules: 'f',
+      }).returning();
+      expect(bibleRows[0]!.cultivationSystem).toBeNull();
+      expect(bibleRows[0]!.bloodlineSystem).toBeNull();
+      await db.delete(stories).where(eq(stories.id, story.id));
+    });
   });
 
   afterAll(async () => {

@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { ArcPlannerAgent } from '../../src/agents/arc-planner.ts';
 import { MockProvider } from '../../src/providers/mock.ts';
 import type { Logger } from '../../src/agents/packet-generator.ts';
-import '../../src/prompts/arc-planner.v1.ts';
+import '../../src/prompts/arc-planner.v2.ts';
 
 const silentLogger: Logger = { child: () => silentLogger, error: () => {}, info: () => {} };
 
@@ -39,7 +39,7 @@ describe('ArcPlannerAgent.plan (mocked db)', () => {
     selectCallCount = 0;
     const provider = new MockProvider({ responder: { kind: 'fixed', content: VALID_OUTPUT } });
     const agent = new ArcPlannerAgent({ provider, logger: silentLogger });
-    const r = await agent.plan({ storyId: 's', sagaId: 'sa', currentState: 'state' });
+    const r = await agent.plan({ storyId: 's', sagaId: 'sa', currentState: 'state', genreDef: { slug: 'tien_hiep', viLabel: 'Tiên hiệp', viDescription: '', family: 'cultivation', allowedTropes: [], discouragedTropes: [], toneGuidance: '', worldbuildingGuidance: '', examplePremises: [] } as any, storyOptions: {} as any });
     expect(r.output.arcs).toHaveLength(3);
   });
 
@@ -48,7 +48,7 @@ describe('ArcPlannerAgent.plan (mocked db)', () => {
     const provider = new MockProvider({ responder: { kind: 'fixed', content: VALID_OUTPUT } });
     const agent = new ArcPlannerAgent({ provider, logger: silentLogger, model: 'gemma4:e4b' });
 
-    await agent.plan({ storyId: 's', sagaId: 'sa', currentState: 'state' });
+    await agent.plan({ storyId: 's', sagaId: 'sa', currentState: 'state', genreDef: { slug: 'tien_hiep', viLabel: 'Tiên hiệp', viDescription: '', family: 'cultivation', allowedTropes: [], discouragedTropes: [], toneGuidance: '', worldbuildingGuidance: '', examplePremises: [] } as any, storyOptions: {} as any });
 
     expect(provider.getCalls()[0]!.model).toBe('gemma4:e4b');
   });

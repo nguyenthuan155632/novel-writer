@@ -1,10 +1,8 @@
-import { GENERATION_CONFIG, MODEL_CONFIG } from '@novel/core';
+import { GENERATION_CONFIG, MODEL_CONFIG, type GenreDef, type PersonalityDef } from '@novel/core';
 import type { LLMProvider } from '../providers/types.ts';
-import { getPrompt, type DualPromptTemplate } from '../prompts/registry.ts';
-import '../prompts/llm-validator.v1.ts';
+import { llmValidatorPromptV2 } from '../prompts/llm-validator.v2.ts';
 import { withCompletionRetry } from '../parse-completion-json.ts';
-import { LlmValidatorOutputSchema, llmValidatorJsonSchema } from '../schemas/validator.ts';
-import type { LlmValidatorOutput } from '../schemas/validator.ts';
+import { LlmValidatorOutputSchema, llmValidatorJsonSchema, type LlmValidatorOutput } from '../schemas/validator.ts';
 
 export interface LlmValidatorDeps {
   provider: LLMProvider;
@@ -19,6 +17,8 @@ export interface LlmValidatorInput {
   chapterNumber: number;
   storyId: string;
   traceId: string;
+  genreDef: GenreDef;
+  personalityDef: PersonalityDef;
 }
 
 export interface LlmValidatorResult {
@@ -31,12 +31,13 @@ export class LlmValidatorAgent {
   constructor(private readonly deps: LlmValidatorDeps) {}
 
   async validate(input: LlmValidatorInput): Promise<LlmValidatorResult> {
-    const prompt = getPrompt('llm_validator', 'v1') as DualPromptTemplate;
-    const built = prompt.build({
+    const built = llmValidatorPromptV2.build({
       serializedContext: input.serializedContext,
       chapterContent: input.chapterContent,
       chapterTitle: input.chapterTitle,
       chapterNumber: input.chapterNumber,
+      genreDef: input.genreDef,
+      personalityDef: input.personalityDef,
     } as unknown as Record<string, unknown>);
 
     let lastUsage = { inputTokens: 0, outputTokens: 0, cachedInputTokens: 0 };
@@ -53,8 +54,8 @@ export class LlmValidatorAgent {
             temperature: GENERATION_CONFIG.LLM_VALIDATOR_TEMPERATURE,
             responseSchema: llmValidatorJsonSchema,
             metadata: {
-              agentRole: prompt.agentRole,
-              promptVersion: prompt.version,
+              agentRole: llmValidatorPromptV2.agentRole,
+              promptVersion: llmValidatorPromptV2.version,
               traceId: input.traceId,
               storyId: input.storyId,
             },
@@ -65,10 +66,6 @@ export class LlmValidatorAgent {
         3,
       ),
     );
-    return {
-      output: parsed,
-      usage: lastUsage,
-      cost: 0,
-    };
+    return { output: parsed, usage: lastUsage, cost: 0 };
   }
 }

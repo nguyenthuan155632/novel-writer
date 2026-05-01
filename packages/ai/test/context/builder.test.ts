@@ -47,6 +47,12 @@ const baseDeps = {
   packet: samplePacket,
   embeddingService: mockEmbeddingService,
   traceId: 'trace-1',
+  domain: {
+    genreDef: { slug: 'tien_hiep', viLabel: 'Tiên hiệp', viDescription: '', family: 'cultivation', allowedTropes: [], discouragedTropes: [], toneGuidance: '', worldbuildingGuidance: '', examplePremises: [] } as any,
+    personalityDef: { slug: 'tram_on', viLabel: '', viDescription: '', voiceHints: '', decisionStyle: '', dialogueStyle: '', conflictResponse: '', driftSignals: [] } as any,
+    storyOptions: {} as any,
+    genreFamily: 'cultivation' as any,
+  },
 };
 
 describe('buildContext', () => {

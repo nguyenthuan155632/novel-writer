@@ -1,6 +1,6 @@
 import { registerPrompt, type DualPromptTemplate } from './registry.ts';
 
-export type CanonExtractorPromptInput = {
+export type CanonExtractorV2PromptInput = {
   chapterNumber: number;
   chapterContent: string;
   bibleCompact: string;
@@ -9,14 +9,14 @@ export type CanonExtractorPromptInput = {
   recentSummary: string;
 };
 
-export const canonExtractorPromptV1: DualPromptTemplate = {
+export const canonExtractorPromptV2: DualPromptTemplate = {
   agentRole: 'canon_extractor',
-  version: 'v1',
+  version: 'v2',
   build: (input) => ({
-    system: `Bạn là canon-extractor cho tiểu thuyết tiên hiệp. Phân tích chương vừa viết, trích xuất mọi thay đổi canon.
+    system: `Bạn là canon-extractor cho một tiểu thuyết tiếng Việt. Phân tích chương vừa viết, trích xuất mọi thay đổi canon.
 Quy tắc:
 - Chỉ trích những gì CHẮC CHẮN xảy ra trong chương, KHÔNG suy diễn.
-- Realm regression phải có intentionalRegression=true CHỈ KHI có đoạn nội tâm/hội thoại giải thích.
+- Realm regression (nếu có hệ thống cảnh giới) phải có intentionalRegression=true CHỈ KHI có đoạn nội tâm/hội thoại giải thích.
 - Thread chỉ resolve khi có scene closure rõ ràng.
 - Canon fact importance='locked' chỉ dành cho quy tắc thế giới cốt lõi.
 - Trả JSON đúng schema ExtractorOutput.`,
@@ -31,7 +31,7 @@ Quy tắc:
       input.canonSnapshot,
       '',
       `# SEEDS ĐÃ PLANT`,
-      ...(input.plantedSeeds as unknown as { id: string; seedText: string; payoffDescription: string; status: string }[]).map(s =>
+      ...(input.plantedSeeds as { id: string; seedText: string; payoffDescription: string; status: string }[]).map(s =>
         `- (id=${s.id}) "${s.seedText}" — payoff: ${s.payoffDescription} [${s.status}]`
       ),
       '',
@@ -43,4 +43,4 @@ Quy tắc:
   }),
 };
 
-registerPrompt(canonExtractorPromptV1);
+registerPrompt(canonExtractorPromptV2);

@@ -6,6 +6,14 @@ const mockOpenRouterProvider = vi.fn();
 const mockOllamaProvider = vi.fn();
 let loggedInner: unknown;
 
+const mockLoadStoryDomainContext = vi.fn().mockResolvedValue({
+  storyId: '00000000-0000-0000-0000-000000000001',
+  genreDef: { id: 'xianxia', family: 'cultivation', name: 'Xianxia' },
+  personalityDef: { id: 'determined', name: 'Determined' },
+  storyOptions: {},
+  genreFamily: 'cultivation',
+});
+
 vi.mock('@novel/ai', () => ({
   PacketGenerator: class {},
   WriterAgent: class {},
@@ -21,9 +29,12 @@ vi.mock('@novel/ai', () => ({
   runDeterministicValidator: vi.fn(),
   buildContext: vi.fn(),
   detectConflicts: vi.fn(),
+  formatValidationReport: vi.fn().mockReturnValue(''),
+  loadStoryDomainContext: mockLoadStoryDomainContext,
   getStoryBible: vi.fn().mockResolvedValue(null),
   getArcById: vi.fn(),
   getArcForChapter: mockGetArcForChapter,
+  getSagaForChapter: vi.fn().mockResolvedValue(null),
   getActiveCharacters: vi.fn().mockResolvedValue([]),
   getOpenThreadsForStory: vi.fn().mockResolvedValue([]),
   getPlantedSeedsForStory: vi.fn().mockResolvedValue([]),

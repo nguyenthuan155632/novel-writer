@@ -3,10 +3,17 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { apiFetch } from '@/lib/api-client';
 
+const POWER_KINDS = [
+  'cultivation','martial','ability','tech','urban',
+  'historical','horror','mystery','system','reincarnation','mixed','none',
+] as const;
+
 interface Bible {
   worldRules: string;
-  cultivationSystem: string;
-  bloodlineSystem: string;
+  powerSystem: string | null;
+  powerSystemKind: string | null;
+  cultivationSystem: string | null;
+  bloodlineSystem: string | null;
   styleGuide: string;
   forbiddenRules: string;
   endingDirection: string | null;
@@ -39,13 +46,17 @@ function countChars(text: string): number {
 export function EditForm({ storyId, bible }: { storyId: string; bible: Bible }) {
   const [data, setData] = useState({
     worldRules: bible.worldRules,
-    cultivationSystem: bible.cultivationSystem,
-    bloodlineSystem: bible.bloodlineSystem,
+    cultivationSystem: bible.cultivationSystem ?? '',
+    bloodlineSystem: bible.bloodlineSystem ?? '',
     styleGuide: bible.styleGuide,
     forbiddenRules: bible.forbiddenRules,
     endingDirection: bible.endingDirection ?? '',
     compactSummary: bible.compactSummary ?? '',
   });
+  const [powerSystem, setPowerSystem] = useState(bible.powerSystem ?? '');
+  const [powerSystemKind, setPowerSystemKind] = useState<typeof POWER_KINDS[number]>(
+    (bible.powerSystemKind as typeof POWER_KINDS[number]) ?? 'cultivation'
+  );
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<TabId>('world');
@@ -63,7 +74,7 @@ export function EditForm({ storyId, bible }: { storyId: string; bible: Bible }) 
     try {
       await apiFetch(`/api/stories/${storyId}/bible`, {
         method: 'PUT',
-        body: JSON.stringify(data),
+        body: JSON.stringify({ ...data, powerSystem, powerSystemKind }),
       });
       router.refresh();
     } catch (e) {
@@ -118,17 +129,33 @@ export function EditForm({ storyId, bible }: { storyId: string; bible: Bible }) 
       case 'systems':
         return (
           <div className="tab-panel active">
-            {renderTextareaWithCount(
-              'cultivationSystem',
-              'Cultivation System',
-              6,
-              'Describe the cultivation system...'
-            )}
-            {renderTextareaWithCount(
-              'bloodlineSystem',
-              'Bloodline System',
-              6,
-              'Describe the bloodline system...'
+            <div className="field-group">
+              <label>Power System Kind</label>
+              <select value={powerSystemKind} onChange={e => setPowerSystemKind(e.target.value as typeof POWER_KINDS[number])}>
+                {POWER_KINDS.map(k => <option key={k} value={k}>{k}</option>)}
+              </select>
+            </div>
+
+            <div className="field-group">
+              <label>Power System</label>
+              <textarea value={powerSystem} onChange={e => setPowerSystem(e.target.value)} rows={6} />
+            </div>
+
+            {powerSystemKind === 'cultivation' && (
+              <>
+                {renderTextareaWithCount(
+                  'cultivationSystem',
+                  'Cultivation System',
+                  6,
+                  'Describe the cultivation system...'
+                )}
+                {renderTextareaWithCount(
+                  'bloodlineSystem',
+                  'Bloodline System',
+                  6,
+                  'Describe the bloodline system...'
+                )}
+              </>
             )}
           </div>
         );

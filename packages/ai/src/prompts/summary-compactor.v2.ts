@@ -1,17 +1,17 @@
 import { registerPrompt, type DualPromptTemplate } from './registry.ts';
 
-export type SummaryCompactorPromptInput = {
+export type SummaryCompactorV2PromptInput = {
   chapterNumber: number;
   chapterContent: string;
   previousSummary: string;
   bibleCompact: string;
 };
 
-export const summaryCompactorPromptV1: DualPromptTemplate = {
+export const summaryCompactorPromptV2: DualPromptTemplate = {
   agentRole: 'summary_compactor',
-  version: 'v1',
+  version: 'v2',
   build: (input) => ({
-    system: `Bạn là summary-compactor cho tiểu thuyết tiên hiệp. Tóm tắt chương vừa viết thành bản chi tiết (tối đa 2000 ký tự Unicode, cho context packet và retrieval).
+    system: `Bạn là summary-compactor cho một tiểu thuyết tiếng Việt. Tóm tắt chương vừa viết thành bản chi tiết (tối đa 2000 ký tự Unicode).
 Quy tắc:
 - Chỉ tóm tắt những gì THỰC SỰ xảy ra.
 - keyEvents là sự kiện quan trọng nhất, ưu tiên conflict, đột phá, plot twist.
@@ -33,4 +33,4 @@ Quy tắc:
   }),
 };
 
-registerPrompt(summaryCompactorPromptV1);
+registerPrompt(summaryCompactorPromptV2);

@@ -3,7 +3,7 @@ import { ZodError } from 'zod';
 import type { CompletionUsage, LLMProvider } from '../providers/types.ts';
 import { withCompletionRetryRaw } from '../parse-completion-json.ts';
 import { ChapterPacketSchema, CHAPTER_PACKET_JSON_SCHEMA, PACKET_LIMITS, type ChapterPacket } from '../schemas/packet.ts';
-import { packetGeneratorPromptV1, type PacketGeneratorPromptInput } from '../prompts/packet-generator.v1.ts';
+import { packetGeneratorPromptV2, type PacketGeneratorV2PromptInput } from '../prompts/packet-generator.v2.ts';
 
 export interface Logger {
   child(bindings: Record<string, unknown>): Logger;
@@ -25,7 +25,7 @@ export type PacketGenerationResult = {
   cost: number;
 };
 
-const PACKET_REPAIR_PROMPT_VERSION = `${packetGeneratorPromptV1.version}-repair-v1`;
+const PACKET_REPAIR_PROMPT_VERSION = `${packetGeneratorPromptV2.version}-repair-v1`;
 
 function mergeUsage(a: CompletionUsage, b: CompletionUsage): CompletionUsage {
   return {
@@ -128,7 +128,7 @@ export class PacketGenerator {
         responseSchema: CHAPTER_PACKET_JSON_SCHEMA,
         temperature: 0.2,
         metadata: {
-          agentRole: packetGeneratorPromptV1.agentRole,
+          agentRole: packetGeneratorPromptV2.agentRole,
           promptVersion: PACKET_REPAIR_PROMPT_VERSION,
           traceId: ctx.traceId,
           storyId: ctx.storyId,
@@ -140,9 +140,9 @@ export class PacketGenerator {
     return { content: repaired.content, usage: repaired.usage };
   }
 
-  async generate(input: PacketGeneratorPromptInput, ctx: { traceId: string; storyId: string; auditHints?: string[] }): Promise<PacketGenerationResult> {
+  async generate(input: PacketGeneratorV2PromptInput, ctx: { traceId: string; storyId: string; auditHints?: string[] }): Promise<PacketGenerationResult> {
     const log = this.deps.logger.child({ traceId: ctx.traceId, agent: 'packet_generator' });
-    const built = packetGeneratorPromptV1.build(input as unknown as Record<string, unknown>);
+    const built = packetGeneratorPromptV2.build(input as unknown as Record<string, unknown>);
     const userWithHints = ctx.auditHints && ctx.auditHints.length > 0
       ? `${built.user}\n\n# REGENERATION HINTS (sửa lỗi audit)\n${ctx.auditHints.map(h => `- ${h}`).join('\n')}`
       : built.user;
@@ -155,8 +155,8 @@ export class PacketGenerator {
         responseSchema: CHAPTER_PACKET_JSON_SCHEMA,
         temperature: 0.4,
         metadata: {
-          agentRole: packetGeneratorPromptV1.agentRole,
-          promptVersion: packetGeneratorPromptV1.version,
+          agentRole: packetGeneratorPromptV2.agentRole,
+          promptVersion: packetGeneratorPromptV2.version,
           traceId: ctx.traceId,
           storyId: ctx.storyId,
         },
@@ -197,7 +197,7 @@ export class PacketGenerator {
 
     return {
       packet: parsed,
-      promptVersion: packetGeneratorPromptV1.version,
+      promptVersion: packetGeneratorPromptV2.version,
       rawContent,
       usage: totalUsage,
       cost: 0,

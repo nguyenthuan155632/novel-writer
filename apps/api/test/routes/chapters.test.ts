@@ -51,6 +51,8 @@ async function createPlannedStory(chapterNumber = 1): Promise<string> {
   await db.insert(storyBibles).values({
     storyId,
     worldRules: 'world rules',
+    powerSystem: 'cultivation system',
+    powerSystemKind: 'cultivation',
     cultivationSystem: 'cultivation',
     bloodlineSystem: 'bloodline',
     styleGuide: 'style',
@@ -188,6 +190,8 @@ describe('chapters routes', () => {
     await db.insert(storyBibles).values({
       storyId,
       worldRules: 'world rules',
+      powerSystem: 'cultivation system',
+      powerSystemKind: 'cultivation',
       cultivationSystem: 'cultivation',
       bloodlineSystem: 'bloodline',
       styleGuide: 'style',

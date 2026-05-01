@@ -7,8 +7,10 @@ interface Bible {
   storyId: string;
   version: number;
   worldRules: string;
-  cultivationSystem: string;
-  bloodlineSystem: string;
+  powerSystem: string | null;
+  powerSystemKind: string | null;
+  cultivationSystem: string | null;
+  bloodlineSystem: string | null;
   styleGuide: string;
   forbiddenRules: string;
   endingDirection: string | null;

@@ -4,15 +4,17 @@ import { getDb } from '@novel/db';
 import { stories, storyBibles } from '@novel/db/schema';
 import { eq, desc } from 'drizzle-orm';
 import { generateBible } from '@novel/ai/agents/bible-generator';
-import '@novel/ai/prompts/bible-generator.v1';
+import { loadStoryDomainContext } from '@novel/ai';
 import { buildLoggedProvider } from '../lib/llm-provider.ts';
 import { getModelStatusForActiveProviderFromDb } from '../lib/llm-settings.ts';
 import { newTraceId } from '@novel/core/trace';
 
 const UpdateBibleSchema = z.object({
   worldRules: z.string().min(50).optional(),
-  cultivationSystem: z.string().min(50).optional(),
-  bloodlineSystem: z.string().min(50).optional(),
+  powerSystem: z.string().min(50).optional(),
+  powerSystemKind: z.enum(['cultivation','martial','ability','tech','urban','historical','horror','mystery','system','reincarnation','mixed','none']).optional(),
+  cultivationSystem: z.string().min(50).optional().nullable(),
+  bloodlineSystem: z.string().min(50).optional().nullable(),
   styleGuide: z.string().min(50).optional(),
   forbiddenRules: z.string().min(20).optional(),
   endingDirection: z.string().min(20).optional(),
@@ -31,14 +33,17 @@ const plugin: FastifyPluginCallback = (app, _opts, done) => {
     const modelStatus = await getModelStatusForActiveProviderFromDb();
     const traceId = (req as unknown as { traceId: string }).traceId ?? newTraceId();
 
+    const domain = await loadStoryDomainContext(db, story.id);
+
     const { bible } = await generateBible({
       provider,
       model: modelStatus.routes.bible_generator,
       input: {
         premise: story.premise,
-        genre: story.genre,
-        tone: story.tone ?? null,
         target_chapter_count: story.targetChapterCount,
+        genreDef: domain.genreDef,
+        personalityDef: domain.personalityDef,
+        storyOptions: domain.storyOptions,
       },
       traceId,
       storyId: story.id,
@@ -47,13 +52,19 @@ const plugin: FastifyPluginCallback = (app, _opts, done) => {
     const [row] = await db.insert(storyBibles).values({
       storyId: story.id,
       worldRules: bible.world_rules,
-      cultivationSystem: bible.cultivation_system,
-      bloodlineSystem: bible.bloodline_system,
+      powerSystem: bible.power_system,
+      powerSystemKind: bible.power_system_kind,
+      cultivationSystem: bible.cultivation_system ?? null,
+      bloodlineSystem: bible.bloodline_system ?? null,
       styleGuide: bible.style_guide,
       forbiddenRules: bible.forbidden_rules,
       endingDirection: bible.ending_direction,
       compactSummary: bible.compact_summary,
     }).returning();
+
+    await db.update(stories)
+      .set({ genreLockedAt: new Date() })
+      .where(eq(stories.id, story.id));
 
     return reply.status(201).send(row);
   });
@@ -84,8 +95,10 @@ const plugin: FastifyPluginCallback = (app, _opts, done) => {
       storyId: id,
       version: current.version + 1,
       worldRules: patch.worldRules ?? current.worldRules,
-      cultivationSystem: patch.cultivationSystem ?? current.cultivationSystem,
-      bloodlineSystem: patch.bloodlineSystem ?? current.bloodlineSystem,
+      powerSystem: patch.powerSystem ?? current.powerSystem,
+      powerSystemKind: patch.powerSystemKind ?? current.powerSystemKind,
+      cultivationSystem: patch.cultivationSystem !== undefined ? patch.cultivationSystem : current.cultivationSystem,
+      bloodlineSystem: patch.bloodlineSystem !== undefined ? patch.bloodlineSystem : current.bloodlineSystem,
       styleGuide: patch.styleGuide ?? current.styleGuide,
       forbiddenRules: patch.forbiddenRules ?? current.forbiddenRules,
       endingDirection: patch.endingDirection ?? current.endingDirection,
@@ -125,6 +138,8 @@ const plugin: FastifyPluginCallback = (app, _opts, done) => {
       storyId,
       version: current.version + 1,
       worldRules: current.worldRules,
+      powerSystem: current.powerSystem,
+      powerSystemKind: current.powerSystemKind,
       cultivationSystem: current.cultivationSystem,
       bloodlineSystem: current.bloodlineSystem,
       styleGuide: current.styleGuide,

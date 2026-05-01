@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { AutoFixerAgent } from '../../src/agents/auto-fixer.ts';
 import { MockProvider } from '../../src/providers/mock.ts';
-import '../../src/prompts/auto-fixer.v1.ts';
+import '../../src/prompts/auto-fixer.v2.ts';
 
 describe('AutoFixerAgent', () => {
   it('fixes chapter and parses title/content', async () => {
@@ -18,6 +18,7 @@ describe('AutoFixerAgent', () => {
       issues: [{ code: 'dead_character', severity: 'critical', message: 'Nhân vật đã chết' }],
       storyId: 'story-1',
       traceId: 'trace-1',
+      genreDef: { slug: 'tien_hiep', viLabel: 'Tiên hiệp', viDescription: '', family: 'cultivation', allowedTropes: [], discouragedTropes: [], toneGuidance: '', worldbuildingGuidance: '', examplePremises: [] } as any,
     });
 
     expect(result.title).toBe('Chương 5 (sửa)');

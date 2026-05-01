@@ -3,8 +3,8 @@ import { z } from 'zod';
 import { getDb } from '@novel/db';
 import { sagas, stories, storyBibles } from '@novel/db/schema';
 import { eq, and, asc } from 'drizzle-orm';
-import { SagaPlannerAgent } from '@novel/ai';
-import '@novel/ai/prompts/saga-planner.v1';
+import { SagaPlannerAgent, loadStoryDomainContext } from '@novel/ai';
+import '@novel/ai/prompts/saga-planner.v2';
 import { buildLoggedProvider } from '../lib/llm-provider.ts';
 import { getModelStatusForActiveProviderFromDb } from '../lib/llm-settings.ts';
 
@@ -42,6 +42,7 @@ const sagasRoute: FastifyPluginCallback = (app, _opts, done) => {
     const [bible] = await db.select().from(storyBibles).where(eq(storyBibles.storyId, storyId)).limit(1);
     if (!bible) return reply.code(409).send({ error: 'bible_required' });
 
+    const domain = await loadStoryDomainContext(db, storyId);
     const provider = await buildLoggedProvider();
     const modelStatus = await getModelStatusForActiveProviderFromDb();
     const agent = new SagaPlannerAgent({
@@ -53,6 +54,8 @@ const sagasRoute: FastifyPluginCallback = (app, _opts, done) => {
       storyId,
       bibleCompact: bible.compactSummary ?? '',
       targetChapters: story.targetChapterCount,
+      genreDef: domain.genreDef,
+      storyOptions: domain.storyOptions,
     });
     const counts = await agent.persist(storyId, planned.output, { resetSeeds });
     return reply.send({

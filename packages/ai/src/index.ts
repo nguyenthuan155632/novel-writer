@@ -36,3 +36,8 @@ export {
   formatValidationReport,
   type ValidationReportInput,
 } from './validators/validation-logger.js';
+export { loadStoryDomainContext, type StoryDomainContext } from './story-domain.ts';
+export { renderGenreContract } from './prompts/contracts/genre-contract.ts';
+export { renderPersonalityContract } from './prompts/contracts/personality-contract.ts';
+export { renderStoryOptionsBlock } from './prompts/contracts/story-options-block.ts';
+export { BibleV2Schema, bibleV2JsonSchema, type BibleV2 } from './schemas/bible.ts';

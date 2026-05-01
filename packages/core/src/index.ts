@@ -30,3 +30,12 @@ export { EXPORT_CONFIG, type ExportFormat } from './config/export-config.ts';
 export { AdminMetricsService, type AnyDb, type CacheHitRate, type CostRollingPoint, type ValidatorFailureRow, type AutoFixStat, type PendingCanonAgingBucket, type AdminMetrics } from './services/admin-metrics.ts';
 export { renderMarkdown, type MarkdownExportInput } from './services/exporters/markdown-exporter.ts';
 export { renderEpub, type EpubExportInput } from './services/exporters/epub-exporter.ts';
+export {
+  GENRES, type GenreDef, type GenreSlug,
+  PERSONALITIES, type PersonalityDef, type PersonalitySlug,
+  GENRE_FAMILIES, type GenreFamily,
+  TONES, PACINGS, MAIN_CONFLICT_TYPES, POWER_SYSTEM_STYLES, WORLD_ERAS,
+  ROMANCE_LEVELS, COMEDY_LEVELS, DARK_LEVELS, POVS, MORALITIES,
+  GenreSlugSchema, PersonalitySlugSchema, StoryOptionsSchema, type StoryOptions,
+  findGenre, findPersonality,
+} from './catalog/index.ts';

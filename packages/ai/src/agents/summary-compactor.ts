@@ -2,7 +2,7 @@ import { MODEL_CONFIG } from '@novel/core';
 import { withCompletionRetry } from '../parse-completion-json.ts';
 import type { LLMProvider } from '../providers/types.ts';
 import { SummaryCompactorOutputSchema, SUMMARY_COMPACTOR_JSON_SCHEMA, type SummaryCompactorOutput } from '../schemas/summary.ts';
-import { summaryCompactorPromptV1, type SummaryCompactorPromptInput } from '../prompts/summary-compactor.v1.ts';
+import { summaryCompactorPromptV2, type SummaryCompactorV2PromptInput } from '../prompts/summary-compactor.v2.ts';
 
 export interface Logger {
   child(bindings: Record<string, unknown>): Logger;
@@ -26,9 +26,9 @@ export type SummaryCompactionResult = {
 export class SummaryCompactor {
   constructor(private readonly deps: SummaryCompactorDeps) {}
 
-  async compact(input: SummaryCompactorPromptInput, ctx: { traceId: string; storyId: string }): Promise<SummaryCompactionResult> {
+  async compact(input: SummaryCompactorV2PromptInput, ctx: { traceId: string; storyId: string }): Promise<SummaryCompactionResult> {
     const log = this.deps.logger.child({ traceId: ctx.traceId, agent: 'summary_compactor' });
-    const built = summaryCompactorPromptV1.build(input as unknown as Record<string, unknown>);
+    const built = summaryCompactorPromptV2.build(input as unknown as Record<string, unknown>);
 
     let lastResContent = '';
     let lastUsage = { inputTokens: 0, outputTokens: 0, cachedInputTokens: 0 };
@@ -44,8 +44,8 @@ export class SummaryCompactor {
               responseSchema: SUMMARY_COMPACTOR_JSON_SCHEMA,
               temperature: 0.2,
               metadata: {
-                agentRole: summaryCompactorPromptV1.agentRole,
-                promptVersion: summaryCompactorPromptV1.version,
+                agentRole: summaryCompactorPromptV2.agentRole,
+                promptVersion: summaryCompactorPromptV2.version,
                 traceId: ctx.traceId,
                 storyId: ctx.storyId,
               },
@@ -70,7 +70,7 @@ export class SummaryCompactor {
 
     return {
       output: parsed,
-      promptVersion: summaryCompactorPromptV1.version,
+      promptVersion: summaryCompactorPromptV2.version,
       rawContent: lastResContent,
       usage: lastUsage,
     };

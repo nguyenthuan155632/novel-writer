@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { SagaPlannerAgent } from '../../src/agents/saga-planner.ts';
 import { MockProvider } from '../../src/providers/mock.ts';
 import type { Logger } from '../../src/agents/packet-generator.ts';
-import '../../src/prompts/saga-planner.v1.ts';
+import '../../src/prompts/saga-planner.v2.ts';
 
 const silentLogger: Logger = {
   child: () => silentLogger,
@@ -35,10 +35,10 @@ describe('SagaPlannerAgent.plan', () => {
       responder: { kind: 'fixed', content: VALID_OUTPUT },
     });
     const agent = new SagaPlannerAgent({ provider, logger: silentLogger });
-    const r = await agent.plan({ storyId: 's', bibleCompact: 'b', targetChapters: 500 });
+    const r = await agent.plan({ storyId: 's', bibleCompact: 'b', targetChapters: 500, genreDef: { slug: 'tien_hiep', viLabel: 'Tiên hiệp', viDescription: '', family: 'cultivation', allowedTropes: [], discouragedTropes: [], toneGuidance: '', worldbuildingGuidance: '', examplePremises: [] } as any, storyOptions: {} as any });
     expect(r.output.sagas).toHaveLength(5);
     expect(r.output.plantedSeeds).toHaveLength(10);
-    expect(r.promptVersion).toBe('v1');
+    expect(r.promptVersion).toBe('v2');
   });
 
   it('does not send responseSchema because Google rejects the large planner schema', async () => {
@@ -47,7 +47,7 @@ describe('SagaPlannerAgent.plan', () => {
     });
     const agent = new SagaPlannerAgent({ provider, logger: silentLogger });
 
-    await agent.plan({ storyId: 's', bibleCompact: 'b', targetChapters: 500 });
+    await agent.plan({ storyId: 's', bibleCompact: 'b', targetChapters: 500, genreDef: { slug: 'tien_hiep', viLabel: 'Tiên hiệp', viDescription: '', family: 'cultivation', allowedTropes: [], discouragedTropes: [], toneGuidance: '', worldbuildingGuidance: '', examplePremises: [] } as any, storyOptions: {} as any });
 
     expect(provider.getCalls()[0]!.responseSchema).toBeUndefined();
   });
@@ -58,7 +58,7 @@ describe('SagaPlannerAgent.plan', () => {
     });
     const agent = new SagaPlannerAgent({ provider, logger: silentLogger, model: 'gemma4:e4b' });
 
-    await agent.plan({ storyId: 's', bibleCompact: 'b', targetChapters: 500 });
+    await agent.plan({ storyId: 's', bibleCompact: 'b', targetChapters: 500, genreDef: { slug: 'tien_hiep', viLabel: 'Tiên hiệp', viDescription: '', family: 'cultivation', allowedTropes: [], discouragedTropes: [], toneGuidance: '', worldbuildingGuidance: '', examplePremises: [] } as any, storyOptions: {} as any });
 
     expect(provider.getCalls()[0]!.model).toBe('gemma4:e4b');
   });
@@ -69,7 +69,7 @@ describe('SagaPlannerAgent.plan', () => {
     });
     const agent = new SagaPlannerAgent({ provider, logger: silentLogger });
 
-    const r = await agent.plan({ storyId: 's', bibleCompact: 'b', targetChapters: 500 });
+    const r = await agent.plan({ storyId: 's', bibleCompact: 'b', targetChapters: 500, genreDef: { slug: 'tien_hiep', viLabel: 'Tiên hiệp', viDescription: '', family: 'cultivation', allowedTropes: [], discouragedTropes: [], toneGuidance: '', worldbuildingGuidance: '', examplePremises: [] } as any, storyOptions: {} as any });
 
     expect(r.output.sagas).toHaveLength(5);
     expect(r.output.plantedSeeds).toHaveLength(10);
@@ -80,6 +80,6 @@ describe('SagaPlannerAgent.plan', () => {
       responder: { kind: 'fixed', content: JSON.stringify({ sagas: [], plantedSeeds: [] }) },
     });
     const agent = new SagaPlannerAgent({ provider, logger: silentLogger });
-    await expect(agent.plan({ storyId: 's', bibleCompact: 'b', targetChapters: 500 })).rejects.toThrow();
+    await expect(agent.plan({ storyId: 's', bibleCompact: 'b', targetChapters: 500, genreDef: { slug: 'tien_hiep', viLabel: 'Tiên hiệp', viDescription: '', family: 'cultivation', allowedTropes: [], discouragedTropes: [], toneGuidance: '', worldbuildingGuidance: '', examplePremises: [] } as any, storyOptions: {} as any })).rejects.toThrow();
   });
 });
