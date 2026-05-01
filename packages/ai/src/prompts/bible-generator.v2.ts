@@ -31,16 +31,16 @@ ${i.premise}
 
 Mục tiêu độ dài: ${i.target_chapter_count} chương
 
-Yêu cầu output: JSON tuân theo schema bắt buộc, mỗi field tiếng Việt:
-- world_rules (≥ 200 từ): luật thế giới, không gian, lịch sử nền, phù hợp genre.
-- power_system (≥ 200 từ): hệ thống sức mạnh chính của thế giới — phải phù hợp power_system_kind.
+Yêu cầu output: JSON tuân theo schema bắt buộc, mỗi field tiếng Việt. Độ dài bên dưới là gợi ý chất lượng, không phải giới hạn cắt nội dung:
+- world_rules (gợi ý khoảng 200+ từ): luật thế giới, không gian, lịch sử nền, phù hợp genre.
+- power_system (gợi ý khoảng 200+ từ): hệ thống sức mạnh chính của thế giới — phải phù hợp power_system_kind.
 - power_system_kind: một trong cultivation | martial | ability | tech | urban | historical | horror | mystery | system | reincarnation | mixed | none. Chọn theo genre family.
-- cultivation_system (CHỈ điền nếu power_system_kind='cultivation', ≥ 200 từ): cảnh giới, đột phá, vật phẩm, hạn chế.
-- bloodline_system (CHỈ điền nếu genre dùng huyết mạch, ≥ 200 từ): phân loại, nguồn gốc, kế thừa.
-- style_guide (≥ 100 từ): phong cách viết, POV theo storyOptions, từ vựng nên/không nên.
+- cultivation_system (CHỈ điền nếu power_system_kind='cultivation', gợi ý khoảng 200+ từ): cảnh giới, đột phá, vật phẩm, hạn chế.
+- bloodline_system (CHỈ điền nếu genre dùng huyết mạch, gợi ý khoảng 200+ từ): phân loại, nguồn gốc, kế thừa.
+- style_guide (gợi ý khoảng 100+ từ): phong cách viết, POV theo storyOptions, từ vựng nên/không nên.
 - forbidden_rules (≥ 5 quy tắc): những gì TUYỆT ĐỐI không được. Phải bao gồm tất cả discouragedTropes của genre đã liệt kê ở Genre Contract.
-- ending_direction (≥ 100 từ).
-- compact_summary (≤ 1500 từ).
+- ending_direction (gợi ý khoảng 100+ từ).
+- compact_summary (gợi ý khoảng 100+ từ): tóm tắt cô đọng nhưng không cắt cụt ý quan trọng.
 
 Ràng buộc:
 - KHÔNG đưa trope ngoài genre vào (xem "Avoid unless explicitly in canon").

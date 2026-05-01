@@ -72,7 +72,10 @@ export const MODEL_CONFIG = {
     // Grok
     "x-ai/grok-3-mini": { input: 0.3, cachedInput: 0.075, output: 0.5 },
     // Ollama
+    "gemma4:e2b": { input: 0.0, cachedInput: 0, output: 0.0 },
     "gemma4:e4b": { input: 0.0, cachedInput: 0, output: 0.0 },
+    // vMLX
+    "mlx-community/Qwen3-4B-4bit": { input: 0.0, cachedInput: 0, output: 0.0 },
   },
 };
 
@@ -196,7 +199,10 @@ export const MODEL_HINTS = [
   // Grok
   "x-ai/grok-3-mini",
   // Ollama
+  "gemma4:e2b",
   "gemma4:e4b",
+  // vMLX
+  "mlx-community/Qwen3-4B-4bit",
 ];
 
 export function modelFor(role: AgentRole): string {

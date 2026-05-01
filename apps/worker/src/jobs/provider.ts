@@ -5,6 +5,7 @@ import { eq } from 'drizzle-orm';
 import { OpenCodeProvider } from '@novel/ai/providers/opencode';
 import { OpenRouterProvider } from '@novel/ai/providers/openrouter';
 import { OllamaProvider } from '@novel/ai/providers/ollama';
+import { VmlxProvider } from '@novel/ai/providers/vmlx';
 import type { LLMProvider } from '@novel/ai/providers/types';
 import { LoggedLLMProvider, makeDrizzleRecorder } from '@novel/ai/llm-call-logger';
 
@@ -27,6 +28,12 @@ function buildProvider(provider: LlmProviderId): LLMProvider {
     return new OllamaProvider({
       apiKey: process.env.OLLAMA_API_KEY,
       baseUrl: process.env.OLLAMA_BASE_URL,
+    });
+  }
+
+  if (provider === 'vmlx') {
+    return new VmlxProvider({
+      baseUrl: process.env.VMLX_BASE_URL,
     });
   }
 

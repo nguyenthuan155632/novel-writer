@@ -2,13 +2,13 @@ import { z } from 'zod';
 import type { JsonSchema } from '../providers/types.ts';
 
 export const BibleSchema = z.object({
-  world_rules: z.string().min(50),
-  cultivation_system: z.string().min(50),
-  bloodline_system: z.string().min(50),
-  style_guide: z.string().min(50),
-  forbidden_rules: z.string().min(20),
-  ending_direction: z.string().min(20),
-  compact_summary: z.string().min(50).max(2000),
+  world_rules: z.string(),
+  cultivation_system: z.string(),
+  bloodline_system: z.string(),
+  style_guide: z.string(),
+  forbidden_rules: z.string(),
+  ending_direction: z.string(),
+  compact_summary: z.string(),
 });
 
 export type Bible = z.infer<typeof BibleSchema>;
@@ -42,15 +42,15 @@ export const POWER_SYSTEM_KINDS = [
 ] as const;
 
 export const BibleV2Schema = z.object({
-  world_rules: z.string().min(50),
-  power_system: z.string().min(50),
+  world_rules: z.string(),
+  power_system: z.string(),
   power_system_kind: z.enum(POWER_SYSTEM_KINDS),
-  cultivation_system: z.string().min(50).optional(),
-  bloodline_system: z.string().min(50).optional(),
-  style_guide: z.string().min(50),
-  forbidden_rules: z.string().min(20),
-  ending_direction: z.string().min(20),
-  compact_summary: z.string().min(50).max(2000),
+  cultivation_system: z.string().optional(),
+  bloodline_system: z.string().optional(),
+  style_guide: z.string(),
+  forbidden_rules: z.string(),
+  ending_direction: z.string(),
+  compact_summary: z.string(),
 }).superRefine((bible, ctx) => {
   if (bible.power_system_kind === 'cultivation' && !bible.cultivation_system) {
     ctx.addIssue({

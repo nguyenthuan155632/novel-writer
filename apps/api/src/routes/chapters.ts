@@ -43,7 +43,7 @@ async function getMissingPlanningSteps(
     .select({ id: storyBibles.id })
     .from(storyBibles)
     .where(eq(storyBibles.storyId, storyId))
-    .orderBy(desc(storyBibles.version))
+    .orderBy(desc(storyBibles.version), desc(storyBibles.createdAt))
     .limit(1);
   if (!bible) missing.push("bible");
 

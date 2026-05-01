@@ -47,6 +47,7 @@ import { join } from "path";
 import { OpenCodeProvider } from "@novel/ai/providers/opencode";
 import { OllamaProvider } from "@novel/ai/providers/ollama";
 import { OpenRouterProvider } from "@novel/ai/providers/openrouter";
+import { VmlxProvider } from "@novel/ai/providers/vmlx";
 import {
   LoggedLLMProvider,
   makeDrizzleRecorder,
@@ -330,6 +331,12 @@ function buildWorkerProvider(data: GenerateChapterJob): LLMProvider {
     return new OllamaProvider({
       apiKey: process.env.OLLAMA_API_KEY,
       baseUrl: process.env.OLLAMA_BASE_URL,
+    });
+  }
+
+  if (provider === "vmlx") {
+    return new VmlxProvider({
+      baseUrl: process.env.VMLX_BASE_URL,
     });
   }
 

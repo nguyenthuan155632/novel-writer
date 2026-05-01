@@ -10,15 +10,21 @@ import { getModelStatusForActiveProviderFromDb } from '../lib/llm-settings.ts';
 import { newTraceId } from '@novel/core/trace';
 
 const UpdateBibleSchema = z.object({
-  worldRules: z.string().min(50).optional(),
-  powerSystem: z.string().min(50).optional(),
+  worldRules: z.string().optional(),
+  powerSystem: z.string().optional(),
   powerSystemKind: z.enum(['cultivation','martial','ability','tech','urban','historical','horror','mystery','system','reincarnation','mixed','none']).optional(),
-  cultivationSystem: z.string().min(50).optional().nullable(),
-  bloodlineSystem: z.string().min(50).optional().nullable(),
-  styleGuide: z.string().min(50).optional(),
-  forbiddenRules: z.string().min(20).optional(),
-  endingDirection: z.string().min(20).optional(),
-  compactSummary: z.string().min(50).max(2000).optional(),
+  cultivationSystem: z.preprocess(
+    (value) => typeof value === 'string' && value.trim() === '' ? null : value,
+    z.string().optional().nullable(),
+  ),
+  bloodlineSystem: z.preprocess(
+    (value) => typeof value === 'string' && value.trim() === '' ? null : value,
+    z.string().optional().nullable(),
+  ),
+  styleGuide: z.string().optional(),
+  forbiddenRules: z.string().optional(),
+  endingDirection: z.string().optional(),
+  compactSummary: z.string().optional(),
   styleFewShots: z.array(z.object({ excerpt: z.string(), sourceChapter: z.number().optional() })).optional(),
 });
 
@@ -34,6 +40,11 @@ const plugin: FastifyPluginCallback = (app, _opts, done) => {
     const traceId = (req as unknown as { traceId: string }).traceId ?? newTraceId();
 
     const domain = await loadStoryDomainContext(db, story.id);
+    const [current] = await db.select({ version: storyBibles.version })
+      .from(storyBibles)
+      .where(eq(storyBibles.storyId, story.id))
+      .orderBy(desc(storyBibles.version), desc(storyBibles.createdAt))
+      .limit(1);
 
     const { bible } = await generateBible({
       provider,
@@ -51,6 +62,7 @@ const plugin: FastifyPluginCallback = (app, _opts, done) => {
 
     const [row] = await db.insert(storyBibles).values({
       storyId: story.id,
+      version: (current?.version ?? 0) + 1,
       worldRules: bible.world_rules,
       powerSystem: bible.power_system,
       powerSystemKind: bible.power_system_kind,
@@ -75,7 +87,7 @@ const plugin: FastifyPluginCallback = (app, _opts, done) => {
     const [row] = await db.select()
       .from(storyBibles)
       .where(eq(storyBibles.storyId, id))
-      .orderBy(desc(storyBibles.version))
+      .orderBy(desc(storyBibles.version), desc(storyBibles.createdAt))
       .limit(1);
     if (!row) return reply.status(404).send({ error: 'bible_not_found' });
     return row;
@@ -87,7 +99,7 @@ const plugin: FastifyPluginCallback = (app, _opts, done) => {
     const patch = UpdateBibleSchema.parse(req.body);
     const [current] = await db.select().from(storyBibles)
       .where(eq(storyBibles.storyId, id))
-      .orderBy(desc(storyBibles.version))
+      .orderBy(desc(storyBibles.version), desc(storyBibles.createdAt))
       .limit(1);
     if (!current) return reply.status(404).send({ error: 'bible_not_found' });
 
@@ -128,7 +140,7 @@ const plugin: FastifyPluginCallback = (app, _opts, done) => {
 
     const [current] = await db.select().from(storyBibles)
       .where(eq(storyBibles.storyId, storyId))
-      .orderBy(desc(storyBibles.version))
+      .orderBy(desc(storyBibles.version), desc(storyBibles.createdAt))
       .limit(1);
     if (!current) return reply.status(404).send({ error: 'bible_not_found' });
 

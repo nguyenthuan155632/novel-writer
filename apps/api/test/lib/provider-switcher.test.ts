@@ -33,7 +33,7 @@ describe('provider switcher', () => {
     await setActiveProvider('openrouter');
 
     expect(await getActiveProvider()).toBe('openrouter');
-    expect((await getProviderStatus()).options.map((o) => o.id)).toEqual(['opencode', 'openrouter', 'ollama']);
+    expect((await getProviderStatus()).options.map((o) => o.id)).toEqual(['opencode', 'openrouter', 'ollama', 'vmlx']);
   });
 
   it('builds an opencode live provider when selected', async () => {
@@ -60,6 +60,15 @@ describe('provider switcher', () => {
     const provider = await buildLiveProvider();
 
     expect(provider.name).toBe('ollama');
+  });
+
+  it('builds a vMLX live provider when selected without an api key', async () => {
+    await setActiveProvider('vmlx');
+    process.env.VMLX_BASE_URL = 'http://127.0.0.1:8000/v1';
+
+    const provider = await buildLiveProvider();
+
+    expect(provider.name).toBe('vmlx');
   });
 
   it('requires the selected provider api key', async () => {

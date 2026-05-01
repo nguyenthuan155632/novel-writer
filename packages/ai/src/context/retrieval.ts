@@ -8,7 +8,7 @@ import type { CharacterCompact, ThreadCompact, SeedCompact, ChapterSummaryCompac
 export async function getStoryBible(db: Db, storyId: string): Promise<StoryBible | null> {
   const rows = await db.select().from(storyBibles)
     .where(eq(storyBibles.storyId, storyId))
-    .orderBy(desc(storyBibles.version))
+    .orderBy(desc(storyBibles.version), desc(storyBibles.createdAt))
     .limit(1);
   return rows[0] ?? null;
 }

@@ -4,6 +4,7 @@ const mockGetArcForChapter = vi.fn();
 const mockOpenCodeProvider = vi.fn();
 const mockOpenRouterProvider = vi.fn();
 const mockOllamaProvider = vi.fn();
+const mockVmlxProvider = vi.fn();
 let loggedInner: unknown;
 
 const mockLoadStoryDomainContext = vi.fn().mockResolvedValue({
@@ -52,6 +53,10 @@ vi.mock('@novel/ai/providers/openrouter', () => ({
 
 vi.mock('@novel/ai/providers/ollama', () => ({
   OllamaProvider: mockOllamaProvider,
+}));
+
+vi.mock('@novel/ai/providers/vmlx', () => ({
+  VmlxProvider: mockVmlxProvider,
 }));
 
 vi.mock('@novel/ai/llm-call-logger', () => ({
@@ -105,6 +110,7 @@ describe('executeGenerateChapterPipeline', () => {
     mockOpenCodeProvider.mockReset();
     mockOpenRouterProvider.mockReset();
     mockOllamaProvider.mockReset();
+    mockVmlxProvider.mockReset();
     mockOpenCodeProvider.mockImplementation(function OpenCodeProvider(this: object) {
       return this;
     });
@@ -112,6 +118,9 @@ describe('executeGenerateChapterPipeline', () => {
       return this;
     });
     mockOllamaProvider.mockImplementation(function OllamaProvider(this: object) {
+      return this;
+    });
+    mockVmlxProvider.mockImplementation(function VmlxProvider(this: object) {
       return this;
     });
     loggedInner = undefined;
@@ -166,6 +175,33 @@ describe('executeGenerateChapterPipeline', () => {
     }));
     expect(mockOpenCodeProvider).not.toHaveBeenCalled();
     expect(mockOpenRouterProvider).not.toHaveBeenCalled();
+    expect(loggedInner).toBeDefined();
+  });
+
+  it('uses the vMLX provider when the job was enqueued with vmlx selected', async () => {
+    mockGetArcForChapter.mockResolvedValue(null);
+    process.env.VMLX_BASE_URL = 'http://127.0.0.1:8000/v1';
+
+    const fakeLogger = { child: () => fakeLogger, info: () => {}, warn: () => {}, error: () => {} };
+    const { runGenerateChapterJob } = await import('../../src/jobs/generate-chapter.js');
+
+    await expect(runGenerateChapterJob(
+      {
+        storyId: '00000000-0000-0000-0000-000000000001',
+        chapterNumber: 1,
+        traceId: 'trace-1',
+        mode: 'safe',
+        llmProvider: 'vmlx',
+      } as any,
+      { logger: fakeLogger as any },
+    )).rejects.toThrow(/No arc found/);
+
+    expect(mockVmlxProvider).toHaveBeenCalledWith(expect.objectContaining({
+      baseUrl: 'http://127.0.0.1:8000/v1',
+    }));
+    expect(mockOpenCodeProvider).not.toHaveBeenCalled();
+    expect(mockOpenRouterProvider).not.toHaveBeenCalled();
+    expect(mockOllamaProvider).not.toHaveBeenCalled();
     expect(loggedInner).toBeDefined();
   });
 

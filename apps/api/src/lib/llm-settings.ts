@@ -136,7 +136,7 @@ export async function resetLlmSettingsForTests(databaseUrl?: string): Promise<vo
     .set({ activeProvider: 'opencode', updatedAt: new Date() })
     .where(eq(llmProviderState.id, 'global'));
 
-  for (const provider of ['opencode', 'openrouter', 'ollama'] as const) {
+  for (const provider of ['opencode', 'openrouter', 'ollama', 'vmlx'] as const) {
     await db
       .update(llmProviderSettings)
       .set({

@@ -1,9 +1,13 @@
-'use client';
+"use client";
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import Link from 'next/link';
-import type { ChapterDetail } from '@/lib/api/chapters';
-import { fetchChapters, type ChapterSummary } from '@/lib/api/chapters';
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
+import type { ChapterDetail } from "@/lib/api/chapters";
+import {
+  fetchChapters,
+  generateChapter,
+  type ChapterSummary,
+} from "@/lib/api/chapters";
 import {
   DEFAULT_READER_SETTINGS,
   FONT_OPTIONS,
@@ -17,7 +21,7 @@ import {
   type ReaderFont,
   type ReaderSettings,
   type ReaderTheme,
-} from './reader-settings';
+} from "./reader-settings";
 
 export interface ReaderViewProps {
   storyId: string;
@@ -26,7 +30,9 @@ export interface ReaderViewProps {
 }
 
 function useReaderSettings() {
-  const [settings, setSettings] = useState<ReaderSettings>(DEFAULT_READER_SETTINGS);
+  const [settings, setSettings] = useState<ReaderSettings>(
+    DEFAULT_READER_SETTINGS,
+  );
   const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
@@ -44,7 +50,10 @@ function useReaderSettings() {
   useEffect(() => {
     if (!hydrated) return;
     try {
-      window.localStorage.setItem(READER_SETTINGS_KEY, JSON.stringify(settings));
+      window.localStorage.setItem(
+        READER_SETTINGS_KEY,
+        JSON.stringify(settings),
+      );
     } catch {
       // quota or private-mode errors are non-fatal
     }
@@ -64,10 +73,14 @@ function useReaderSettings() {
 }
 
 export function ReaderView({ storyId, storyTitle, chapter }: ReaderViewProps) {
-  const { settings, setTheme, setFontFamily, setFontSize } = useReaderSettings();
+  const { settings, setTheme, setFontFamily, setFontSize } =
+    useReaderSettings();
   const [settingsOpen, setSettingsOpen] = useState(false);
   const theme = useMemo(() => getThemePreset(settings.theme), [settings.theme]);
-  const font = useMemo(() => getFontOption(settings.fontFamily), [settings.fontFamily]);
+  const font = useMemo(
+    () => getFontOption(settings.fontFamily),
+    [settings.fontFamily],
+  );
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [chapters, setChapters] = useState<ChapterSummary[]>([]);
 
@@ -76,7 +89,9 @@ export function ReaderView({ storyId, storyTitle, chapter }: ReaderViewProps) {
     fetchChapters(storyId)
       .then((list) => {
         if (cancelled) return;
-        const sorted = [...list].sort((a, b) => a.chapterNumber - b.chapterNumber);
+        const sorted = [...list].sort(
+          (a, b) => a.chapterNumber - b.chapterNumber,
+        );
         setChapters(sorted);
       })
       .catch(() => {
@@ -87,19 +102,44 @@ export function ReaderView({ storyId, storyTitle, chapter }: ReaderViewProps) {
     };
   }, [storyId]);
 
-  const currentIndex = chapters.findIndex((c) => c.chapterNumber === chapter.chapterNumber);
+  const currentIndex = chapters.findIndex(
+    (c) => c.chapterNumber === chapter.chapterNumber,
+  );
   const prevChapter = currentIndex > 0 ? chapters[currentIndex - 1] : null;
   const nextChapter =
-    currentIndex >= 0 && currentIndex < chapters.length - 1 ? chapters[currentIndex + 1] : null;
+    currentIndex >= 0 && currentIndex < chapters.length - 1
+      ? chapters[currentIndex + 1]
+      : null;
+
+  // Auto-generate the next chapter when the reader is within 5 chapters of the latest
+  // AND the latest chapter is fully completed (not still generating).
+  // Condition: currentChapterNumber >= latestChapterNumber - 5
+  const generationTriggered = useRef(false);
+  const [autoGenerating, setAutoGenerating] = useState(false);
+
+  useEffect(() => {
+    if (chapters.length === 0 || generationTriggered.current) return;
+    const latestChapter = chapters[chapters.length - 1];
+    // Guard: only trigger if the last chapter is complete — not mid-generation.
+    if (latestChapter.status !== "completed") return;
+    if (chapter.chapterNumber < latestChapter.chapterNumber - 5) return;
+    generationTriggered.current = true;
+    setAutoGenerating(true);
+    generateChapter(storyId, latestChapter.chapterNumber + 1, "semi_auto")
+      .catch(() => {
+        // Silently ignore — chapter may already exist or be queued.
+      })
+      .finally(() => setAutoGenerating(false));
+  }, [chapters, chapter.chapterNumber, storyId]);
 
   return (
     <div
       className="reader-root"
       style={{
-        position: 'fixed',
+        position: "fixed",
         inset: 0,
         zIndex: 100,
-        overflowY: 'auto',
+        overflowY: "auto",
         background: theme.background,
         color: theme.text,
         fontFamily: font.stack,
@@ -108,27 +148,29 @@ export function ReaderView({ storyId, storyTitle, chapter }: ReaderViewProps) {
       <header
         className="reader-topbar"
         style={{
-          position: 'sticky',
+          position: "sticky",
           top: 0,
           zIndex: 2,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
           gap: 12,
-          padding: '12px 16px',
+          padding: "12px 16px",
           background: theme.background,
           borderBottom: `1px solid ${theme.text}22`,
         }}
       >
         <div style={{ minWidth: 0 }}>
-          <div style={{ fontSize: 12, opacity: 0.6, marginBottom: 2 }}>{storyTitle}</div>
+          <div style={{ fontSize: 12, opacity: 0.6, marginBottom: 2 }}>
+            {storyTitle}
+          </div>
           <div
             style={{
               fontWeight: 700,
               fontSize: 16,
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              whiteSpace: 'nowrap',
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
             }}
           >
             {chapter.title ?? `Chương ${chapter.chapterNumber}`}
@@ -140,20 +182,30 @@ export function ReaderView({ storyId, storyTitle, chapter }: ReaderViewProps) {
           aria-expanded={settingsOpen}
           onClick={() => setSettingsOpen((open) => !open)}
           style={{
-            background: 'transparent',
+            background: "transparent",
             border: `1px solid ${theme.text}33`,
             borderRadius: 999,
             color: theme.text,
             minWidth: 44,
             minHeight: 44,
             padding: 0,
-            display: 'inline-flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            cursor: 'pointer',
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+            cursor: "pointer",
           }}
         >
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <svg
+            width="20"
+            height="20"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+          >
             <circle cx="12" cy="12" r="3" />
             <path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1-1.5 1.7 1.7 0 0 0-1.8.3l-.1-.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3h.1a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8v.1a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z" />
           </svg>
@@ -163,8 +215,8 @@ export function ReaderView({ storyId, storyTitle, chapter }: ReaderViewProps) {
       <main
         style={{
           maxWidth: 680,
-          margin: '0 auto',
-          padding: '24px 20px 96px',
+          margin: "0 auto",
+          padding: "24px 20px 96px",
         }}
       >
         <h1
@@ -172,7 +224,7 @@ export function ReaderView({ storyId, storyTitle, chapter }: ReaderViewProps) {
             fontFamily: font.stack,
             fontSize: settings.fontSize + 10,
             lineHeight: 1.25,
-            margin: '8px 0 24px',
+            margin: "8px 0 24px",
             color: theme.text,
           }}
         >
@@ -183,7 +235,7 @@ export function ReaderView({ storyId, storyTitle, chapter }: ReaderViewProps) {
             style={{
               fontSize: settings.fontSize,
               lineHeight: 1.8,
-              whiteSpace: 'pre-wrap',
+              whiteSpace: "pre-wrap",
             }}
           >
             {chapter.content}
@@ -194,9 +246,9 @@ export function ReaderView({ storyId, storyTitle, chapter }: ReaderViewProps) {
         <nav
           aria-label="Chapter navigation"
           style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
             gap: 12,
             marginTop: 48,
             paddingTop: 16,
@@ -206,7 +258,13 @@ export function ReaderView({ storyId, storyTitle, chapter }: ReaderViewProps) {
           {prevChapter ? (
             <Link
               href={`/read/${storyId}/${prevChapter.chapterNumber}`}
-              style={{ color: theme.text, fontWeight: 600, minHeight: 44, display: 'inline-flex', alignItems: 'center' }}
+              style={{
+                color: theme.text,
+                fontWeight: 600,
+                minHeight: 44,
+                display: "inline-flex",
+                alignItems: "center",
+              }}
             >
               ← Previous
             </Link>
@@ -216,7 +274,13 @@ export function ReaderView({ storyId, storyTitle, chapter }: ReaderViewProps) {
           {nextChapter ? (
             <Link
               href={`/read/${storyId}/${nextChapter.chapterNumber}`}
-              style={{ color: theme.text, fontWeight: 600, minHeight: 44, display: 'inline-flex', alignItems: 'center' }}
+              style={{
+                color: theme.text,
+                fontWeight: 600,
+                minHeight: 44,
+                display: "inline-flex",
+                alignItems: "center",
+              }}
             >
               Next →
             </Link>
@@ -232,10 +296,10 @@ export function ReaderView({ storyId, storyTitle, chapter }: ReaderViewProps) {
             aria-label="Close settings"
             onClick={() => setSettingsOpen(false)}
             style={{
-              position: 'fixed',
+              position: "fixed",
               inset: 0,
               zIndex: 3,
-              background: 'rgba(0, 0, 0, 0.15)',
+              background: "rgba(0, 0, 0, 0.15)",
               border: 0,
               padding: 0,
             }}
@@ -245,7 +309,7 @@ export function ReaderView({ storyId, storyTitle, chapter }: ReaderViewProps) {
             aria-label="Reader settings"
             aria-modal="true"
             style={{
-              position: 'fixed',
+              position: "fixed",
               top: 64,
               left: 12,
               right: 12,
@@ -254,16 +318,18 @@ export function ReaderView({ storyId, storyTitle, chapter }: ReaderViewProps) {
               color: theme.text,
               border: `1px solid ${theme.text}33`,
               borderRadius: 12,
-              boxShadow: '0 16px 40px rgba(0, 0, 0, 0.18)',
+              boxShadow: "0 16px 40px rgba(0, 0, 0, 0.18)",
               padding: 16,
-              display: 'grid',
+              display: "grid",
               gap: 16,
             }}
           >
             {/* Theme swatches */}
             <section>
-              <div style={{ fontSize: 12, opacity: 0.7, marginBottom: 8 }}>Background</div>
-              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+              <div style={{ fontSize: 12, opacity: 0.7, marginBottom: 8 }}>
+                Background
+              </div>
+              <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
                 {THEME_PRESETS.map((preset) => {
                   const active = preset.id === settings.theme;
                   return (
@@ -277,18 +343,30 @@ export function ReaderView({ storyId, storyTitle, chapter }: ReaderViewProps) {
                         width: 44,
                         height: 44,
                         borderRadius: 999,
-                        border: active ? `2px solid ${theme.text}` : `1px solid ${theme.text}33`,
+                        border: active
+                          ? `2px solid ${theme.text}`
+                          : `1px solid ${theme.text}33`,
                         background: preset.background,
                         color: preset.text,
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
+                        display: "inline-flex",
+                        alignItems: "center",
+                        justifyContent: "center",
                         padding: 0,
-                        cursor: 'pointer',
+                        cursor: "pointer",
                       }}
                     >
                       {active ? (
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                        <svg
+                          width="16"
+                          height="16"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="3"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          aria-hidden="true"
+                        >
                           <polyline points="20 6 9 17 4 12" />
                         </svg>
                       ) : null}
@@ -300,8 +378,17 @@ export function ReaderView({ storyId, storyTitle, chapter }: ReaderViewProps) {
 
             {/* Font size slider */}
             <section>
-              <div style={{ fontSize: 12, opacity: 0.7, marginBottom: 8 }}>Font size</div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12, minHeight: 44 }}>
+              <div style={{ fontSize: 12, opacity: 0.7, marginBottom: 8 }}>
+                Font size
+              </div>
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 12,
+                  minHeight: 44,
+                }}
+              >
                 <span style={{ fontSize: 14 }}>A</span>
                 <input
                   type="range"
@@ -311,17 +398,23 @@ export function ReaderView({ storyId, storyTitle, chapter }: ReaderViewProps) {
                   value={settings.fontSize}
                   onChange={(e) => setFontSize(Number(e.target.value))}
                   aria-label="Font size"
-                  style={{ flex: 1, accentColor: theme.text } as React.CSSProperties}
+                  style={
+                    { flex: 1, accentColor: theme.text } as React.CSSProperties
+                  }
                 />
                 <span style={{ fontSize: 22 }}>A</span>
               </div>
-              <div style={{ fontSize: 12, opacity: 0.6, marginTop: 4 }}>{settings.fontSize}px</div>
+              <div style={{ fontSize: 12, opacity: 0.6, marginTop: 4 }}>
+                {settings.fontSize}px
+              </div>
             </section>
 
             {/* Font family list */}
             <section>
-              <div style={{ fontSize: 12, opacity: 0.7, marginBottom: 8 }}>Font</div>
-              <div style={{ display: 'grid', gap: 6 }}>
+              <div style={{ fontSize: 12, opacity: 0.7, marginBottom: 8 }}>
+                Font
+              </div>
+              <div style={{ display: "grid", gap: 6 }}>
                 {FONT_OPTIONS.map((option) => {
                   const active = option.id === settings.fontFamily;
                   return (
@@ -331,23 +424,33 @@ export function ReaderView({ storyId, storyTitle, chapter }: ReaderViewProps) {
                       aria-pressed={active}
                       onClick={() => setFontFamily(option.id)}
                       style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
                         minHeight: 44,
-                        padding: '8px 12px',
-                        background: active ? `${theme.text}11` : 'transparent',
+                        padding: "8px 12px",
+                        background: active ? `${theme.text}11` : "transparent",
                         color: theme.text,
                         border: `1px solid ${theme.text}22`,
                         borderRadius: 8,
-                        cursor: 'pointer',
+                        cursor: "pointer",
                         fontFamily: option.stack,
                         fontSize: 16,
                       }}
                     >
                       <span>{option.label}</span>
                       {active ? (
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                        <svg
+                          width="16"
+                          height="16"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="3"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          aria-hidden="true"
+                        >
                           <polyline points="20 6 9 17 4 12" />
                         </svg>
                       ) : null}
@@ -366,12 +469,12 @@ export function ReaderView({ storyId, storyTitle, chapter }: ReaderViewProps) {
               }}
               style={{
                 minHeight: 44,
-                padding: '10px 14px',
-                background: 'transparent',
+                padding: "10px 14px",
+                background: "transparent",
                 color: theme.text,
                 border: `1px solid ${theme.text}33`,
                 borderRadius: 8,
-                cursor: 'pointer',
+                cursor: "pointer",
                 fontWeight: 600,
               }}
             >
@@ -387,10 +490,10 @@ export function ReaderView({ storyId, storyTitle, chapter }: ReaderViewProps) {
             aria-label="Close chapter list"
             onClick={() => setDrawerOpen(false)}
             style={{
-              position: 'fixed',
+              position: "fixed",
               inset: 0,
               zIndex: 5,
-              background: 'rgba(0, 0, 0, 0.35)',
+              background: "rgba(0, 0, 0, 0.35)",
               border: 0,
               padding: 0,
             }}
@@ -400,28 +503,28 @@ export function ReaderView({ storyId, storyTitle, chapter }: ReaderViewProps) {
             aria-modal="true"
             aria-label="Chapter list"
             style={{
-              position: 'fixed',
+              position: "fixed",
               left: 0,
               right: 0,
               bottom: 0,
               zIndex: 6,
-              maxHeight: '80vh',
+              maxHeight: "80vh",
               background: theme.background,
               color: theme.text,
               borderTop: `1px solid ${theme.text}33`,
               borderTopLeftRadius: 16,
               borderTopRightRadius: 16,
-              boxShadow: '0 -16px 40px rgba(0, 0, 0, 0.2)',
-              display: 'flex',
-              flexDirection: 'column',
+              boxShadow: "0 -16px 40px rgba(0, 0, 0, 0.2)",
+              display: "flex",
+              flexDirection: "column",
             }}
           >
             <div
               style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                padding: '14px 16px',
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                padding: "14px 16px",
                 borderBottom: `1px solid ${theme.text}22`,
               }}
             >
@@ -433,46 +536,80 @@ export function ReaderView({ storyId, storyTitle, chapter }: ReaderViewProps) {
                 style={{
                   minWidth: 44,
                   minHeight: 44,
-                  background: 'transparent',
+                  background: "transparent",
                   border: 0,
                   color: theme.text,
                   fontSize: 20,
-                  cursor: 'pointer',
+                  cursor: "pointer",
                 }}
               >
                 ×
               </button>
             </div>
-            <div style={{ overflowY: 'auto', padding: 8 }}>
+            <div style={{ overflowY: "auto", padding: 8 }}>
               {chapters.length === 0 ? (
-                <p style={{ padding: 16, opacity: 0.7 }}>No chapters available yet.</p>
+                <p style={{ padding: 16, opacity: 0.7 }}>
+                  No chapters available yet.
+                </p>
               ) : (
-                <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: 4 }}>
+                <ul
+                  style={{
+                    listStyle: "none",
+                    margin: 0,
+                    padding: 0,
+                    display: "grid",
+                    gap: 4,
+                  }}
+                >
                   {chapters.map((c) => {
                     const active = c.chapterNumber === chapter.chapterNumber;
+                    const isGenerating = c.status !== "completed";
                     return (
                       <li key={c.id}>
                         <Link
                           href={`/read/${storyId}/${c.chapterNumber}`}
                           onClick={() => setDrawerOpen(false)}
                           style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'space-between',
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "space-between",
                             gap: 12,
-                            padding: '12px 14px',
+                            padding: "12px 14px",
                             minHeight: 44,
                             borderRadius: 8,
-                            color: theme.text,
-                            background: active ? `${theme.text}14` : 'transparent',
+                            color: isGenerating
+                              ? `${theme.text}66`
+                              : theme.text,
+                            background: active
+                              ? `${theme.text}14`
+                              : "transparent",
                             fontWeight: active ? 700 : 500,
-                            textDecoration: 'none',
+                            textDecoration: "none",
                           }}
                         >
-                          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                            {c.chapterNumber}. {c.title ?? `Chương ${c.chapterNumber}`}
+                          <span
+                            style={{
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                              whiteSpace: "nowrap",
+                            }}
+                          >
+                            {c.chapterNumber}.{" "}
+                            {c.title ?? `Chương ${c.chapterNumber}`}
                           </span>
-                          {active ? <span aria-hidden="true">●</span> : null}
+                          {active ? (
+                            <span aria-hidden="true">●</span>
+                          ) : isGenerating ? (
+                            <span
+                              style={{
+                                fontSize: 11,
+                                opacity: 0.6,
+                                flexShrink: 0,
+                              }}
+                            >
+                              {c.status === "failed" ? "failed" : "…"}
+                            </span>
+                          ) : null}
                         </Link>
                       </li>
                     );
@@ -482,6 +619,28 @@ export function ReaderView({ storyId, storyTitle, chapter }: ReaderViewProps) {
             </div>
           </div>
         </>
+      )}
+      {autoGenerating && (
+        <div
+          aria-live="polite"
+          style={{
+            position: "fixed",
+            bottom: 20,
+            right: 16,
+            zIndex: 10,
+            background: theme.background,
+            color: theme.text,
+            border: `1px solid ${theme.text}22`,
+            borderRadius: 999,
+            padding: "8px 14px",
+            fontSize: 13,
+            opacity: 0.85,
+            boxShadow: "0 4px 16px rgba(0,0,0,0.14)",
+            pointerEvents: "none",
+          }}
+        >
+          ✨ Generating next chapter…
+        </div>
       )}
     </div>
   );

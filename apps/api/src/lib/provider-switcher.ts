@@ -1,6 +1,7 @@
 import { OpenCodeProvider } from '@novel/ai/providers/opencode';
 import { OllamaProvider } from '@novel/ai/providers/ollama';
 import { OpenRouterProvider } from '@novel/ai/providers/openrouter';
+import { VmlxProvider } from '@novel/ai/providers/vmlx';
 import type { LLMProvider } from '@novel/ai/providers/types';
 import type { LlmProviderId } from '@novel/core';
 import {
@@ -29,6 +30,7 @@ export const PROVIDER_OPTIONS: ProviderOption[] = [
   { id: 'opencode', label: 'OpenCode' },
   { id: 'openrouter', label: 'OpenRouter' },
   { id: 'ollama', label: 'Ollama (local)' },
+  { id: 'vmlx', label: 'vMLX (local)' },
 ];
 
 export async function getActiveProvider(): Promise<LlmProviderId> {
@@ -64,6 +66,12 @@ export async function buildLiveProvider(): Promise<LLMProvider> {
     return new OllamaProvider({
       apiKey: process.env.OLLAMA_API_KEY,
       baseUrl: process.env.OLLAMA_BASE_URL,
+    });
+  }
+
+  if (activeProvider === 'vmlx') {
+    return new VmlxProvider({
+      baseUrl: process.env.VMLX_BASE_URL,
     });
   }
 

@@ -29,28 +29,55 @@ describe('BibleSchema', () => {
 describe('BibleV2Schema', () => {
   it('accepts a non-cultivation bible (urban genre, no cultivation_system)', () => {
     const ok = BibleV2Schema.parse({
-      world_rules: 'x'.repeat(60),
-      power_system: 'A modern urban world without cultivation. '.repeat(5),
+      world_rules: 'world',
+      power_system: 'power',
       power_system_kind: 'urban',
-      style_guide: 'x'.repeat(120),
-      forbidden_rules: 'rule one rule two rule three',
-      ending_direction: 'x'.repeat(110),
-      compact_summary: 'x'.repeat(100),
+      style_guide: 'style',
+      forbidden_rules: 'rules',
+      ending_direction: 'ending',
+      compact_summary: 'summary',
     });
     expect(ok.power_system_kind).toBe('urban');
     expect(ok.cultivation_system).toBeUndefined();
   });
 
+  it('does not enforce hard length constraints on generated bible fields', () => {
+    const ok = BibleV2Schema.parse({
+      world_rules: 'short',
+      power_system: 'Hệ thống sức mạnh xoay quanh Thánh huyết, Luật tắc và Khí vận. Mỗi huyết mạch mang theo một',
+      power_system_kind: 'cultivation',
+      cultivation_system: 'short',
+      style_guide: 'short',
+      forbidden_rules: 'short',
+      ending_direction: 'short',
+      compact_summary: 'short',
+    });
+    expect(ok.cultivation_system).toBe('short');
+  });
+
   it('rejects cultivation kind missing cultivation_system', () => {
     expect(() => BibleV2Schema.parse({
-      world_rules: 'x'.repeat(60),
-      power_system: 'x'.repeat(60),
+      world_rules: 'world',
+      power_system: 'power',
       power_system_kind: 'cultivation',
-      style_guide: 'x'.repeat(120),
-      forbidden_rules: 'rule one rule two rule three',
-      ending_direction: 'x'.repeat(110),
-      compact_summary: 'x'.repeat(100),
+      style_guide: 'style',
+      forbidden_rules: 'rules',
+      ending_direction: 'ending',
+      compact_summary: 'summary',
     })).toThrow(/cultivation_system/);
+  });
+
+  it('allows long compact_summary content', () => {
+    const ok = BibleV2Schema.parse({
+      world_rules: 'world',
+      power_system: 'power',
+      power_system_kind: 'urban',
+      style_guide: 'style',
+      forbidden_rules: 'rules',
+      ending_direction: 'ending',
+      compact_summary: 'summary '.repeat(1000),
+    });
+    expect(ok.compact_summary.length).toBeGreaterThan(2000);
   });
 
   it('exports a JSON schema with the same required fields', () => {

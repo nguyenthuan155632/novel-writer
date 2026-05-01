@@ -6,7 +6,7 @@ export const metadata = { title: 'Novel Writer', description: 'AI Novel Factory'
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="vi">
+    <html lang="vi" suppressHydrationWarning>
       <body>
         <div className="app-shell">
         <header className="topbar">

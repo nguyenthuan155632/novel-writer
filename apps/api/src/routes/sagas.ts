@@ -2,7 +2,7 @@ import type { FastifyPluginCallback } from 'fastify';
 import { z } from 'zod';
 import { getDb } from '@novel/db';
 import { sagas, stories, storyBibles } from '@novel/db/schema';
-import { eq, and, asc } from 'drizzle-orm';
+import { eq, and, asc, desc } from 'drizzle-orm';
 import { SagaPlannerAgent, loadStoryDomainContext } from '@novel/ai';
 import '@novel/ai/prompts/saga-planner.v2';
 import { buildLoggedProvider } from '../lib/llm-provider.ts';
@@ -39,7 +39,10 @@ const sagasRoute: FastifyPluginCallback = (app, _opts, done) => {
 
     const [story] = await db.select().from(stories).where(eq(stories.id, storyId)).limit(1);
     if (!story) return reply.code(404).send({ error: 'story_not_found' });
-    const [bible] = await db.select().from(storyBibles).where(eq(storyBibles.storyId, storyId)).limit(1);
+    const [bible] = await db.select().from(storyBibles)
+      .where(eq(storyBibles.storyId, storyId))
+      .orderBy(desc(storyBibles.version), desc(storyBibles.createdAt))
+      .limit(1);
     if (!bible) return reply.code(409).send({ error: 'bible_required' });
 
     const domain = await loadStoryDomainContext(db, storyId);

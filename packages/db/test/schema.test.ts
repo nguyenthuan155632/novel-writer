@@ -78,7 +78,7 @@ describe('schema smoke', () => {
 
   it('seeds llm provider settings and active provider state', async () => {
     const providerRows = await db.select().from(llmProviderSettings);
-    expect(providerRows.map((row) => row.provider).sort()).toEqual(['ollama', 'opencode', 'openrouter']);
+    expect(providerRows.map((row) => row.provider).sort()).toEqual(['ollama', 'opencode', 'openrouter', 'vmlx']);
 
     for (const row of providerRows) {
       const routes = row.modelRoutes as Record<string, string>;
@@ -90,7 +90,7 @@ describe('schema smoke', () => {
 
     const stateRows = await db.select().from(llmProviderState).where(eq(llmProviderState.id, 'global'));
     expect(stateRows).toHaveLength(1);
-    expect(['opencode', 'openrouter', 'ollama']).toContain(stateRows[0]!.activeProvider);
+    expect(['opencode', 'openrouter', 'ollama', 'vmlx']).toContain(stateRows[0]!.activeProvider);
   });
 
   it('enforces llm singleton and provider constraints', async () => {

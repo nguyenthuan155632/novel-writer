@@ -1,12 +1,37 @@
-'use client';
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { apiFetch } from '@/lib/api-client';
+"use client";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { apiFetch } from "@/lib/api-client";
 
 const POWER_KINDS = [
-  'cultivation','martial','ability','tech','urban',
-  'historical','horror','mystery','system','reincarnation','mixed','none',
+  "cultivation",
+  "martial",
+  "ability",
+  "tech",
+  "urban",
+  "historical",
+  "horror",
+  "mystery",
+  "system",
+  "reincarnation",
+  "mixed",
+  "none",
 ] as const;
+
+const POWER_KIND_LABELS: Record<(typeof POWER_KINDS)[number], string> = {
+  cultivation: "Tu luyện",
+  martial: "Võ đạo",
+  ability: "Năng lực",
+  tech: "Công nghệ",
+  urban: "Đô thị",
+  historical: "Lịch sử",
+  horror: "Kinh dị",
+  mystery: "Bí ẩn",
+  system: "Hệ thống",
+  reincarnation: "Chuyển sinh",
+  mixed: "Kết hợp",
+  none: "Không có",
+};
 
 interface Bible {
   worldRules: string;
@@ -20,7 +45,7 @@ interface Bible {
   compactSummary: string | null;
 }
 
-type TabId = 'world' | 'systems' | 'style' | 'summary';
+type TabId = "world" | "systems" | "style" | "summary";
 
 interface Tab {
   id: TabId;
@@ -29,51 +54,62 @@ interface Tab {
 }
 
 const tabs: Tab[] = [
-  { id: 'world', label: 'World', icon: '🌍' },
-  { id: 'systems', label: 'Systems', icon: '⚔️' },
-  { id: 'style', label: 'Style', icon: '✍️' },
-  { id: 'summary', label: 'Summary', icon: '📝' },
+  { id: "world", label: "World", icon: "🌍" },
+  { id: "systems", label: "Systems", icon: "⚔️" },
+  { id: "style", label: "Style", icon: "✍️" },
+  { id: "summary", label: "Summary", icon: "📝" },
 ];
 
 function countWords(text: string): number {
-  return text.trim().split(/\s+/).filter(word => word.length > 0).length;
+  return text
+    .trim()
+    .split(/\s+/)
+    .filter((word) => word.length > 0).length;
 }
 
 function countChars(text: string): number {
   return text.length;
 }
 
-export function EditForm({ storyId, bible }: { storyId: string; bible: Bible }) {
+export function EditForm({
+  storyId,
+  bible,
+}: {
+  storyId: string;
+  bible: Bible;
+}) {
   const [data, setData] = useState({
     worldRules: bible.worldRules,
-    cultivationSystem: bible.cultivationSystem ?? '',
-    bloodlineSystem: bible.bloodlineSystem ?? '',
+    cultivationSystem: bible.cultivationSystem ?? "",
+    bloodlineSystem: bible.bloodlineSystem ?? "",
     styleGuide: bible.styleGuide,
     forbiddenRules: bible.forbiddenRules,
-    endingDirection: bible.endingDirection ?? '',
-    compactSummary: bible.compactSummary ?? '',
+    endingDirection: bible.endingDirection ?? "",
+    compactSummary: bible.compactSummary ?? "",
   });
-  const [powerSystem, setPowerSystem] = useState(bible.powerSystem ?? '');
-  const [powerSystemKind, setPowerSystemKind] = useState<typeof POWER_KINDS[number]>(
-    (bible.powerSystemKind as typeof POWER_KINDS[number]) ?? 'cultivation'
-  );
+  const [powerSystem, setPowerSystem] = useState(bible.powerSystem ?? "");
+  const [powerSystemKind, setPowerSystemKind] = useState<
+    (typeof POWER_KINDS)[number]
+  >((bible.powerSystemKind as (typeof POWER_KINDS)[number]) ?? "cultivation");
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<TabId>('world');
+  const [activeTab, setActiveTab] = useState<TabId>("world");
   const router = useRouter();
 
   function bind<K extends keyof typeof data>(k: K) {
     return {
       value: data[k],
-      onChange: (e: React.ChangeEvent<HTMLTextAreaElement>) => setData({ ...data, [k]: e.target.value }),
+      onChange: (e: React.ChangeEvent<HTMLTextAreaElement>) =>
+        setData({ ...data, [k]: e.target.value }),
     };
   }
 
   async function save() {
-    setSaving(true); setErr(null);
+    setSaving(true);
+    setErr(null);
     try {
       await apiFetch(`/api/stories/${storyId}/bible`, {
-        method: 'PUT',
+        method: "PUT",
         body: JSON.stringify({ ...data, powerSystem, powerSystemKind }),
       });
       router.refresh();
@@ -89,7 +125,7 @@ export function EditForm({ storyId, bible }: { storyId: string; bible: Bible }) 
     label: string,
     rows: number,
     placeholder: string,
-    wordLimit?: number
+    wordLimit?: number,
   ) {
     const value = data[key];
     const words = countWords(value);
@@ -97,16 +133,16 @@ export function EditForm({ storyId, bible }: { storyId: string; bible: Bible }) 
     const isWarning = !!wordLimit && words > wordLimit;
 
     return (
-      <div className="textarea-group">
+      <div className="textarea-group" style={{ marginTop: "15px" }}>
         <label>{label}</label>
-        <textarea
-          rows={rows}
-          {...bind(key)}
-          placeholder={placeholder}
-        />
-        <div className={`textarea-count ${isWarning ? 'warning' : ''}`}>
+        <textarea rows={rows} {...bind(key)} placeholder={placeholder} />
+        <div className={`textarea-count ${isWarning ? "warning" : ""}`}>
           <span>{wordLimit ? `${chars} characters` : `${words} words`}</span>
-          <span>{wordLimit ? `${words} / ${wordLimit} words` : `${chars} characters`}</span>
+          <span>
+            {wordLimit
+              ? `${words} / ${wordLimit} words`
+              : `${chars} characters`}
+          </span>
         </div>
       </div>
     );
@@ -114,85 +150,99 @@ export function EditForm({ storyId, bible }: { storyId: string; bible: Bible }) 
 
   function renderTabContent() {
     switch (activeTab) {
-      case 'world':
+      case "world":
         return (
           <div className="tab-panel active">
             {renderTextareaWithCount(
-              'worldRules',
-              'World Rules',
+              "worldRules",
+              "World Rules",
               8,
-              'Describe the world rules, setting, and environment...'
+              "Describe the world rules, setting, and environment...",
             )}
           </div>
         );
 
-      case 'systems':
+      case "systems":
         return (
           <div className="tab-panel active">
             <div className="field-group">
-              <label>Power System Kind</label>
-              <select value={powerSystemKind} onChange={e => setPowerSystemKind(e.target.value as typeof POWER_KINDS[number])}>
-                {POWER_KINDS.map(k => <option key={k} value={k}>{k}</option>)}
+              <label>Loại hệ thống sức mạnh</label>
+              <select
+                value={powerSystemKind}
+                onChange={(e) =>
+                  setPowerSystemKind(
+                    e.target.value as (typeof POWER_KINDS)[number],
+                  )
+                }
+              >
+                {POWER_KINDS.map((k) => (
+                  <option key={k} value={k}>
+                    {POWER_KIND_LABELS[k]}
+                  </option>
+                ))}
               </select>
             </div>
 
-            <div className="field-group">
+            <div className="field-group" style={{ marginTop: "15px" }}>
               <label>Power System</label>
-              <textarea value={powerSystem} onChange={e => setPowerSystem(e.target.value)} rows={6} />
+              <textarea
+                value={powerSystem}
+                onChange={(e) => setPowerSystem(e.target.value)}
+                rows={6}
+              />
             </div>
 
-            {powerSystemKind === 'cultivation' && (
+            {powerSystemKind === "cultivation" && (
               <>
                 {renderTextareaWithCount(
-                  'cultivationSystem',
-                  'Cultivation System',
+                  "cultivationSystem",
+                  "Cultivation System",
                   6,
-                  'Describe the cultivation system...'
+                  "Describe the cultivation system...",
                 )}
                 {renderTextareaWithCount(
-                  'bloodlineSystem',
-                  'Bloodline System',
+                  "bloodlineSystem",
+                  "Bloodline System",
                   6,
-                  'Describe the bloodline system...'
+                  "Describe the bloodline system...",
                 )}
               </>
             )}
           </div>
         );
 
-      case 'style':
+      case "style":
         return (
           <div className="tab-panel active">
             {renderTextareaWithCount(
-              'styleGuide',
-              'Style Guide',
+              "styleGuide",
+              "Style Guide",
               6,
-              'Describe the writing style guide...'
+              "Describe the writing style guide...",
             )}
             {renderTextareaWithCount(
-              'forbiddenRules',
-              'Forbidden Rules',
+              "forbiddenRules",
+              "Forbidden Rules",
               6,
-              'List forbidden rules and elements...'
+              "List forbidden rules and elements...",
             )}
           </div>
         );
 
-      case 'summary':
+      case "summary":
         return (
           <div className="tab-panel active">
             {renderTextareaWithCount(
-              'endingDirection',
-              'Ending Direction',
+              "endingDirection",
+              "Ending Direction",
               4,
-              'Describe the planned ending direction...'
+              "Describe the planned ending direction...",
             )}
             {renderTextareaWithCount(
-              'compactSummary',
-              'Compact Summary (≤ 1500 words)',
+              "compactSummary",
+              "Compact Summary",
               8,
-              'Write a compact summary for HOT cache...',
-              1500
+              "Write a compact summary for HOT cache...",
             )}
           </div>
         );
@@ -205,7 +255,7 @@ export function EditForm({ storyId, bible }: { storyId: string; bible: Bible }) 
         {tabs.map((tab) => (
           <button
             key={tab.id}
-            className={`tab-button ${activeTab === tab.id ? 'active' : ''}`}
+            className={`tab-button ${activeTab === tab.id ? "active" : ""}`}
             onClick={() => setActiveTab(tab.id)}
           >
             {tab.icon} {tab.label}
@@ -213,15 +263,13 @@ export function EditForm({ storyId, bible }: { storyId: string; bible: Bible }) 
         ))}
       </div>
 
-      <div className="tab-content">
-        {renderTabContent()}
-      </div>
+      <div className="tab-content">{renderTabContent()}</div>
 
       {err && <p className="error">{err}</p>}
       <div className="button-row">
-      <button className="primary" onClick={save} disabled={saving}>
-        {saving ? 'Saving...' : 'Save (creates new version)'}
-      </button>
+        <button className="primary" onClick={save} disabled={saving}>
+          {saving ? "Saving..." : "Save (creates new version)"}
+        </button>
       </div>
     </div>
   );
