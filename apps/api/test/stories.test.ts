@@ -1,4 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { eq } from 'drizzle-orm';
+import { getDb } from '@novel/db';
+import { stories } from '@novel/db/schema';
 import { buildServer } from '../src/server.ts';
 
 const TEST_DB = process.env.TEST_DATABASE_URL ?? 'postgresql://novel:novel@localhost:5432/novel_factory';
@@ -72,5 +75,47 @@ describe('POST /api/stories with catalog validation', () => {
     const settings = JSON.parse(settingsRes.body);
     expect(settings.overrides.storyOptions.tone).toBe('serious');
     expect(settings.overrides.storyOptions.pov).toBe('first');
+  });
+});
+
+describe('PATCH /api/stories/:id', () => {
+  async function createStoryHelper(payload: Record<string, unknown>): Promise<{ id: string }> {
+    const res = await app.inject({
+      method: 'POST', url: '/api/stories',
+      payload: { title: 't', premise: 'p'.repeat(25), ...payload },
+    });
+    return JSON.parse(res.body);
+  }
+
+  it('updates personality and storyOptions', async () => {
+    const story = await createStoryHelper({ genre: 'do_thi' });
+    const res = await app.inject({
+      method: 'PATCH', url: `/api/stories/${story.id}`,
+      payload: { mainCharacterPersonality: 'humorous_slick', storyOptions: { tone: 'humorous' } },
+    });
+    expect(res.statusCode).toBe(200);
+    const refetched = await app.inject({ method: 'GET', url: `/api/stories/${story.id}` });
+    expect(JSON.parse(refetched.body).mainCharacterPersonality).toBe('humorous_slick');
+  });
+
+  it('returns 409 when changing genre after bible is locked', async () => {
+    const story = await createStoryHelper({ genre: 'tien_hiep' });
+    await getDb().update(stories).set({ genreLockedAt: new Date() }).where(eq(stories.id, story.id));
+
+    const res = await app.inject({
+      method: 'PATCH', url: `/api/stories/${story.id}`,
+      payload: { genre: 'do_thi' },
+    });
+    expect(res.statusCode).toBe(409);
+    expect(JSON.parse(res.body).error).toBe('genre_locked');
+  });
+
+  it('allows genre change when not locked', async () => {
+    const story = await createStoryHelper({ genre: 'tien_hiep' });
+    const res = await app.inject({
+      method: 'PATCH', url: `/api/stories/${story.id}`,
+      payload: { genre: 'do_thi' },
+    });
+    expect(res.statusCode).toBe(200);
   });
 });
