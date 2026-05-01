@@ -3,8 +3,8 @@ import { GENRES, type GenreSlug } from '../../src/catalog/genres.ts';
 import { GENRE_FAMILIES } from '../../src/catalog/genre-families.ts';
 
 describe('GENRES catalog', () => {
-  it('has exactly 25 entries (24 user-facing + tuy_chon sentinel)', () => {
-    expect(GENRES).toHaveLength(25);
+  it('has exactly 26 entries (25 user-facing + tuy_chon sentinel)', () => {
+    expect(GENRES).toHaveLength(26);
   });
 
   it('every slug is unique', () => {

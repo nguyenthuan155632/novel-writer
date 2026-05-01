@@ -9,15 +9,15 @@ describe('renderGenreContract', () => {
     expect(out).toContain('Đô thị');
     expect(out).toContain('family: urban');
     expect(out).toContain('Allowed tropes:');
-    expect(out).toContain('tổng tài bá đạo');
+    expect(out).toContain('công ty');
     expect(out).toContain('Avoid unless explicitly in canon:');
-    expect(out).toContain('logic kinh tế phi thực tế');
+    expect(out).toContain('tu tiên');
     expect(out).toContain('PRIORITY RULES');
   });
 
   it('omits "Avoid unless..." line when discouragedTropes is empty (tuy_chon)', () => {
     const out = renderGenreContract(findGenre('tuy_chon'), {});
-    expect(out).toContain('Tùy chọn');
+    expect(out).toContain('Tuỳ chọn');
     expect(out).not.toContain('Avoid unless explicitly in canon:');
   });
 });
