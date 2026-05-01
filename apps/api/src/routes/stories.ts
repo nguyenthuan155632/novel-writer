@@ -1,28 +1,45 @@
 import type { FastifyPluginCallback } from 'fastify';
 import { z } from 'zod';
 import { getDb } from '@novel/db';
-import { stories } from '@novel/db/schema';
+import { stories, storySettings } from '@novel/db/schema';
 import { eq, desc } from 'drizzle-orm';
+import { GenreSlugSchema, PersonalitySlugSchema, StoryOptionsSchema } from '@novel/core';
 
 const CreateStorySchema = z.object({
   title: z.string().min(1).max(200),
   premise: z.string().min(20).max(5000),
-  genre: z.string().default('xianxia_fantasy'),
+  genre: GenreSlugSchema.default('tien_hiep'),
+  mainCharacterPersonality: PersonalitySlugSchema.default('tram_on'),
   tone: z.string().nullish(),
+  storyOptions: StoryOptionsSchema.default({}),
   targetChapterCount: z.number().int().min(1).max(10000).default(1000),
 });
 
 const plugin: FastifyPluginCallback = (app, _opts, done) => {
   app.post('/api/stories', async (req, reply) => {
     const db = getDb();
-    const body = CreateStorySchema.parse(req.body);
+    let body: z.infer<typeof CreateStorySchema>;
+    try {
+      body = CreateStorySchema.parse(req.body);
+    } catch (e) {
+      return reply.status(400).send({ error: 'validation_failed', details: (e as Error).message });
+    }
+
     const [row] = await db.insert(stories).values({
       title: body.title,
       premise: body.premise,
       genre: body.genre,
+      mainCharacterPersonality: body.mainCharacterPersonality,
       tone: body.tone ?? null,
       targetChapterCount: body.targetChapterCount,
     }).returning();
+
+    await db.insert(storySettings).values({
+      storyId: row.id,
+      overrides: { storyOptions: body.storyOptions },
+      updatedAt: new Date(),
+    });
+
     return reply.status(201).send(row);
   });
 

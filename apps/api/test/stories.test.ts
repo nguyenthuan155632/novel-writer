@@ -12,7 +12,7 @@ describe('stories routes', () => {
   it('creates and lists stories', async () => {
     const create = await app.inject({
       method: 'POST', url: '/api/stories',
-      payload: { title: 'T', premise: 'A'.repeat(50), genre: 'xianxia_fantasy', targetChapterCount: 100 },
+      payload: { title: 'T', premise: 'A'.repeat(50), genre: 'tien_hiep', targetChapterCount: 100 },
     });
     expect(create.statusCode).toBe(201);
     const created = JSON.parse(create.body);
@@ -34,5 +34,43 @@ describe('stories routes', () => {
       payload: { title: 'X' },
     });
     expect(r.statusCode).toBe(400);
+  });
+});
+
+describe('POST /api/stories with catalog validation', () => {
+  it('rejects unknown genre slug', async () => {
+    const res = await app.inject({
+      method: 'POST', url: '/api/stories',
+      payload: { title: 't', premise: 'p'.repeat(25), genre: 'xianxia_fantasy' },
+    });
+    expect(res.statusCode).toBe(400);
+  });
+
+  it('defaults genre to tien_hiep and personality to tram_on', async () => {
+    const res = await app.inject({
+      method: 'POST', url: '/api/stories',
+      payload: { title: 't', premise: 'p'.repeat(25) },
+    });
+    expect(res.statusCode).toBe(201);
+    const body = JSON.parse(res.body);
+    expect(body.genre).toBe('tien_hiep');
+    expect(body.mainCharacterPersonality).toBe('tram_on');
+  });
+
+  it('persists storyOptions into story_settings.overrides', async () => {
+    const res = await app.inject({
+      method: 'POST', url: '/api/stories',
+      payload: {
+        title: 't', premise: 'p'.repeat(25),
+        genre: 'do_thi', mainCharacterPersonality: 'cunning_pragmatic',
+        storyOptions: { tone: 'serious', pov: 'first', worldEra: 'modern' },
+      },
+    });
+    expect(res.statusCode).toBe(201);
+    const body = JSON.parse(res.body);
+    const settingsRes = await app.inject({ method: 'GET', url: `/api/stories/${body.id}/settings` });
+    const settings = JSON.parse(settingsRes.body);
+    expect(settings.overrides.storyOptions.tone).toBe('serious');
+    expect(settings.overrides.storyOptions.pov).toBe('first');
   });
 });
