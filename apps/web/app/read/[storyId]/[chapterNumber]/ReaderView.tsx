@@ -114,16 +114,22 @@ export function ReaderView({ storyId, storyTitle, chapter }: ReaderViewProps) {
   // Auto-generate the next chapter when the reader is within 5 chapters of the latest
   // AND the latest chapter is fully completed (not still generating).
   // Condition: currentChapterNumber >= latestChapterNumber - 5
-  const generationTriggered = useRef(false);
+  // Tracks which chapter number we last triggered generation for.
+  // Using a number (not a boolean) lets the effect re-fire when the latest
+  // chapter advances (e.g. user navigates forward and a new chapter completes).
+  const generationTriggered = useRef<number>(-1);
   const [autoGenerating, setAutoGenerating] = useState(false);
 
   useEffect(() => {
-    if (chapters.length === 0 || generationTriggered.current) return;
+    if (chapters.length === 0) return;
     const latestChapter = chapters[chapters.length - 1];
     // Guard: only trigger if the last chapter is complete — not mid-generation.
     if (latestChapter.status !== "completed") return;
     if (chapter.chapterNumber < latestChapter.chapterNumber - 5) return;
-    generationTriggered.current = true;
+    const nextToGenerate = latestChapter.chapterNumber + 1;
+    // Avoid duplicate requests for the same target chapter.
+    if (generationTriggered.current === nextToGenerate) return;
+    generationTriggered.current = nextToGenerate;
     setAutoGenerating(true);
     generateChapter(storyId, latestChapter.chapterNumber + 1, "semi_auto")
       .catch(() => {
@@ -216,7 +222,9 @@ export function ReaderView({ storyId, storyTitle, chapter }: ReaderViewProps) {
         style={{
           maxWidth: 680,
           margin: "0 auto",
-          padding: "24px 20px 96px",
+          // Extra bottom padding so the last line of text is never hidden
+          // behind the sticky bottom navigation bar (~60 px) plus safe area.
+          padding: "24px 20px 120px",
         }}
       >
         <h1
@@ -620,12 +628,99 @@ export function ReaderView({ storyId, storyTitle, chapter }: ReaderViewProps) {
           </div>
         </>
       )}
+      {/* ── Sticky bottom navigation ── Always visible so mobile readers
+           never have to scroll to the end of the chapter to flip pages. */}
+      <nav
+        aria-label="Chapter navigation"
+        style={{
+          position: "fixed",
+          bottom: 0,
+          left: 0,
+          right: 0,
+          zIndex: 7,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: 8,
+          padding: "8px 16px",
+          paddingBottom: "calc(8px + env(safe-area-inset-bottom, 0px))",
+          background: theme.background,
+          borderTop: `1px solid ${theme.text}22`,
+          boxShadow: `0 -4px 16px ${theme.background}cc`,
+        }}
+      >
+        {prevChapter ? (
+          <Link
+            href={`/read/${storyId}/${prevChapter.chapterNumber}`}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 6,
+              minHeight: 44,
+              minWidth: 44,
+              padding: "8px 14px",
+              borderRadius: 999,
+              border: `1px solid ${theme.text}33`,
+              color: theme.text,
+              fontWeight: 600,
+              fontSize: 14,
+              textDecoration: "none",
+            }}
+          >
+            ← Trước
+          </Link>
+        ) : (
+          <span />
+        )}
+        <button
+          type="button"
+          aria-label="Chapter list"
+          onClick={() => setDrawerOpen(true)}
+          style={{
+            minHeight: 44,
+            minWidth: 44,
+            padding: "8px 14px",
+            borderRadius: 999,
+            border: `1px solid ${theme.text}33`,
+            background: "transparent",
+            color: theme.text,
+            fontSize: 14,
+            cursor: "pointer",
+          }}
+        >
+          ☰
+        </button>
+        {nextChapter ? (
+          <Link
+            href={`/read/${storyId}/${nextChapter.chapterNumber}`}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 6,
+              minHeight: 44,
+              minWidth: 44,
+              padding: "8px 14px",
+              borderRadius: 999,
+              border: `1px solid ${theme.text}33`,
+              color: theme.text,
+              fontWeight: 600,
+              fontSize: 14,
+              textDecoration: "none",
+            }}
+          >
+            Tiếp →
+          </Link>
+        ) : (
+          <span />
+        )}
+      </nav>
+
       {autoGenerating && (
         <div
           aria-live="polite"
           style={{
             position: "fixed",
-            bottom: 20,
+            bottom: "calc(68px + env(safe-area-inset-bottom, 0px))",
             right: 16,
             zIndex: 10,
             background: theme.background,
