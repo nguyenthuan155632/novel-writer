@@ -243,8 +243,9 @@ export function ReaderView({ storyId, storyTitle, chapter }: ReaderViewProps) {
           <div
             role="dialog"
             aria-label="Reader settings"
+            aria-modal="true"
             style={{
-              position: 'absolute',
+              position: 'fixed',
               top: 64,
               left: 12,
               right: 12,
@@ -300,7 +301,7 @@ export function ReaderView({ storyId, storyTitle, chapter }: ReaderViewProps) {
             {/* Font size slider */}
             <section>
               <div style={{ fontSize: 12, opacity: 0.7, marginBottom: 8 }}>Font size</div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, minHeight: 44 }}>
                 <span style={{ fontSize: 14 }}>A</span>
                 <input
                   type="range"
