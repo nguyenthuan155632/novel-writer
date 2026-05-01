@@ -6,12 +6,13 @@ import { arcSummaryCompactorPromptV1 } from '../prompts/arc-summary-compactor.v1
 export interface ArcSummaryCompactorInput {
   storyId: string;
   arcTitle: string;
-  perChapterSummaries: { chapterNumber: number; detailedSummary: string }[];
+  perChapterSummaries: { chapterNumber: number; summary: string }[];
 }
 
 export type ArcSummaryCompactorDeps = {
   provider: LLMProvider;
   logger: Logger;
+  model?: string;
 };
 
 export class ArcSummaryCompactorAgent {
@@ -25,7 +26,7 @@ export class ArcSummaryCompactorAgent {
     } as Record<string, unknown>);
 
     const r = await this.deps.provider.complete({
-      model: MODEL_CONFIG.routes.summary_compactor,
+      model: this.deps.model ?? MODEL_CONFIG.routes.arc_summary_compactor,
       messages: [{ role: 'system', content: built.system }, { role: 'user', content: built.user }],
       temperature: 0.4,
       maxOutputTokens: 1500,

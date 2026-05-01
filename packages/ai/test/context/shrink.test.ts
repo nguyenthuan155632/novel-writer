@@ -60,9 +60,9 @@ describe('shrinkToFit', () => {
   it('drops retrievedPastChapters first', () => {
     const ctx = makeContext({
       cold: {
-        recentSummaries: [{ chapterNumber: 1, shortSummary: 'a'.repeat(200) }],
-        retrievedFacts: [{ id: 'f1', importance: 'high', fact: 'b'.repeat(200) }],
-        retrievedPastChapters: [{ chapterNumber: 1, shortSummary: 'c'.repeat(200) }],
+        recentSummaries: [{ chapterNumber: 1, summary: 'a'.repeat(1000) }],
+        retrievedFacts: [{ id: 'f1', topic: 'magic', importance: 'high', fact: 'b'.repeat(200) }],
+        retrievedPastChapters: [{ chapterNumber: 1, summary: 'c'.repeat(1000) }],
         seedsToPlantNow: [],
         packet: {
           chapterNumber: 1, goal: 'g', requiredEvents: [], charactersPresent: [],
@@ -79,7 +79,7 @@ describe('shrinkToFit', () => {
     const ctx = makeContext({
       cold: {
         retrievedPastChapters: [],
-        retrievedFacts: [{ id: 'f1', importance: 'high', fact: 'fact' }],
+        retrievedFacts: [{ id: 'f1', topic: 'realm', importance: 'high', fact: 'fact' }],
         recentSummaries: [],
         seedsToPlantNow: [],
         packet: {
@@ -121,8 +121,8 @@ describe('shrinkToFit', () => {
   it('does not mutate the original context', () => {
     const ctx = makeContext({
       cold: {
-        retrievedPastChapters: [{ chapterNumber: 5, shortSummary: 'test' }],
-        retrievedFacts: [{ id: 'f1', importance: 'high', fact: 'fact' }],
+        retrievedPastChapters: [{ chapterNumber: 5, summary: 'test' }],
+        retrievedFacts: [{ id: 'f1', topic: 'realm', importance: 'high', fact: 'fact' }],
         recentSummaries: [],
         seedsToPlantNow: [],
         packet: {

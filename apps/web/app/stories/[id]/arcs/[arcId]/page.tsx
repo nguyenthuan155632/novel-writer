@@ -39,7 +39,7 @@ export default async function ArcDetail({ params }: { params: Promise<{ id: stri
         <h2>Seeds to resolve in arc</h2>
         <ul>{arc.seedsToResolveInArc.map((k) => <li key={k}><code>{k}</code></li>)}</ul>
         <h2>Rolling summary</h2>
-        <pre>{arc.rollingSummary ?? '(not generated)'}</pre>
+        <pre style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{arc.rollingSummary ?? '(not generated)'}</pre>
       </section>
     </>
   );

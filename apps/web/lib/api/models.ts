@@ -10,6 +10,7 @@ export type AgentRole =
   | 'llm_validator'
   | 'canon_extractor'
   | 'summary_compactor'
+  | 'arc_summary_compactor'
   | 'high_stakes_reviewer';
 
 export type ModelRoutes = Record<AgentRole, string>;

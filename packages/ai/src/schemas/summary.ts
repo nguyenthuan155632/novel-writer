@@ -9,8 +9,7 @@ function clampChars(s: string, max: number): string {
 }
 
 export const SummaryCompactorOutputSchema = z.object({
-  shortSummary: z.string().min(1).transform(s => clampChars(s, 300)),
-  detailedSummary: z.string().min(1).transform(s => clampChars(s, 2000)),
+  summary: z.string().min(1).transform(s => clampChars(s, 2000)),
   keyEvents: z
     .array(z.string().min(1).transform(s => clampChars(s, 200)))
     .max(10),
@@ -23,10 +22,9 @@ export type SummaryCompactorOutput = z.infer<typeof SummaryCompactorOutputSchema
 export const SUMMARY_COMPACTOR_JSON_SCHEMA: JsonSchema = {
   type: 'object',
   additionalProperties: false,
-  required: ['shortSummary', 'detailedSummary', 'keyEvents', 'charactersPresent'],
+  required: ['summary', 'keyEvents', 'charactersPresent'],
   properties: {
-    shortSummary: { type: 'string', maxLength: 300 },
-    detailedSummary: { type: 'string', maxLength: 2000 },
+    summary: { type: 'string', maxLength: 2000 },
     keyEvents: { type: 'array', items: { type: 'string' } },
     charactersPresent: { type: 'array', items: { type: 'string' } },
     moodShift: { type: 'string', enum: ['darker', 'lighter', 'unchanged'] },

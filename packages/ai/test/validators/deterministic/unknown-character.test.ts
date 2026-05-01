@@ -35,4 +35,26 @@ describe('unknownCharacterCheck', () => {
     expect(result.pass).toBe(false);
     expect(result.issues.length).toBeGreaterThan(0);
   });
+
+  it('does not flag lore terms, realms, techniques, factions, or locations as characters', () => {
+    const result = unknownCharacterCheck.run(
+      makeInput(
+        'Yên Môn Quan chìm trong gió lạnh. Bắc Di áp sát biên cảnh Đại Yến. ' +
+          'Võ Đạo Chân Giải ghi lại cảnh giới Hậu Thiên và phép Tẩy Kinh Phạt Tủy. ' +
+          'Thiên Địa Nguyên Khí cuộn lên khắp Cửu Châu.',
+        ['Lam Trach'],
+      ),
+    );
+
+    expect(result.pass).toBe(true);
+  });
+
+  it('still flags unknown names in character-action context', () => {
+    const result = unknownCharacterCheck.run(
+      makeInput('Lam Trach cau mày. Vương Phong bước tới và nói: "Đưa kiếm đây."', ['Lam Trach']),
+    );
+
+    expect(result.pass).toBe(false);
+    expect(result.issues).toContain('Nhân vật "Vương Phong" không có trong danh sách known characters.');
+  });
 });

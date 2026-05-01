@@ -23,6 +23,7 @@ export interface ArcPlannerResult {
 export type ArcPlannerDeps = {
   provider: LLMProvider;
   logger: Logger;
+  model?: string;
 };
 
 export class ArcPlannerAgent {
@@ -58,7 +59,7 @@ export class ArcPlannerAgent {
     const response = await withCompletionRetryRaw(
       'arc_planner',
       async () => this.deps.provider.complete({
-        model: MODEL_CONFIG.routes.arc_planner,
+        model: this.deps.model ?? MODEL_CONFIG.routes.arc_planner,
         messages: [{ role: 'system', content: built.system }, { role: 'user', content: built.user }],
         responseSchema: ARC_PLANNER_JSON_SCHEMA,
         temperature: 0.7,

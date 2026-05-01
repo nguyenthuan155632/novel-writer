@@ -6,6 +6,7 @@ import { eq, and, asc } from 'drizzle-orm';
 import { ArcPlannerAgent } from '@novel/ai';
 import '@novel/ai/prompts/arc-planner.v1';
 import { buildLoggedProvider } from '../lib/llm-provider.ts';
+import { getModelStatusForActiveProviderFromDb } from '../lib/llm-settings.ts';
 
 const SagaParam = z.object({ storyId: z.string().uuid(), sagaId: z.string().uuid() });
 const ArcParam = z.object({ storyId: z.string().uuid(), arcId: z.string().uuid() });
@@ -38,7 +39,12 @@ const arcsRoute: FastifyPluginCallback = (app, _opts, done) => {
       .where(and(eq(sagas.storyId, storyId), eq(sagas.id, sagaId))).limit(1);
     if (!saga) return reply.code(404).send({ error: 'saga_not_found' });
     const provider = await buildLoggedProvider();
-    const agent = new ArcPlannerAgent({ provider, logger: { child: () => ({ child: () => ({} as any), error: () => {}, info: () => {} } as any), error: () => {}, info: () => {} } as any });
+    const modelStatus = await getModelStatusForActiveProviderFromDb();
+    const agent = new ArcPlannerAgent({
+      provider,
+      logger: { child: () => ({ child: () => ({} as any), error: () => {}, info: () => {} } as any), error: () => {}, info: () => {} } as any,
+      model: modelStatus.routes.arc_planner,
+    });
     const planned = await agent.plan({ storyId, sagaId, currentState });
     const counts = await agent.persist(storyId, sagaId, planned.output);
     return reply.send({ promptVersion: planned.promptVersion, usage: planned.usage, ...counts });

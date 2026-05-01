@@ -27,6 +27,7 @@ export interface HighStakesReviewResult {
 export type HighStakesReviewerDeps = {
   provider: LLMProvider;
   logger: Logger;
+  model?: string;
 };
 
 export class HighStakesReviewerAgent {
@@ -45,7 +46,7 @@ export class HighStakesReviewerAgent {
     const response = await withCompletionRetryRaw(
       'high_stakes_reviewer',
       async () => this.deps.provider.complete({
-        model: MODEL_CONFIG.routes.high_stakes_reviewer,
+        model: this.deps.model ?? MODEL_CONFIG.routes.high_stakes_reviewer,
         messages: [{ role: 'system', content: built.system }, { role: 'user', content: built.user }],
         responseSchema: HIGH_STAKES_REVIEW_JSON_SCHEMA,
         temperature: 0.3,

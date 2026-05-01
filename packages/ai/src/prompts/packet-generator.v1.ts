@@ -3,7 +3,7 @@ import { registerPrompt, type DualPromptTemplate } from './registry.ts';
 export type PacketGeneratorPromptInput = {
   bibleCompact: string;
   arcSummary: string;
-  recentChapterSummaries: { chapterNumber: number; shortSummary: string }[];
+  recentChapterSummaries: { chapterNumber: number; summary: string }[];
   activeCharacters: { name: string; currentRealm?: string; status: string; faction?: string }[];
   openThreads: { title: string; state: string }[];
   duePlantedSeeds: { id: string; seedText: string; payoffDescription: string; plantWindowEnd: number }[];
@@ -23,7 +23,7 @@ export const packetGeneratorPromptV1: DualPromptTemplate = {
       `# ARC HIỆN TẠI`, input.arcSummary, '',
       `# ARC GOALS`, input.arcGoals, '',
       `# 5 CHƯƠNG GẦN NHẤT`,
-      ...(input.recentChapterSummaries as unknown as { chapterNumber: number; shortSummary: string }[]).map(s => `- Ch${s.chapterNumber}: ${s.shortSummary}`),
+      ...(input.recentChapterSummaries as unknown as { chapterNumber: number; summary: string }[]).map(s => `- Ch${s.chapterNumber}: ${s.summary}`),
       '',
       `# NHÂN VẬT ĐANG HOẠT ĐỘNG`,
       ...(input.activeCharacters as unknown as { name: string; currentRealm?: string; status: string; faction?: string }[]).map(c => `- ${c.name} [${c.status}] realm=${c.currentRealm ?? '-'} faction=${c.faction ?? '-'}`),

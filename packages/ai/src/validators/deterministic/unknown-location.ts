@@ -9,7 +9,7 @@ export const unknownLocationCheck: DeterministicCheck = {
     const knownCharacters = new Set(input.canon.knownCharacterNames.map(n => n.toLowerCase()));
     const knownBloodlines = new Set(input.canon.knownBloodlineNames.map(n => n.toLowerCase()));
 
-    const locationPrefixes = ['tại', 'ở', 'đến', 'về', 'từ', 'trong'];
+    const locationPrefixes = ['tại', 'ở', 'đến', 'về', 'từ'];
     const vietnameseNamePattern = /(?:[A-ZÀÁẢÃẠĂẮẰẲẴẶÂẤẦẨẪẬĐÉÈẺẼẸÊẾỀỂỄỆÍÌỈĨỊÓÒỎÕỌÔỐỒỔỖỘƠỚỜỞỠỢÚÙỦŨỤƯỨỪỬỮỰÝỲỶỸỴ][a-zàáảãạăằắẳẵặâầấẩẫậđèéẻẽẹêềếểễệìíỉĩịòóỏõọôồốổỗộơờớởỡợùúủũụưừứửữựỳýỷỹỵ]+(?:\s+[A-ZÀÁẢÃẠĂẮẰẲẴẶÂẤẦẨẪẬĐÉÈẺẼẸÊẾỀỂỄỆÍÌỈĨỊÓÒỎÕỌÔỐỒỔỖỘƠỚỜỞỠỢÚÙỦŨỤƯỨỪỬỮỰÝỲỶỸỴ][a-zàáảãạăằắẳẵặâầấẩẫậđèéẻẽẹêềếểễệìíỉĩịòóỏõọôồốổỗộơờớởỡợùúủũụưừứửữựỳýỷỹỵ]+)+)/gu;
 
     const matches = input.content.matchAll(vietnameseNamePattern);

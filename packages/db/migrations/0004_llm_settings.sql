@@ -31,6 +31,7 @@ VALUES
       "llm_validator":"google/gemini-2.5-flash",
       "canon_extractor":"google/gemini-2.5-flash",
       "summary_compactor":"google/gemini-2.5-flash",
+      "arc_summary_compactor":"google/gemini-2.5-flash",
       "high_stakes_reviewer":"google/gemini-2.5-flash"
     }'::jsonb
   ),
@@ -46,6 +47,7 @@ VALUES
       "llm_validator":"google/gemini-2.5-flash",
       "canon_extractor":"google/gemini-2.5-flash",
       "summary_compactor":"google/gemini-2.5-flash",
+      "arc_summary_compactor":"google/gemini-2.5-flash",
       "high_stakes_reviewer":"google/gemini-2.5-flash"
     }'::jsonb
   ),
@@ -61,6 +63,7 @@ VALUES
       "llm_validator":"google/gemini-2.5-flash",
       "canon_extractor":"google/gemini-2.5-flash",
       "summary_compactor":"google/gemini-2.5-flash",
+      "arc_summary_compactor":"google/gemini-2.5-flash",
       "high_stakes_reviewer":"google/gemini-2.5-flash"
     }'::jsonb
   );

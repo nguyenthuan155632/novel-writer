@@ -28,7 +28,7 @@ export async function runHighStakesReviewJob(data: HighStakesReviewJobData, ctx:
   }
 
   const summaries = await db
-    .select({ rollingSummary: chapterSummaries.detailedSummary })
+    .select({ rollingSummary: chapterSummaries.summary })
     .from(chapterSummaries)
     .innerJoin(chapters, eq(chapterSummaries.chapterId, chapters.id))
     .where(and(
@@ -40,8 +40,12 @@ export async function runHighStakesReviewJob(data: HighStakesReviewJobData, ctx:
 
   const arcSummary = summaries.map((s, i) => `Chapter ${chapterNumber - i}: ${s.rollingSummary ?? '(no summary)'}`).join('\n');
 
-  const { provider } = await buildLoggedWorkerProvider(db, data);
-  const agent = new HighStakesReviewerAgent({ provider, logger: log as any });
+  const { provider, modelRoutes } = await buildLoggedWorkerProvider(db, data);
+  const agent = new HighStakesReviewerAgent({
+    provider,
+    logger: log as any,
+    model: modelRoutes.high_stakes_reviewer,
+  });
 
   const result = await agent.review({
     storyId,

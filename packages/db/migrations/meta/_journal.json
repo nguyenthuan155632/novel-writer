@@ -71,6 +71,20 @@
       "when": 1779212933000,
       "tag": "0009_canon_facts_topic",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1779300000000,
+      "tag": "0010_drop_short_summary",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1779300600000,
+      "tag": "0011_arc_summary_compactor_model_route",
+      "breakpoints": true
     }
   ]
 }

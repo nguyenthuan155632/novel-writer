@@ -10,6 +10,7 @@ const DEFAULT_MODEL_ROUTES = {
   llm_validator: DEFAULT_MODEL_ID,
   canon_extractor: DEFAULT_MODEL_ID,
   summary_compactor: DEFAULT_MODEL_ID,
+  arc_summary_compactor: DEFAULT_MODEL_ID,
   high_stakes_reviewer: DEFAULT_MODEL_ID,
 };
 
@@ -31,15 +32,31 @@ export const MODEL_CONFIG = {
     },
     "google/gemini-2.5-pro": { input: 1.25, cachedInput: 0.31, output: 10.0 },
     // DeepSeek
-    "deepseek/deepseek-v3.2": { input: 0.252, cachedInput: 0.0252, output: 0.378 },
-    "deepseek/deepseek-v4": { input: 0.435, cachedInput: 0.003625, output: 0.87 },
-    "deepseek/deepseek-v4-pro": { input: 0.435, cachedInput: 0.003625, output: 0.87 },
+    "deepseek/deepseek-v3.2": {
+      input: 0.252,
+      cachedInput: 0.0252,
+      output: 0.378,
+    },
+    "deepseek/deepseek-v4": {
+      input: 0.435,
+      cachedInput: 0.003625,
+      output: 0.87,
+    },
+    "deepseek/deepseek-v4-pro": {
+      input: 0.435,
+      cachedInput: 0.003625,
+      output: 0.87,
+    },
     // Kimi (moonshotai on OpenRouter)
     "kimi/kimi-k2": { input: 0.57, cachedInput: 0, output: 2.3 },
     "kimi/kimi-k2.5": { input: 0.44, cachedInput: 0.22, output: 2 },
     "kimi/kimi-k2.6": { input: 0.75, cachedInput: 0.15, output: 3.5 },
     // Meta Llama 3
-    "meta-llama/llama-3-70b-instruct": { input: 0.51, cachedInput: 0, output: 0.74 },
+    "meta-llama/llama-3-70b-instruct": {
+      input: 0.51,
+      cachedInput: 0,
+      output: 0.74,
+    },
     // Mistral
     "mistralai/mistral-large": { input: 2, cachedInput: 0.2, output: 6 },
     "mistralai/mixtral-8x7b": { input: 0.54, cachedInput: 0, output: 0.54 },
@@ -47,9 +64,6 @@ export const MODEL_CONFIG = {
     // Cohere
     "cohere/command-r": { input: 0.15, cachedInput: 0, output: 0.6 },
     "cohere/command-r-plus": { input: 2.5, cachedInput: 0, output: 10 },
-    // Nous Capybara — not available on OpenRouter
-    "nousresearch/nous-capybara-7b": { input: 0, cachedInput: 0, output: 0 },
-    "nousresearch/nous-capybara-34b": { input: 0, cachedInput: 0, output: 0 },
     // Qwen
     "qwen/qwen-2-72b-instruct": { input: 0.36, cachedInput: 0, output: 0.4 },
     "qwen/qwen-2-110b-instruct": { input: 0, cachedInput: 0, output: 0 },
@@ -57,6 +71,8 @@ export const MODEL_CONFIG = {
     "glm-5.1": { input: 1.05, cachedInput: 0.525, output: 3.5 },
     // Grok
     "x-ai/grok-3-mini": { input: 0.3, cachedInput: 0.075, output: 0.5 },
+    // Ollama
+    "gemma4:e4b": { input: 0.0, cachedInput: 0, output: 0.0 },
   },
 };
 
@@ -130,7 +146,13 @@ export const MODEL_OPTIONS: ModelOption[] = [
     role: "summary_compactor",
     label: "Summary compactor",
     envVar: "COMPACTOR_MODEL",
-    description: "Compacts chapter and arc summaries.",
+    description: "Compacts individual chapter summaries.",
+  },
+  {
+    role: "arc_summary_compactor",
+    label: "Arc summary compactor",
+    envVar: "ARC_SUMMARY_COMPACTOR_MODEL",
+    description: "Rolls chapter summaries into arc and saga memory.",
   },
   {
     role: "high_stakes_reviewer",
@@ -166,9 +188,6 @@ export const MODEL_HINTS = [
   // Cohere
   "cohere/command-r",
   "cohere/command-r-plus",
-  // Nous Capybara
-  "nousresearch/nous-capybara-7b",
-  "nousresearch/nous-capybara-34b",
   // Qwen
   "qwen/qwen-2-72b-instruct",
   "qwen/qwen-2-110b-instruct",
@@ -176,6 +195,8 @@ export const MODEL_HINTS = [
   "glm-5.1",
   // Grok
   "x-ai/grok-3-mini",
+  // Ollama
+  "gemma4:e4b",
 ];
 
 export function modelFor(role: AgentRole): string {

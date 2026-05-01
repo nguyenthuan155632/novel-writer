@@ -48,7 +48,7 @@ export type WarmTier = {
 
 export type ChapterSummaryCompact = {
   chapterNumber: number;
-  shortSummary: string;
+  summary: string;
 };
 
 export type CanonFactCompact = {

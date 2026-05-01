@@ -57,8 +57,8 @@ export function compactSeed(s: {
   };
 }
 
-export function compactSummary(s: { chapterNumber: number; shortSummary: string }): ChapterSummaryCompact {
-  return { chapterNumber: s.chapterNumber, shortSummary: s.shortSummary };
+export function compactSummary(s: { chapterNumber: number; summary: string }): ChapterSummaryCompact {
+  return { chapterNumber: s.chapterNumber, summary: s.summary };
 }
 
 export function compactFact(f: { id: string; topic: string; importance: string; fact: string }): CanonFactCompact {

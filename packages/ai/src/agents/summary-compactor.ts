@@ -63,8 +63,7 @@ export class SummaryCompactor {
     }
 
     log.info({
-      shortLen: parsed.shortSummary.length,
-      detailLen: parsed.detailedSummary.length,
+      summaryLen: parsed.summary.length,
       events: parsed.keyEvents.length,
       chars: parsed.charactersPresent.length,
     }, 'summary compaction complete');

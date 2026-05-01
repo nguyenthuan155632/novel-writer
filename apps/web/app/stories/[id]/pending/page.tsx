@@ -1,5 +1,5 @@
-import { apiFetch } from '@/lib/api-client';
-import { ApprovalButton, RejectionButton } from './update-actions';
+import { apiFetch } from "@/lib/api-client";
+import { ApprovalButton, RejectionButton } from "./update-actions";
 
 interface PendingCanonUpdate {
   id: string;
@@ -17,7 +17,11 @@ interface PendingCanonUpdate {
   resolvedAt: string | null;
 }
 
-export default async function PendingUpdatesPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function PendingUpdatesPage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
   const { id } = await params;
   let updates: PendingCanonUpdate[] = [];
   let error: string | null = null;
@@ -36,11 +40,16 @@ export default async function PendingUpdatesPage({ params }: { params: Promise<{
         <div>
           <p className="studio-kicker">Canon queue</p>
           <h1>Pending Canon Updates</h1>
-          <p className="studio-subtitle">Approve or reject proposed continuity changes from generated chapters.</p>
+          <p className="studio-subtitle">
+            Approve or reject proposed continuity changes from generated
+            chapters.
+          </p>
         </div>
       </header>
       {error && <p className="error">{error}</p>}
-      {updates.length === 0 && !error && <div className="empty-state">No pending updates.</div>}
+      {updates.length === 0 && !error && (
+        <div className="empty-state">No pending updates.</div>
+      )}
       <div className="studio-grid">
         {updates.map((u) => (
           <div key={u.id} className="studio-panel">
@@ -49,11 +58,20 @@ export default async function PendingUpdatesPage({ params }: { params: Promise<{
               <span className="status-pill">{u.conflictStatus}</span>
             </div>
             <p className="muted">
-              Target: {u.targetTable}{u.targetId ? ` / ${u.targetId}` : ''}
+              Target: {u.targetTable}
+              {u.targetId ? ` / ${u.targetId}` : ""}
             </p>
             <details style={{ marginTop: 8 }}>
               <summary>Payload</summary>
-              <pre style={{ fontSize: 12, overflow: 'auto', maxHeight: 200 }}>
+              <pre
+                style={{
+                  fontSize: 12,
+                  overflow: "auto",
+                  maxHeight: 200,
+                  whiteSpace: "pre-wrap",
+                  wordBreak: "break-word",
+                }}
+              >
                 {JSON.stringify(u.payload, null, 2)}
               </pre>
             </details>
@@ -61,7 +79,9 @@ export default async function PendingUpdatesPage({ params }: { params: Promise<{
               <div style={{ marginTop: 8 }}>
                 <strong>Conflicts:</strong>
                 <ul style={{ margin: 0, paddingLeft: 20 }}>
-                  {u.conflictReasons.map((r, i) => <li key={i}>{r}</li>)}
+                  {u.conflictReasons.map((r, i) => (
+                    <li key={i}>{r}</li>
+                  ))}
                 </ul>
               </div>
             )}

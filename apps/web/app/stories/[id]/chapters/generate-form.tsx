@@ -1,8 +1,9 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { apiFetch } from '@/lib/api-client';
+import { fetchChapterStatus } from '@/lib/api/chapters';
 
 interface GenerateFormProps {
   storyId: string;
@@ -17,6 +18,32 @@ export function GenerateForm({ storyId, initialChapterNumber }: GenerateFormProp
   const [err, setErr] = useState<string | null>(null);
   const [jobId, setJobId] = useState<string | null>(null);
   const [missingPlanning, setMissingPlanning] = useState<string[]>([]);
+  const [pollStatus, setPollStatus] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!jobId) return;
+
+    const poll = async () => {
+      try {
+        const status = await fetchChapterStatus(storyId, chapterNumber);
+        if (!status) {
+          setPollStatus('Waiting for job to start...');
+          return;
+        }
+        setPollStatus(`Status: ${status.state}`);
+        if (status.state === 'completed' || status.state === 'failed') {
+          clearInterval(intervalId);
+          router.push(`/stories/${storyId}/chapters/${chapterNumber}` as any);
+        }
+      } catch {
+        setPollStatus('Checking status...');
+      }
+    };
+
+    poll();
+    const intervalId = setInterval(poll, 3000);
+    return () => clearInterval(intervalId);
+  }, [jobId, storyId, chapterNumber, router]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -47,7 +74,7 @@ export function GenerateForm({ storyId, initialChapterNumber }: GenerateFormProp
     return (
       <div className="studio-panel">
         <p>Job enqueued! <strong>{jobId}</strong></p>
-        <p className="muted">Check the chapter list for updates, or refresh this page.</p>
+        <p className="muted">{pollStatus ?? 'Waiting...'}</p>
         <button onClick={() => router.push(`/stories/${storyId}/chapters` as any)}>Go to Chapters</button>
       </div>
     );

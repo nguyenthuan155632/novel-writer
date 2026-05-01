@@ -1,5 +1,7 @@
-import epub from 'epub-gen-memory';
+import epubModule from 'epub-gen-memory';
 import { EXPORT_CONFIG } from '../../config/export-config.ts';
+
+const epub = (epubModule as any).default ?? epubModule;
 
 export interface EpubExportInput {
   story: { title: string; author: string | null; synopsis: string | null };

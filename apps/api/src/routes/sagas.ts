@@ -6,6 +6,7 @@ import { eq, and, asc } from 'drizzle-orm';
 import { SagaPlannerAgent } from '@novel/ai';
 import '@novel/ai/prompts/saga-planner.v1';
 import { buildLoggedProvider } from '../lib/llm-provider.ts';
+import { getModelStatusForActiveProviderFromDb } from '../lib/llm-settings.ts';
 
 const StoryParam = z.object({ storyId: z.string().uuid() });
 const SagaParam = z.object({ storyId: z.string().uuid(), sagaId: z.string().uuid() });
@@ -42,7 +43,12 @@ const sagasRoute: FastifyPluginCallback = (app, _opts, done) => {
     if (!bible) return reply.code(409).send({ error: 'bible_required' });
 
     const provider = await buildLoggedProvider();
-    const agent = new SagaPlannerAgent({ provider, logger: { child: () => ({ child: () => ({}), error: () => {}, info: () => {} } as any), error: () => {}, info: () => {} } as any });
+    const modelStatus = await getModelStatusForActiveProviderFromDb();
+    const agent = new SagaPlannerAgent({
+      provider,
+      logger: { child: () => ({ child: () => ({}), error: () => {}, info: () => {} } as any), error: () => {}, info: () => {} } as any,
+      model: modelStatus.routes.saga_planner,
+    });
     const planned = await agent.plan({
       storyId,
       bibleCompact: bible.compactSummary ?? '',

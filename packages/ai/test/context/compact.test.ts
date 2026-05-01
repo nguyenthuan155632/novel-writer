@@ -141,14 +141,14 @@ describe('compactSeed', () => {
 
 describe('compactSummary', () => {
   it('maps chapter summary', () => {
-    const result = compactSummary({ chapterNumber: 5, shortSummary: 'Hero fights dragon' });
-    expect(result).toEqual({ chapterNumber: 5, shortSummary: 'Hero fights dragon' });
+    const result = compactSummary({ chapterNumber: 5, summary: 'Hero fights a mighty dragon in the mountain peak and wins using his newfound power.' });
+    expect(result).toEqual({ chapterNumber: 5, summary: 'Hero fights a mighty dragon in the mountain peak and wins using his newfound power.' });
   });
 });
 
 describe('compactFact', () => {
   it('maps canon fact', () => {
-    const result = compactFact({ id: 'f1', importance: 'high', fact: 'Sword is cursed' });
-    expect(result).toEqual({ id: 'f1', importance: 'high', fact: 'Sword is cursed' });
+    const result = compactFact({ id: 'f1', topic: 'weapon', importance: 'high', fact: 'Sword is cursed' });
+    expect(result).toEqual({ id: 'f1', topic: 'weapon', importance: 'high', fact: 'Sword is cursed' });
   });
 });

@@ -33,15 +33,19 @@ export async function runRefreshSagaSummaryJob(data: RefreshSagaSummaryJobData, 
     return { status: 'skipped' as const };
   }
 
-  const { provider } = await buildLoggedWorkerProvider(db, data);
-  const agent = new ArcSummaryCompactorAgent({ provider, logger: log as any });
+  const { provider, modelRoutes } = await buildLoggedWorkerProvider(db, data);
+  const agent = new ArcSummaryCompactorAgent({
+    provider,
+    logger: log as any,
+    model: modelRoutes.arc_summary_compactor ?? modelRoutes.summary_compactor,
+  });
 
   const out = await agent.compact({
     storyId,
     arcTitle: `[SAGA] ${saga.title}`,
     perChapterSummaries: filled.map((a, i) => ({
       chapterNumber: i + 1,
-      detailedSummary: a.rollingSummary!,
+      summary: a.rollingSummary!,
     })),
   });
 

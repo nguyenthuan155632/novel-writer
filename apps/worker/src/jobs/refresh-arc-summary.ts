@@ -27,7 +27,7 @@ export async function runRefreshArcSummaryJob(data: RefreshArcSummaryJobData, ct
   }
 
   const summaries = await db
-    .select({ chapterNumber: chapterSummaries.chapterNumber, detailedSummary: chapterSummaries.detailedSummary })
+    .select({ chapterNumber: chapterSummaries.chapterNumber, summary: chapterSummaries.summary })
     .from(chapterSummaries)
     .innerJoin(chapters, eq(chapterSummaries.chapterId, chapters.id))
     .where(and(
@@ -44,15 +44,19 @@ export async function runRefreshArcSummaryJob(data: RefreshArcSummaryJobData, ct
     return { status: 'skipped' as const };
   }
 
-  const { provider } = await buildLoggedWorkerProvider(db, data);
-  const agent = new ArcSummaryCompactorAgent({ provider, logger: log as any });
+  const { provider, modelRoutes } = await buildLoggedWorkerProvider(db, data);
+  const agent = new ArcSummaryCompactorAgent({
+    provider,
+    logger: log as any,
+    model: modelRoutes.arc_summary_compactor ?? modelRoutes.summary_compactor,
+  });
 
   const out = await agent.compact({
     storyId,
     arcTitle: arc.title,
     perChapterSummaries: summaries.reverse().map((s) => ({
       chapterNumber: s.chapterNumber,
-      detailedSummary: s.detailedSummary ?? '',
+      summary: s.summary ?? '',
     })),
   });
 

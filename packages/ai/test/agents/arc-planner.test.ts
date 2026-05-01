@@ -42,4 +42,14 @@ describe('ArcPlannerAgent.plan (mocked db)', () => {
     const r = await agent.plan({ storyId: 's', sagaId: 'sa', currentState: 'state' });
     expect(r.output.arcs).toHaveLength(3);
   });
+
+  it('uses the injected model route', async () => {
+    selectCallCount = 0;
+    const provider = new MockProvider({ responder: { kind: 'fixed', content: VALID_OUTPUT } });
+    const agent = new ArcPlannerAgent({ provider, logger: silentLogger, model: 'gemma4:e4b' });
+
+    await agent.plan({ storyId: 's', sagaId: 'sa', currentState: 'state' });
+
+    expect(provider.getCalls()[0]!.model).toBe('gemma4:e4b');
+  });
 });

@@ -9,7 +9,7 @@ export const arcSummaryCompactorPromptV1: DualPromptTemplate = {
 - mọi đột phá realm / chuyển biến quan hệ chính
 - diễn biến chính đã xảy ra (không tiên đoán tương lai)
 Bỏ mô tả cảnh, chi tiết miêu tả nhỏ, dialog không quan trọng. Trả về plain text duy nhất, không markdown.`,
-    user: `Arc: ${String(input.arcTitle)}\n\n${Array.isArray(input.perChapterSummaries) ? (input.perChapterSummaries as {chapterNumber: number; detailedSummary: string}[]).map((c) => `Ch ${c.chapterNumber}: ${c.detailedSummary}`).join('\n\n') : ''}`,
+    user: `Arc: ${String(input.arcTitle)}\n\n${Array.isArray(input.perChapterSummaries) ? (input.perChapterSummaries as {chapterNumber: number; summary: string}[]).map((c) => `Ch ${c.chapterNumber}: ${c.summary}`).join('\n\n') : ''}`,
   }),
 };
 

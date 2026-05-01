@@ -27,7 +27,7 @@ export default async function TimelinePage({ params }: { params: Promise<{ id: s
             <Link href={`/stories/${id}/chapters/${r.number}` as any}>
               Ch {r.number}: {r.title}
             </Link>
-            <p className="muted">{r.shortSummary}</p>
+            <p className="muted">{r.summary}</p>
           </li>
         ))}
       </ol>

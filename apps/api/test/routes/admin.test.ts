@@ -69,6 +69,9 @@ describe('admin model routes', () => {
     expect(
       (body.options as Array<{ role: string }>).some((option) => option.role === 'writer'),
     ).toBe(true);
+    expect(
+      (body.options as Array<{ role: string }>).some((option) => option.role === 'arc_summary_compactor'),
+    ).toBe(true);
     expect(body.hints).toContain('google/gemini-2.5-flash');
   });
 

@@ -12,6 +12,7 @@ import type { SagaPlannerInput, SagaPlannerResult } from './saga-planner.types.t
 export type SagaPlannerDeps = {
   provider: LLMProvider;
   logger: Logger;
+  model?: string;
 };
 
 export class SagaPlannerAgent {
@@ -27,7 +28,7 @@ export class SagaPlannerAgent {
     const response = await withCompletionRetryRaw(
       'saga_planner',
       async () => this.deps.provider.complete({
-        model: MODEL_CONFIG.routes.saga_planner,
+        model: this.deps.model ?? MODEL_CONFIG.routes.saga_planner,
         messages: [
           { role: 'system', content: built.system },
           { role: 'user', content: `${built.user}\n\nReturn ONLY valid JSON matching this shape:\n{\n  "sagas": [{ "index": 0, "title": "...", "premise": "...", "startChapter": 1, "endChapter": 100, "expectedTurningPoints": ["...", "..."] }],\n  "plantedSeeds": [{ "seedKey": "...", "description": "...", "plantWindowStart": 1, "plantWindowEnd": 20, "payoffChapter": 60, "importance": "minor" }]\n}` },

@@ -28,4 +28,18 @@ describe('HighStakesReviewerAgent.review', () => {
     expect(r.reviewId).toBe('rev-1');
     expect(r.output.approve).toBe(true);
   });
+
+  it('uses the injected model route', async () => {
+    const provider = new MockProvider({
+      responder: { kind: 'fixed', content: JSON.stringify({ approve: true, concerns: [], recommendedActions: [] }) },
+    });
+    const agent = new HighStakesReviewerAgent({ provider, logger: silentLogger, model: 'gemma4:e4b' });
+
+    await agent.review({
+      storyId: 's', chapterId: 'c', chapterNumber: 1, triggerReason: 'manual',
+      chapter: { title: 'Chapter 1', content: 'content' }, arcSummary: 'a', bibleCompact: 'b',
+    });
+
+    expect(provider.getCalls()[0]!.model).toBe('gemma4:e4b');
+  });
 });

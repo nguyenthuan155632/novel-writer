@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { apiFetch } from '@/lib/api-client';
+import { ChaptersRefreshPoller } from './chapters-refresh-poller';
 
 interface ChapterSummary {
   id: string;
@@ -20,8 +21,11 @@ export default async function ChaptersPage({ params }: { params: Promise<{ id: s
     error = (e as Error).message;
   }
 
+  const hasGenerating = chapters.some((ch) => ch.status === 'generating');
+
   return (
     <>
+      <ChaptersRefreshPoller hasGenerating={hasGenerating} />
       <header className="studio-header">
         <div>
           <p className="studio-kicker">Draft pipeline</p>

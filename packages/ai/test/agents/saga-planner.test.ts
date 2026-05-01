@@ -52,6 +52,17 @@ describe('SagaPlannerAgent.plan', () => {
     expect(provider.getCalls()[0]!.responseSchema).toBeUndefined();
   });
 
+  it('uses the injected model route', async () => {
+    const provider = new MockProvider({
+      responder: { kind: 'fixed', content: VALID_OUTPUT },
+    });
+    const agent = new SagaPlannerAgent({ provider, logger: silentLogger, model: 'gemma4:e4b' });
+
+    await agent.plan({ storyId: 's', bibleCompact: 'b', targetChapters: 500 });
+
+    expect(provider.getCalls()[0]!.model).toBe('gemma4:e4b');
+  });
+
   it('parses JSON returned inside a markdown code fence', async () => {
     const provider = new MockProvider({
       responder: { kind: 'fixed', content: `\`\`\`json\n${VALID_OUTPUT}\n\`\`\`` },

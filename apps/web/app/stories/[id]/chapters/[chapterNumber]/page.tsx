@@ -1,5 +1,6 @@
-import { apiFetch } from '@/lib/api-client';
-import { RegenerateButton } from './regenerate-button';
+import { apiFetch } from "@/lib/api-client";
+import { RegenerateButton } from "./regenerate-button";
+import { ChapterStatusPoller } from "./chapter-status-poller";
 
 interface ChapterDetail {
   id: string;
@@ -37,12 +38,17 @@ export default async function ChapterDetailPage({
   if (error) return <p className="error">{error}</p>;
   if (!chapter) return <div className="empty-state">Chapter not found.</div>;
   const canRetry =
-    chapter.status === 'failed' ||
-    chapter.status === 'paused_pending_updates' ||
-    (chapter.status === 'generating' && chapter.validationStatus === 'failed');
+    chapter.status === "failed" ||
+    chapter.status === "paused_pending_updates" ||
+    (chapter.status === "generating" && chapter.validationStatus === "failed");
 
   return (
     <>
+      <ChapterStatusPoller
+        storyId={id}
+        chapterNumber={chapter.chapterNumber}
+        initialStatus={chapter.status}
+      />
       <header className="studio-header">
         <div>
           <p className="studio-kicker">Chapter {chapter.chapterNumber}</p>
@@ -55,12 +61,17 @@ export default async function ChapterDetailPage({
           </p>
         </div>
         {canRetry && (
-          <RegenerateButton storyId={id} chapterNumber={chapter.chapterNumber} />
+          <RegenerateButton
+            storyId={id}
+            chapterNumber={chapter.chapterNumber}
+          />
         )}
       </header>
       {chapter.summary && (
         <details open style={{ marginBottom: 16 }}>
-          <summary><strong>Summary</strong></summary>
+          <summary>
+            <strong>Summary</strong>
+          </summary>
           <div className="studio-panel" style={{ marginTop: 8 }}>
             <p className="prose-panel">{chapter.summary}</p>
           </div>
@@ -68,9 +79,7 @@ export default async function ChapterDetailPage({
       )}
       {chapter.content ? (
         <div className="studio-panel">
-          <div className="prose-panel scroll-panel">
-            {chapter.content}
-          </div>
+          <div className="prose-panel scroll-panel">{chapter.content}</div>
         </div>
       ) : (
         <div className="empty-state">No content yet.</div>

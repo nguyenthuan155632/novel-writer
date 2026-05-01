@@ -1,4 +1,5 @@
 import { Queue } from 'bullmq';
+import { randomUUID } from 'node:crypto';
 import {
   createConnection,
   createRefreshArcSummaryQueue,
@@ -45,7 +46,7 @@ export function getHighStakesReviewQueue(): Queue<HighStakesReviewJob> {
 
 export async function enqueueRefreshArcSummary(data: RefreshArcSummaryJob): Promise<string> {
   const queue = getRefreshArcSummaryQueue();
-  const jobId = `refresh-arc-${data.storyId}-${data.arcId}`;
+  const jobId = `refresh-arc-${data.storyId}-${data.arcId}-${data.traceId}-${randomUUID()}`;
   const job = await queue.add('refresh-arc-summary', data, {
     jobId,
     removeOnComplete: { age: 86400, count: 1000 },
@@ -56,7 +57,7 @@ export async function enqueueRefreshArcSummary(data: RefreshArcSummaryJob): Prom
 
 export async function enqueueRefreshSagaSummary(data: RefreshSagaSummaryJob): Promise<string> {
   const queue = getRefreshSagaSummaryQueue();
-  const jobId = `refresh-saga-${data.storyId}-${data.sagaId}`;
+  const jobId = `refresh-saga-${data.storyId}-${data.sagaId}-${data.traceId}-${randomUUID()}`;
   const job = await queue.add('refresh-saga-summary', data, {
     jobId,
     removeOnComplete: { age: 86400, count: 1000 },

@@ -1,7 +1,13 @@
-import { eq, and } from 'drizzle-orm';
-import { chapters, chapterPackets, chapterSummaries, contextPackets, validations } from '@novel/db/schema';
-import type { Db } from '@novel/db';
-import type { Logger } from 'pino';
+import { eq, and } from "drizzle-orm";
+import {
+  chapters,
+  chapterPackets,
+  chapterSummaries,
+  contextPackets,
+  validations,
+} from "@novel/db/schema";
+import type { Db } from "@novel/db";
+import type { Logger } from "pino";
 import {
   PacketGenerator,
   type PacketGenerationResult,
@@ -32,19 +38,19 @@ import {
   type EmbeddingService,
   OpenRouterEmbeddingService,
   formatValidationReport,
-} from '@novel/ai';
-import { mkdir, writeFile } from 'fs/promises';
-import { join } from 'path';
-import { OpenCodeProvider } from '@novel/ai/providers/opencode';
-import { OllamaProvider } from '@novel/ai/providers/ollama';
-import { OpenRouterProvider } from '@novel/ai/providers/openrouter';
+} from "@novel/ai";
+import { mkdir, writeFile } from "fs/promises";
+import { join } from "path";
+import { OpenCodeProvider } from "@novel/ai/providers/opencode";
+import { OllamaProvider } from "@novel/ai/providers/ollama";
+import { OpenRouterProvider } from "@novel/ai/providers/openrouter";
 import {
   LoggedLLMProvider,
   makeDrizzleRecorder,
   formatLlmPromptPayloadForTerminal,
   type LlmPromptLogPayload,
-} from '@novel/ai/llm-call-logger';
-import type { LLMProvider, CompletionUsage } from '@novel/ai/providers/types';
+} from "@novel/ai/llm-call-logger";
+import type { LLMProvider, CompletionUsage } from "@novel/ai/providers/types";
 import {
   estimateCostUsd,
   estimateTokensJson,
@@ -52,21 +58,21 @@ import {
   parseLlmProvider,
   type AgentRole,
   type EffectiveConfig,
-} from '@novel/core';
-import type { GenerateChapterJob } from '../queues.js';
-import type { GenerateChapterJobResult } from './generate-chapter.types.js';
-import { loadEffectiveStoryConfig } from '../services/story-config.js';
+} from "@novel/core";
+import type { GenerateChapterJob } from "../queues.js";
+import type { GenerateChapterJobResult } from "./generate-chapter.types.js";
+import { loadEffectiveStoryConfig } from "../services/story-config.js";
 import {
   enqueueRefreshArcSummary,
   enqueueHighStakesReview,
-} from '../services/queue-publisher.js';
+} from "../services/queue-publisher.js";
 
 export interface GenerateChapterDeps {
   db: Db;
   provider: LLMProvider;
   embeddingService: EmbeddingService;
   logger: Logger;
-  mode: 'safe' | 'semi_auto' | 'full_auto';
+  mode: "safe" | "semi_auto" | "full_auto";
   effectiveConfig?: EffectiveConfig;
 }
 
@@ -74,7 +80,8 @@ function serializeContextForWriter(ctx: ChapterContext): string {
   const parts: string[] = [];
 
   if (ctx.hot.systemRules) parts.push(`# SYSTEM RULES\n${ctx.hot.systemRules}`);
-  if (ctx.hot.bibleCompact) parts.push(`# BIBLE COMPACT\n${ctx.hot.bibleCompact}`);
+  if (ctx.hot.bibleCompact)
+    parts.push(`# BIBLE COMPACT\n${ctx.hot.bibleCompact}`);
   if (ctx.hot.styleGuide) parts.push(`# STYLE GUIDE\n${ctx.hot.styleGuide}`);
   if (ctx.hot.powerRules) parts.push(`# POWER RULES\n${ctx.hot.powerRules}`);
 
@@ -82,43 +89,56 @@ function serializeContextForWriter(ctx: ChapterContext): string {
     parts.push(`# STYLE EXAMPLE\n${shot.excerpt}`);
   }
 
-  if (ctx.warm.sagaSummary) parts.push(`# SAGA SUMMARY\n${ctx.warm.sagaSummary}`);
+  if (ctx.warm.sagaSummary)
+    parts.push(`# SAGA SUMMARY\n${ctx.warm.sagaSummary}`);
   if (ctx.warm.arcSummary) parts.push(`# ARC SUMMARY\n${ctx.warm.arcSummary}`);
   if (ctx.warm.activeCharacters.length > 0) {
     const chars = ctx.warm.activeCharacters
-      .map(c => `- ${c.name} [${c.status}] realm=${c.currentRealm ?? '-'} faction=${c.faction ?? '-'}`)
-      .join('\n');
+      .map(
+        (c) =>
+          `- ${c.name} [${c.status}] realm=${c.currentRealm ?? "-"} faction=${c.faction ?? "-"}`,
+      )
+      .join("\n");
     parts.push(`# ACTIVE CHARACTERS\n${chars}`);
   }
   if (ctx.warm.arcOpenThreads.length > 0) {
     const threads = ctx.warm.arcOpenThreads
-      .map(t => `- ${t.title} [${t.state}] (from ch${t.introducedChapter})`)
-      .join('\n');
+      .map((t) => `- ${t.title} [${t.state}] (from ch${t.introducedChapter})`)
+      .join("\n");
     parts.push(`# OPEN THREADS\n${threads}`);
   }
   if (ctx.warm.arcPlantedSeeds.length > 0) {
     const seeds = ctx.warm.arcPlantedSeeds
-      .map(s => `- "${s.seedText}" → ${s.payoffDescription} [${s.status}]`)
-      .join('\n');
+      .map((s) => `- "${s.seedText}" → ${s.payoffDescription} [${s.status}]`)
+      .join("\n");
     parts.push(`# PLANTED SEEDS\n${seeds}`);
   }
 
   if (ctx.cold.recentSummaries.length > 0) {
-    const sums = ctx.cold.recentSummaries.map(s => `- Ch${s.chapterNumber}: ${s.shortSummary}`).join('\n');
+    const sums = ctx.cold.recentSummaries
+      .map((s) => `- Ch${s.chapterNumber}: ${s.summary}`)
+      .join("\n");
     parts.push(`# RECENT SUMMARIES\n${sums}`);
   }
   if (ctx.cold.retrievedFacts.length > 0) {
-    const facts = ctx.cold.retrievedFacts.map(f => `- [${f.importance}] ${f.fact}`).join('\n');
+    const facts = ctx.cold.retrievedFacts
+      .map((f) => `- [${f.importance}] ${f.fact}`)
+      .join("\n");
     parts.push(`# CANON FACTS\n${facts}`);
   }
   if (ctx.cold.retrievedPastChapters.length > 0) {
-    const past = ctx.cold.retrievedPastChapters.map(s => `- Ch${s.chapterNumber}: ${s.shortSummary}`).join('\n');
+    const past = ctx.cold.retrievedPastChapters
+      .map((s) => `- Ch${s.chapterNumber}: ${s.summary}`)
+      .join("\n");
     parts.push(`# PAST CHAPTER SUMMARIES\n${past}`);
   }
   if (ctx.cold.seedsToPlantNow.length > 0) {
     const due = ctx.cold.seedsToPlantNow
-      .map(s => `- MUST PLANT: "${s.seedText}" (id=${s.id}) → ${s.payoffDescription} — window ends ch${s.plantWindowEnd}`)
-      .join('\n');
+      .map(
+        (s) =>
+          `- MUST PLANT: "${s.seedText}" (id=${s.id}) → ${s.payoffDescription} — window ends ch${s.plantWindowEnd}`,
+      )
+      .join("\n");
     parts.push(`# SEEDS DUE THIS CHAPTER\n${due}`);
   }
 
@@ -128,16 +148,17 @@ function serializeContextForWriter(ctx: ChapterContext): string {
     parts.push(`Goal: ${p.goal}`);
     parts.push(`Conflict: ${p.conflict}`);
     parts.push(`Cliffhanger: ${p.cliffhanger}`);
-    parts.push(`Characters present: ${p.charactersPresent.join(', ')}`);
-    if (p.forbiddenMoves.length > 0) parts.push(`Forbidden: ${p.forbiddenMoves.join('; ')}`);
+    parts.push(`Characters present: ${p.charactersPresent.join(", ")}`);
+    if (p.forbiddenMoves.length > 0)
+      parts.push(`Forbidden: ${p.forbiddenMoves.join("; ")}`);
   }
 
-  return parts.join('\n\n');
+  return parts.join("\n\n");
 }
 
 function buildCanonSnapshotFromContext(ctx: ChapterContext): CanonSnapshot {
   return {
-    characters: ctx.warm.activeCharacters.map(c => ({
+    characters: ctx.warm.activeCharacters.map((c) => ({
       id: c.id,
       name: c.name,
       currentRealm: c.currentRealm,
@@ -146,13 +167,13 @@ function buildCanonSnapshotFromContext(ctx: ChapterContext): CanonSnapshot {
       faction: c.faction,
       lockedFields: [],
     })),
-    canonFacts: ctx.cold.retrievedFacts.map(f => ({
+    canonFacts: ctx.cold.retrievedFacts.map((f) => ({
       id: f.id,
       fact: f.fact,
       importance: f.importance,
-      locked: f.importance === 'locked',
+      locked: f.importance === "locked",
     })),
-    threads: ctx.warm.arcOpenThreads.map(t => ({
+    threads: ctx.warm.arcOpenThreads.map((t) => ({
       id: t.id,
       title: t.title,
       status: t.state,
@@ -164,58 +185,67 @@ function buildCanonSnapshotText(snapshot: CanonSnapshot): string {
   const parts: string[] = [];
   if (snapshot.characters.length > 0) {
     const chars = snapshot.characters
-      .map(c => `- ${c.name} [${c.status}] realm=${c.currentRealm ?? '-'} bloodlines=${c.currentBloodlines.join(',')} locked=${c.lockedFields.join(',')}`)
-      .join('\n');
+      .map(
+        (c) =>
+          `- ${c.name} [${c.status}] realm=${c.currentRealm ?? "-"} bloodlines=${c.currentBloodlines.join(",")} locked=${c.lockedFields.join(",")}`,
+      )
+      .join("\n");
     parts.push(`## Characters\n${chars}`);
   }
   if (snapshot.canonFacts.length > 0) {
-    const facts = snapshot.canonFacts.map(f => `- [${f.importance}${f.locked ? '/LOCKED' : ''}] ${f.fact}`).join('\n');
+    const facts = snapshot.canonFacts
+      .map((f) => `- [${f.importance}${f.locked ? "/LOCKED" : ""}] ${f.fact}`)
+      .join("\n");
     parts.push(`## Canon Facts\n${facts}`);
   }
   if (snapshot.threads.length > 0) {
-    const threads = snapshot.threads.map(t => `- ${t.title} [${t.status}]`).join('\n');
+    const threads = snapshot.threads
+      .map((t) => `- ${t.title} [${t.status}]`)
+      .join("\n");
     parts.push(`## Threads\n${threads}`);
   }
-  return parts.join('\n\n');
+  return parts.join("\n\n");
 }
 
-function buildCheckCanon(ctx: ChapterContext): CheckInput['canon'] {
+function buildCheckCanon(ctx: ChapterContext): CheckInput["canon"] {
   return {
     deadCharacterNames: ctx.warm.activeCharacters
-      .filter(c => c.status === 'dead')
-      .map(c => c.name),
-    knownCharacterNames: ctx.warm.activeCharacters.map(c => c.name),
+      .filter((c) => c.status === "dead")
+      .map((c) => c.name),
+    knownCharacterNames: ctx.warm.activeCharacters.map((c) => c.name),
     knownLocationNames: [],
     knownBloodlineNames: ctx.warm.activeCharacters
-      .flatMap(c => c.bloodlines)
+      .flatMap((c) => c.bloodlines)
       .filter((v, i, a) => a.indexOf(v) === i),
     lockedFacts: ctx.cold.retrievedFacts
-      .filter(f => f.importance === 'locked')
-      .map(f => ({ topic: f.topic, fact: f.fact })),
+      .filter((f) => f.importance === "locked")
+      .map((f) => ({ topic: f.topic, fact: f.fact })),
     realmByCharacter: Object.fromEntries(
       ctx.warm.activeCharacters
-        .filter(c => c.currentRealm)
-        .map(c => [c.name, c.currentRealm])
+        .filter((c) => c.currentRealm)
+        .map((c) => [c.name, c.currentRealm]),
     ),
   };
 }
 
-function extractorOutputToRows(extracted: CanonExtractionResult['output']): CanonMergerRow[] {
+function extractorOutputToRows(
+  extracted: CanonExtractionResult["output"],
+): CanonMergerRow[] {
   const rows: CanonMergerRow[] = [];
 
   for (const cu of extracted.characterUpdates) {
     const fields: Record<string, unknown> = { ...cu.fields };
-    if (cu.action === 'update' && cu.targetId) {
+    if (cu.action === "update" && cu.targetId) {
       rows.push({
         updateType: cu.action,
-        targetTable: 'characters',
+        targetTable: "characters",
         targetId: cu.targetId,
         payload: { name: cu.name, fields },
       });
-    } else if (cu.action === 'create') {
+    } else if (cu.action === "create") {
       rows.push({
         updateType: cu.action,
-        targetTable: 'characters',
+        targetTable: "characters",
         targetId: null,
         payload: { name: cu.name, ...cu.fields },
       });
@@ -224,8 +254,8 @@ function extractorOutputToRows(extracted: CanonExtractionResult['output']): Cano
 
   for (const cf of extracted.newCanonFacts) {
     rows.push({
-      updateType: 'create',
-      targetTable: 'canon_facts',
+      updateType: "create",
+      targetTable: "canon_facts",
       targetId: null,
       payload: { topic: cf.topic, fact: cf.fact, importance: cf.importance },
     });
@@ -234,7 +264,7 @@ function extractorOutputToRows(extracted: CanonExtractionResult['output']): Cano
   for (const tu of extracted.threadUpdates) {
     rows.push({
       updateType: tu.action,
-      targetTable: 'open_threads',
+      targetTable: "open_threads",
       targetId: tu.targetId ?? null,
       payload: {
         title: tu.title,
@@ -246,8 +276,8 @@ function extractorOutputToRows(extracted: CanonExtractionResult['output']): Cano
 
   for (const te of extracted.newTimelineEvents) {
     rows.push({
-      updateType: 'create',
-      targetTable: 'timeline_events',
+      updateType: "create",
+      targetTable: "timeline_events",
       targetId: null,
       payload: {
         description: te.description,
@@ -260,28 +290,35 @@ function extractorOutputToRows(extracted: CanonExtractionResult['output']): Cano
   return rows;
 }
 
-function accumulateUsage(usage: CompletionUsage, acc: { inputTokens: number; outputTokens: number; cachedInputTokens: number }): void {
+function accumulateUsage(
+  usage: CompletionUsage,
+  acc: { inputTokens: number; outputTokens: number; cachedInputTokens: number },
+): void {
   acc.inputTokens += usage.inputTokens;
   acc.outputTokens += usage.outputTokens;
   acc.cachedInputTokens += usage.cachedInputTokens;
 }
 
-function modelForRole(config: EffectiveConfig | undefined, role: AgentRole): string {
+function modelForRole(
+  config: EffectiveConfig | undefined,
+  role: AgentRole,
+): string {
   return config?.model.routes[role] ?? modelFor(role);
 }
 
 function buildWorkerProvider(data: GenerateChapterJob): LLMProvider {
-  const provider = data.llmProvider ?? parseLlmProvider(process.env.NOVEL_LLM_PROVIDER);
-  if (provider === 'openrouter') {
+  const provider =
+    data.llmProvider ?? parseLlmProvider(process.env.NOVEL_LLM_PROVIDER);
+  if (provider === "openrouter") {
     return new OpenRouterProvider({
-      apiKey: process.env.OPENROUTER_API_KEY ?? '',
+      apiKey: process.env.OPENROUTER_API_KEY ?? "",
       baseUrl: process.env.OPENROUTER_BASE_URL,
       httpReferer: process.env.OPENROUTER_HTTP_REFERER,
       xTitle: process.env.OPENROUTER_X_TITLE,
     });
   }
 
-  if (provider === 'ollama') {
+  if (provider === "ollama") {
     return new OllamaProvider({
       apiKey: process.env.OLLAMA_API_KEY,
       baseUrl: process.env.OLLAMA_BASE_URL,
@@ -289,7 +326,7 @@ function buildWorkerProvider(data: GenerateChapterJob): LLMProvider {
   }
 
   return new OpenCodeProvider({
-    apiKey: process.env.OPENCODE_API_KEY ?? '',
+    apiKey: process.env.OPENCODE_API_KEY ?? "",
     baseUrl: process.env.OPENCODE_BASE_URL,
   });
 }
@@ -301,7 +338,7 @@ async function writeValidationLog(
     chapterTitle?: string;
     wordCount?: number;
     deterministicResult?: DeterministicValidatorResult;
-    llmResult?: import('@novel/ai').LlmValidatorOutput;
+    llmResult?: import("@novel/ai").LlmValidatorOutput;
   },
   logger: Logger,
 ): Promise<string | undefined> {
@@ -310,16 +347,18 @@ async function writeValidationLog(
     timestamp: new Date(),
   });
 
-  const logDir = process.env.VALIDATION_LOG_DIR ?? join(process.cwd(), 'logs', 'validations');
+  const logDir =
+    process.env.VALIDATION_LOG_DIR ??
+    join(process.cwd(), "logs", "validations");
   const dir = join(logDir, input.storyId);
   await mkdir(dir, { recursive: true });
 
-  const ts = new Date().toISOString().replace(/[:.]/g, '-');
+  const ts = new Date().toISOString().replace(/[:.]/g, "-");
   const fileName = `chapter-${input.chapterNumber}-${ts}.txt`;
   const filePath = join(dir, fileName);
 
-  await writeFile(filePath, report, 'utf-8');
-  logger.info({ filePath }, 'validation report written to text file');
+  await writeFile(filePath, report, "utf-8");
+  logger.info({ filePath }, "validation report written to text file");
   return filePath;
 }
 
@@ -343,20 +382,27 @@ export async function persistValidationRows(
   input: {
     storyId: string;
     chapterId: string;
-    checks: { id: string; severity: 'low' | 'medium' | 'high' | 'critical'; pass: boolean; issues: string[] }[];
+    checks: {
+      id: string;
+      severity: "low" | "medium" | "high" | "critical";
+      pass: boolean;
+      issues: string[];
+    }[];
     validatorModel: string;
   },
 ): Promise<void> {
   if (input.checks.length === 0) return;
-  await db.insert(validations).values(input.checks.map((check) => ({
-    storyId: input.storyId,
-    chapterId: input.chapterId,
-    pass: check.pass,
-    severity: check.severity,
-    issues: check.issues,
-    requiredFixes: check.pass ? [] : check.issues,
-    validatorModel: input.validatorModel,
-  })));
+  await db.insert(validations).values(
+    input.checks.map((check) => ({
+      storyId: input.storyId,
+      chapterId: input.chapterId,
+      pass: check.pass,
+      severity: check.severity,
+      issues: check.issues,
+      requiredFixes: check.pass ? [] : check.issues,
+      validatorModel: input.validatorModel,
+    })),
+  );
 }
 
 export async function executeGenerateChapterPipeline(
@@ -364,16 +410,21 @@ export async function executeGenerateChapterPipeline(
   deps: GenerateChapterDeps,
 ): Promise<GenerateChapterJobResult> {
   const { db, provider, embeddingService, logger } = deps;
-  const mode = data.mode ?? 'safe';
+  const mode = data.mode ?? "safe";
   const effectiveConfig = deps.effectiveConfig;
   const traceId = data.traceId;
   const start = Date.now();
   const tokenAcc = { inputTokens: 0, outputTokens: 0, cachedInputTokens: 0 };
   let totalCost = 0;
 
-  const log = logger.child({ traceId, storyId: data.storyId, chapterNumber: data.chapterNumber, agent: 'generate_chapter' });
+  const log = logger.child({
+    traceId,
+    storyId: data.storyId,
+    chapterNumber: data.chapterNumber,
+    agent: "generate_chapter",
+  });
 
-  log.info({ mode }, 'starting generate-chapter pipeline');
+  log.info({ mode }, "starting generate-chapter pipeline");
 
   const arc = data.arcId
     ? await getArcById(db, data.arcId)
@@ -381,23 +432,33 @@ export async function executeGenerateChapterPipeline(
   const resolvedArcId = arc?.id;
 
   if (!resolvedArcId) {
-    throw new Error(`No arc found for story ${data.storyId} chapter ${data.chapterNumber}`);
+    throw new Error(
+      `No arc found for story ${data.storyId} chapter ${data.chapterNumber}`,
+    );
   }
 
   const [existing] = await db
     .select()
     .from(chapters)
-    .where(and(eq(chapters.storyId, data.storyId), eq(chapters.chapterNumber, data.chapterNumber)))
+    .where(
+      and(
+        eq(chapters.storyId, data.storyId),
+        eq(chapters.chapterNumber, data.chapterNumber),
+      ),
+    )
     .limit(1);
 
   let chapterId: string;
 
   if (existing) {
-    if (existing.status === 'completed') {
-      log.info({ chapterId: existing.id }, 'chapter already completed, skipping');
+    if (existing.status === "completed") {
+      log.info(
+        { chapterId: existing.id },
+        "chapter already completed, skipping",
+      );
       return {
         chapterId: existing.id,
-        status: 'completed',
+        status: "completed",
         attempts: 0,
         totalTokens: 0,
         totalCostUsd: 0,
@@ -405,48 +466,104 @@ export async function executeGenerateChapterPipeline(
       };
     }
     chapterId = existing.id;
-    await db.update(chapters)
-      .set({ status: 'generating', updatedAt: new Date() })
+    await db
+      .update(chapters)
+      .set({ status: "generating", updatedAt: new Date() })
       .where(eq(chapters.id, chapterId));
   } else {
-    const [inserted] = await db.insert(chapters).values({
-      storyId: data.storyId,
-      arcId: resolvedArcId,
-      chapterNumber: data.chapterNumber,
-      status: 'generating',
-    }).returning({ id: chapters.id });
+    const [inserted] = await db
+      .insert(chapters)
+      .values({
+        storyId: data.storyId,
+        arcId: resolvedArcId,
+        chapterNumber: data.chapterNumber,
+        status: "generating",
+      })
+      .returning({ id: chapters.id });
     chapterId = inserted!.id;
   }
 
   try {
     const bible = await getStoryBible(db, data.storyId);
-    const activeCharacters = await getActiveCharacters(db, data.storyId, data.chapterNumber);
+    const activeCharacters = await getActiveCharacters(
+      db,
+      data.storyId,
+      data.chapterNumber,
+    );
     const openThreads = await getOpenThreadsForStory(db, data.storyId);
-    const dueSeeds = await getSeedsDueForChapter(db, data.storyId, data.chapterNumber);
-    const recentSummaries = await getRecentSummaries(db, data.storyId, data.chapterNumber, 5);
-
-    if (!bible) throw new Error(`No story bible found for story ${data.storyId}`);
-
-    const overdueThreads = openThreads.filter(t =>
-      t.state !== 'resolved' &&
-      t.introducedChapter < data.chapterNumber - 10
+    const dueSeeds = await getSeedsDueForChapter(
+      db,
+      data.storyId,
+      data.chapterNumber,
+    );
+    const recentSummaries = await getRecentSummaries(
+      db,
+      data.storyId,
+      data.chapterNumber,
+      5,
     );
 
+    if (!bible)
+      throw new Error(`No story bible found for story ${data.storyId}`);
+
+    const overdueThreads = openThreads.filter(
+      (t) =>
+        t.state !== "resolved" && t.introducedChapter < data.chapterNumber - 10,
+    );
+
+    const arcStart = arc?.startChapter ?? data.chapterNumber;
+    const arcEnd = arc?.endChapter ?? data.chapterNumber;
+    const arcSpan = Math.max(1, arcEnd - arcStart + 1);
+    const arcPosition = data.chapterNumber - arcStart + 1;
+    const arcProgressPct = Math.round((arcPosition / arcSpan) * 100);
+    const chaptersRemainingInArc = Math.max(0, arcEnd - data.chapterNumber);
+
+    let pacingHint = "";
+    if (arc?.endChapter != null && arc?.startChapter != null) {
+      const urgency =
+        arcProgressPct >= 80
+          ? `KHẨN: chỉ còn ${chaptersRemainingInArc} chương để đạt mục tiêu arc — chương này PHẢI đẩy plot tới climax/breakthrough, KHÔNG filler, KHÔNG kéo dài training/đi đường.`
+          : arcProgressPct >= 50
+            ? `Đã qua nửa arc — mỗi chương phải có tiến triển rõ rệt về cấp độ tu luyện hoặc resolve thread. Tránh lặp lại tình huống của 2 chương gần nhất.`
+            : `Đang ở giai đoạn xây dựng arc — vẫn cần mỗi chương đẩy ít nhất 1 thread tiến lên.`;
+      pacingHint = `\n\n# PACING (arc ${arcPosition}/${arcSpan} ≈ ${arcProgressPct}%)\n${urgency}`;
+    }
+
     const packetInput = {
-      bibleCompact: bible.compactSummary ?? '',
-      arcSummary: arc?.rollingSummary ?? arc?.summary ?? '',
-      recentChapterSummaries: recentSummaries.map(s => ({ chapterNumber: s.chapterNumber, shortSummary: s.shortSummary })),
-      activeCharacters: activeCharacters.map(c => ({ name: c.name, currentRealm: c.currentRealm, status: c.status, faction: c.faction })),
-      openThreads: openThreads.map(t => ({ title: t.title, state: t.state })),
-      duePlantedSeeds: dueSeeds.map(s => ({ id: s.id, seedText: s.seedText, payoffDescription: s.payoffDescription, plantWindowEnd: s.plantWindowEnd })),
-      overdueThreads: overdueThreads.map(t => ({ title: t.title, introducedChapter: t.introducedChapter })),
+      bibleCompact: bible.compactSummary ?? "",
+      arcSummary: arc?.rollingSummary ?? arc?.summary ?? "",
+      recentChapterSummaries: recentSummaries.map((s) => ({
+        chapterNumber: s.chapterNumber,
+        summary: s.summary,
+      })),
+      activeCharacters: activeCharacters.map((c) => ({
+        name: c.name,
+        currentRealm: c.currentRealm,
+        status: c.status,
+        faction: c.faction,
+      })),
+      openThreads: openThreads.map((t) => ({ title: t.title, state: t.state })),
+      duePlantedSeeds: dueSeeds.map((s) => ({
+        id: s.id,
+        seedText: s.seedText,
+        payoffDescription: s.payoffDescription,
+        plantWindowEnd: s.plantWindowEnd,
+      })),
+      overdueThreads: overdueThreads.map((t) => ({
+        title: t.title,
+        introducedChapter: t.introducedChapter,
+      })),
       forbiddenRules: bible.forbiddenRules,
       chapterNumber: data.chapterNumber,
-      arcGoals: arc?.mainConflict ?? '',
+      arcGoals: (arc?.mainConflict ?? "") + pacingHint,
     };
 
-    const packetModel = modelForRole(effectiveConfig, 'packet_generator');
-    const packetGen = new PacketGenerator({ provider, logger: log, model: packetModel });
+    const packetModel = modelForRole(effectiveConfig, "packet_generator");
+    const packetGen = new PacketGenerator({
+      provider,
+      logger: log,
+      model: packetModel,
+    });
     let packetResult: PacketGenerationResult;
     let attemptCount = 1;
 
@@ -459,13 +576,13 @@ export async function executeGenerateChapterPipeline(
 
     const auditInput = {
       packet: packetResult.packet,
-      characters: activeCharacters.map(c => ({
+      characters: activeCharacters.map((c) => ({
         name: c.name,
         status: c.status,
         currentRealm: c.currentRealm,
       })),
       forbiddenRules: bible.forbiddenRules,
-      duePlantedSeeds: dueSeeds.map(s => ({
+      duePlantedSeeds: dueSeeds.map((s) => ({
         id: s.id,
         seedText: s.seedText,
         plantWindowEnd: s.plantWindowEnd,
@@ -475,8 +592,11 @@ export async function executeGenerateChapterPipeline(
     const auditResult = auditPacket(auditInput);
 
     if (auditResult.requiresRegenerate && attemptCount < 2) {
-      log.warn({ issues: auditResult.issues }, 'packet audit failed, regenerating with hints');
-      const hints = auditResult.issues.map(i => i.message);
+      log.warn(
+        { issues: auditResult.issues },
+        "packet audit failed, regenerating with hints",
+      );
+      const hints = auditResult.issues.map((i) => i.message);
       packetResult = await packetGen.generate(packetInput, {
         traceId,
         storyId: data.storyId,
@@ -493,15 +613,21 @@ export async function executeGenerateChapterPipeline(
       arcId: resolvedArcId,
       chapterNumber: data.chapterNumber,
       goal: packetResult.packet.goal,
-      requiredEvents: packetResult.packet.requiredEvents.map(e => e.description),
+      requiredEvents: packetResult.packet.requiredEvents.map(
+        (e) => e.description,
+      ),
       charactersInScene: packetResult.packet.charactersPresent,
       conflict: packetResult.packet.conflict,
       cliffhanger: packetResult.packet.cliffhanger,
       forbiddenMoves: packetResult.packet.forbiddenMoves,
     });
 
-    await db.update(chapters)
-      .set({ packetAuditStatus: auditResult.pass ? 'passed' : 'failed', updatedAt: new Date() })
+    await db
+      .update(chapters)
+      .set({
+        packetAuditStatus: auditResult.pass ? "passed" : "failed",
+        updatedAt: new Date(),
+      })
       .where(eq(chapters.id, chapterId));
 
     const context = await buildContext({
@@ -524,13 +650,19 @@ export async function executeGenerateChapterPipeline(
       coldPayload: context.cold as unknown as Record<string, unknown>,
       totalInputTokens: estimateTokensJson(context),
       cachedInputTokens: tokenAcc.cachedInputTokens,
-      configSnapshot: effectiveConfig as unknown as Record<string, unknown> | undefined,
+      configSnapshot: effectiveConfig as unknown as
+        | Record<string, unknown>
+        | undefined,
     });
 
     const serializedContext = serializeContextForWriter(context);
 
-    const writerModel = modelForRole(effectiveConfig, 'writer');
-    const writer = new WriterAgent({ provider, logger: log, model: writerModel });
+    const writerModel = modelForRole(effectiveConfig, "writer");
+    const writer = new WriterAgent({
+      provider,
+      logger: log,
+      model: writerModel,
+    });
     let writerResult = await writer.write({
       serializedContext,
       cacheKey: context.meta.hotHash,
@@ -551,12 +683,16 @@ export async function executeGenerateChapterPipeline(
     };
 
     const checks = buildChecks(bible.forbiddenRules);
-    const detResult: DeterministicValidatorResult = runDeterministicValidator(checkInput, checks);
+    const detResult: DeterministicValidatorResult = runDeterministicValidator(
+      checkInput,
+      checks,
+    );
 
-    await db.update(chapters)
+    await db
+      .update(chapters)
       .set({
         deterministicValidation: detResult.checks,
-        validationStatus: detResult.pass ? 'passed' : 'failed',
+        validationStatus: detResult.pass ? "passed" : "failed",
         updatedAt: new Date(),
       })
       .where(eq(chapters.id, chapterId));
@@ -564,13 +700,18 @@ export async function executeGenerateChapterPipeline(
       storyId: data.storyId,
       chapterId,
       checks: detResult.checks,
-      validatorModel: 'deterministic',
+      validatorModel: "deterministic",
     });
 
     if (detResult.shortCircuited || !detResult.pass) {
-      const criticalIssues = detResult.checks.filter(c => !c.pass && (c.severity === 'critical' || c.severity === 'high'));
+      const criticalIssues = detResult.checks.filter(
+        (c) => !c.pass && (c.severity === "critical" || c.severity === "high"),
+      );
       if (criticalIssues.length > 0) {
-        log.error({ criticalIssues }, 'deterministic validation had critical issues, marking chapter as failed');
+        log.error(
+          { criticalIssues },
+          "deterministic validation had critical issues, marking chapter as failed",
+        );
         await writeValidationLog(
           {
             storyId: data.storyId,
@@ -581,12 +722,13 @@ export async function executeGenerateChapterPipeline(
           },
           log,
         ).catch(() => {});
-        await db.update(chapters)
-          .set({ status: 'failed', updatedAt: new Date() })
+        await db
+          .update(chapters)
+          .set({ status: "failed", updatedAt: new Date() })
           .where(eq(chapters.id, chapterId));
         return {
           chapterId,
-          status: 'failed',
+          status: "failed",
           attempts: attemptCount,
           totalTokens: tokenAcc.inputTokens + tokenAcc.outputTokens,
           totalCostUsd: totalCost,
@@ -596,8 +738,12 @@ export async function executeGenerateChapterPipeline(
     }
 
     if (!detResult.shortCircuited) {
-      const llmValidatorModel = modelForRole(effectiveConfig, 'llm_validator');
-      const llmValidator = new LlmValidatorAgent({ provider, logger: log, model: llmValidatorModel });
+      const llmValidatorModel = modelForRole(effectiveConfig, "llm_validator");
+      const llmValidator = new LlmValidatorAgent({
+        provider,
+        logger: log,
+        model: llmValidatorModel,
+      });
       const llmValResult = await llmValidator.validate({
         serializedContext,
         chapterContent: writerResult.content,
@@ -612,7 +758,7 @@ export async function executeGenerateChapterPipeline(
         storyId: data.storyId,
         chapterId,
         checks: llmValResult.output.pass
-          ? [{ id: 'llm_validator', severity: 'low', pass: true, issues: [] }]
+          ? [{ id: "llm_validator", severity: "low", pass: true, issues: [] }]
           : llmValResult.output.issues.map((issue) => ({
               id: issue.code,
               severity: issue.severity,
@@ -624,10 +770,10 @@ export async function executeGenerateChapterPipeline(
 
       if (!llmValResult.output.pass) {
         const nonCriticalIssues = llmValResult.output.issues.filter(
-          i => i.severity === 'low' || i.severity === 'medium'
+          (i) => i.severity === "low" || i.severity === "medium",
         );
         const criticalLlmIssues = llmValResult.output.issues.filter(
-          i => i.severity === 'critical' || i.severity === 'high'
+          (i) => i.severity === "critical" || i.severity === "high",
         );
 
         await writeValidationLog(
@@ -643,16 +789,20 @@ export async function executeGenerateChapterPipeline(
         ).catch(() => {});
 
         if (criticalLlmIssues.length > 0) {
-          log.warn({ criticalLlmIssues }, 'LLM validator found critical/high issues');
-          if (mode === 'safe') {
+          log.warn(
+            { criticalLlmIssues },
+            "LLM validator found critical/high issues",
+          );
+          if (mode === "safe") {
             const pausedWordCount = writerResult.content.trim()
               ? writerResult.content.trim().split(/\s+/).length
               : 0;
-            await db.update(chapters)
+            await db
+              .update(chapters)
               .set({
                 title: writerResult.title,
                 content: writerResult.content,
-                status: 'paused_pending_updates',
+                status: "paused_pending_updates",
                 wordCount: pausedWordCount,
                 contextCacheKey: context.meta.hotHash,
                 updatedAt: new Date(),
@@ -660,7 +810,7 @@ export async function executeGenerateChapterPipeline(
               .where(eq(chapters.id, chapterId));
             return {
               chapterId,
-              status: 'paused_pending_updates',
+              status: "paused_pending_updates",
               attempts: attemptCount,
               totalTokens: tokenAcc.inputTokens + tokenAcc.outputTokens,
               totalCostUsd: totalCost,
@@ -670,9 +820,16 @@ export async function executeGenerateChapterPipeline(
         }
 
         if (nonCriticalIssues.length > 0) {
-          log.info({ nonCriticalIssues }, 'LLM validator found low/medium issues, auto-fixing');
-          const autoFixerModel = modelForRole(effectiveConfig, 'auto_fixer');
-          const autoFixer = new AutoFixerAgent({ provider, logger: log, model: autoFixerModel });
+          log.info(
+            { nonCriticalIssues },
+            "LLM validator found low/medium issues, auto-fixing",
+          );
+          const autoFixerModel = modelForRole(effectiveConfig, "auto_fixer");
+          const autoFixer = new AutoFixerAgent({
+            provider,
+            logger: log,
+            model: autoFixerModel,
+          });
           const fixResult = await autoFixer.fix({
             serializedContext,
             chapterContent: writerResult.content,
@@ -684,106 +841,143 @@ export async function executeGenerateChapterPipeline(
           });
           accumulateUsage(fixResult.usage, tokenAcc);
           totalCost += estimateCostUsd(autoFixerModel, fixResult.usage);
-          writerResult = { title: fixResult.title, content: fixResult.content, usage: fixResult.usage, cost: fixResult.cost };
+          writerResult = {
+            title: fixResult.title,
+            content: fixResult.content,
+            usage: fixResult.usage,
+            cost: fixResult.cost,
+          };
         }
       }
     }
 
-    const canonExtractorModel = modelForRole(effectiveConfig, 'canon_extractor');
-    const canonExtractor = new CanonExtractor({ provider, logger: log, model: canonExtractorModel });
+    const canonExtractorModel = modelForRole(
+      effectiveConfig,
+      "canon_extractor",
+    );
+    const canonExtractor = new CanonExtractor({
+      provider,
+      logger: log,
+      model: canonExtractorModel,
+    });
     const canonSnapshot = buildCanonSnapshotFromContext(context);
     const canonSnapshotText = buildCanonSnapshotText(canonSnapshot);
 
-    const extractionResult = await canonExtractor.extract({
-      chapterNumber: data.chapterNumber,
-      chapterContent: writerResult.content,
-      bibleCompact: context.hot.bibleCompact,
-      canonSnapshot: canonSnapshotText,
-      plantedSeeds: context.warm.arcPlantedSeeds.map(s => ({
-        id: s.id,
-        seedText: s.seedText,
-        payoffDescription: s.payoffDescription,
-        status: s.status,
-      })),
-      recentSummary: context.cold.recentSummaries[0]?.shortSummary ?? '',
-    }, { traceId, storyId: data.storyId });
+    const extractionResult = await canonExtractor.extract(
+      {
+        chapterNumber: data.chapterNumber,
+        chapterContent: writerResult.content,
+        bibleCompact: context.hot.bibleCompact,
+        canonSnapshot: canonSnapshotText,
+        plantedSeeds: context.warm.arcPlantedSeeds.map((s) => ({
+          id: s.id,
+          seedText: s.seedText,
+          payoffDescription: s.payoffDescription,
+          status: s.status,
+        })),
+        recentSummary: context.cold.recentSummaries[0]?.summary ?? "",
+      },
+      { traceId, storyId: data.storyId },
+    );
     accumulateUsage(extractionResult.usage, tokenAcc);
     totalCost += estimateCostUsd(canonExtractorModel, extractionResult.usage);
 
     const mergerRows = extractorOutputToRows(extractionResult.output);
 
     const canonMerger = new CanonMerger({ db: db as any, embeddingService });
-    const mergerMode: CanonMergerMode = mode === 'safe' ? 'review' : 'auto';
-    const mergerResult = await canonMerger.submit({
-      storyId: data.storyId,
-      chapterId,
-      chapterNumber: data.chapterNumber,
-      rows: mergerRows,
-      seedsResolvedIds: extractionResult.output.seedsResolvedThisChapter,
-      mode: mergerMode,
-      traceId,
-    }, canonSnapshot);
+    const mergerMode: CanonMergerMode = mode === "safe" ? "review" : "auto";
+    const mergerResult = await canonMerger.submit(
+      {
+        storyId: data.storyId,
+        chapterId,
+        chapterNumber: data.chapterNumber,
+        rows: mergerRows,
+        seedsResolvedIds: extractionResult.output.seedsResolvedThisChapter,
+        mode: mergerMode,
+        traceId,
+      },
+      canonSnapshot,
+    );
 
-    log.info({
-      pendingCount: mergerResult.pendingCount,
-      autoApplied: mergerResult.autoAppliedCount,
-      conflicts: mergerResult.conflicts.length,
-    }, 'canon merger completed');
+    log.info(
+      {
+        pendingCount: mergerResult.pendingCount,
+        autoApplied: mergerResult.autoAppliedCount,
+        conflicts: mergerResult.conflicts.length,
+      },
+      "canon merger completed",
+    );
 
-    const summaryModel = modelForRole(effectiveConfig, 'summary_compactor');
-    const summaryCompactor = new SummaryCompactor({ provider, logger: log, model: summaryModel });
-    const summaryResult = await summaryCompactor.compact({
-      chapterNumber: data.chapterNumber,
-      chapterContent: writerResult.content,
-      previousShortSummary: context.cold.recentSummaries[0]?.shortSummary ?? '',
-      bibleCompact: context.hot.bibleCompact,
-    }, { traceId, storyId: data.storyId });
+    const summaryModel = modelForRole(effectiveConfig, "summary_compactor");
+    const summaryCompactor = new SummaryCompactor({
+      provider,
+      logger: log,
+      model: summaryModel,
+    });
+    const summaryResult = await summaryCompactor.compact(
+      {
+        chapterNumber: data.chapterNumber,
+        chapterContent: writerResult.content,
+        previousSummary: context.cold.recentSummaries[0]?.summary ?? "",
+        bibleCompact: context.hot.bibleCompact,
+      },
+      { traceId, storyId: data.storyId },
+    );
     accumulateUsage(summaryResult.usage, tokenAcc);
     totalCost += estimateCostUsd(summaryModel, summaryResult.usage);
 
     try {
       const embResp = await embeddingService.embed({
-        input: summaryResult.output.shortSummary,
+        input: summaryResult.output.summary,
         traceId,
       });
       await db.insert(chapterSummaries).values({
         chapterId,
         storyId: data.storyId,
         chapterNumber: data.chapterNumber,
-        shortSummary: summaryResult.output.shortSummary,
-        detailedSummary: summaryResult.output.detailedSummary,
+        summary: summaryResult.output.summary,
         embedding: embResp.vector,
       });
     } catch (embErr) {
-      log.warn({ err: embErr }, 'failed to embed summary, inserting without embedding');
+      log.warn(
+        { err: embErr },
+        "failed to embed summary, inserting without embedding",
+      );
       await db.insert(chapterSummaries).values({
         chapterId,
         storyId: data.storyId,
         chapterNumber: data.chapterNumber,
-        shortSummary: summaryResult.output.shortSummary,
-        detailedSummary: summaryResult.output.detailedSummary,
+        summary: summaryResult.output.summary,
       });
     }
 
     const wordCount = writerResult.content.split(/\s+/).length;
-    const finalStatus: GenerateChapterJobResult['status'] =
-      mergerMode === 'review' && mergerResult.pendingCount > 0
-        ? 'paused_pending_updates'
-        : 'completed';
+    const finalStatus: GenerateChapterJobResult["status"] =
+      mergerMode === "review" && mergerResult.pendingCount > 0
+        ? "paused_pending_updates"
+        : "completed";
 
-    await db.update(chapters)
+    await db
+      .update(chapters)
       .set({
         title: writerResult.title,
         content: writerResult.content,
-        summary: summaryResult.output.shortSummary,
-        status: finalStatus === 'paused_pending_updates' ? 'paused_pending_updates' : 'completed',
+        summary: summaryResult.output.summary,
+        status:
+          finalStatus === "paused_pending_updates"
+            ? "paused_pending_updates"
+            : "completed",
         wordCount,
         contextCacheKey: context.meta.hotHash,
         updatedAt: new Date(),
       })
       .where(eq(chapters.id, chapterId));
 
-    if ((finalStatus === 'completed' || finalStatus === 'paused_pending_updates') && resolvedArcId) {
+    if (
+      (finalStatus === "completed" ||
+        finalStatus === "paused_pending_updates") &&
+      resolvedArcId
+    ) {
       try {
         const refreshJobId = await enqueueRefreshArcSummary({
           storyId: data.storyId,
@@ -792,30 +986,37 @@ export async function executeGenerateChapterPipeline(
           llmProvider: data.llmProvider,
           modelRoutes: data.modelRoutes,
         });
-        log.info({ refreshJobId }, 'enqueued arc summary refresh');
+        log.info({ refreshJobId }, "enqueued arc summary refresh");
       } catch (enqueueErr) {
-        log.warn({ err: enqueueErr }, 'failed to enqueue arc summary refresh');
+        log.warn({ err: enqueueErr }, "failed to enqueue arc summary refresh");
       }
 
-      if (arc && arc.endChapter != null && data.chapterNumber === arc.endChapter) {
+      if (
+        arc &&
+        arc.endChapter != null &&
+        data.chapterNumber === arc.endChapter
+      ) {
         try {
           const reviewJobId = await enqueueHighStakesReview({
             storyId: data.storyId,
             chapterId,
             chapterNumber: data.chapterNumber,
-            triggerReason: 'arc_end',
+            triggerReason: "arc_end",
             traceId: data.traceId,
             llmProvider: data.llmProvider,
             modelRoutes: data.modelRoutes,
           });
-          log.info({ reviewJobId }, 'enqueued high-stakes review for arc end');
+          log.info({ reviewJobId }, "enqueued high-stakes review for arc end");
         } catch (enqueueErr) {
-          log.warn({ err: enqueueErr }, 'failed to enqueue high-stakes review');
+          log.warn({ err: enqueueErr }, "failed to enqueue high-stakes review");
         }
       }
     }
 
-    log.info({ chapterId, status: finalStatus, wordCount }, 'generate-chapter pipeline completed');
+    log.info(
+      { chapterId, status: finalStatus, wordCount },
+      "generate-chapter pipeline completed",
+    );
 
     return {
       chapterId,
@@ -826,9 +1027,10 @@ export async function executeGenerateChapterPipeline(
       durationMs: Date.now() - start,
     };
   } catch (err) {
-    log.error({ err, chapterId }, 'generate-chapter pipeline failed');
-    await db.update(chapters)
-      .set({ status: 'failed', updatedAt: new Date() })
+    log.error({ err, chapterId }, "generate-chapter pipeline failed");
+    await db
+      .update(chapters)
+      .set({ status: "failed", updatedAt: new Date() })
       .where(eq(chapters.id, chapterId))
       .catch(() => {});
     throw err;
@@ -839,7 +1041,7 @@ export async function runGenerateChapterJob(
   data: GenerateChapterJob,
   ctx: { logger: Logger },
 ): Promise<GenerateChapterJobResult> {
-  const { getDb } = await import('@novel/db');
+  const { getDb } = await import("@novel/db");
 
   const db = getDb();
   const baseConfig = await loadEffectiveStoryConfig(data.storyId);
@@ -858,7 +1060,8 @@ export async function runGenerateChapterJob(
   const baseProvider = buildWorkerProvider(data);
   const recorder = makeDrizzleRecorder(db);
   const logLlmPrompts =
-    process.env.LOG_LLM_PROMPTS === '1' || process.env.LOG_LLM_PROMPTS === 'true';
+    process.env.LOG_LLM_PROMPTS === "1" ||
+    process.env.LOG_LLM_PROMPTS === "true";
   const provider = new LoggedLLMProvider({
     inner: baseProvider,
     recordCall: recorder,
@@ -868,7 +1071,7 @@ export async function runGenerateChapterJob(
             log: (bindings, msg) => {
               // Pino emits one-line JSON; real multiline pretty output goes to stdout.
               ctx.logger
-                .child({ component: 'llm_prompt', storyId: bindings.storyId })
+                .child({ component: "llm_prompt", storyId: bindings.storyId })
                 .info(
                   {
                     model: bindings.model,
@@ -887,7 +1090,7 @@ export async function runGenerateChapterJob(
       : {}),
   });
   const embeddingService = new OpenRouterEmbeddingService({
-    apiKey: process.env.OPENROUTER_API_KEY ?? '',
+    apiKey: process.env.OPENROUTER_API_KEY ?? "",
     logger: ctx.logger as any,
   });
 
@@ -896,7 +1099,7 @@ export async function runGenerateChapterJob(
     provider,
     embeddingService,
     logger: ctx.logger,
-    mode: data.mode ?? 'safe',
+    mode: data.mode ?? "safe",
     effectiveConfig,
   });
 }

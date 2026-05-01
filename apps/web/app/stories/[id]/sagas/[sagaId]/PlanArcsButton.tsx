@@ -1,8 +1,8 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { planArcs } from '@/lib/api/arcs';
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { planArcs } from "@/lib/api/arcs";
 
 export function PlanArcsButton({
   storyId,
@@ -19,12 +19,14 @@ export function PlanArcsButton({
   const [error, setError] = useState<string | null>(null);
 
   async function handlePlanArcs() {
-    if (!confirm('This calls the Pro model to plan arcs for this saga. Continue?')) return;
-
     setLoading(true);
     setError(null);
     try {
-      await planArcs(storyId, sagaId, currentState.trim() || defaultCurrentState);
+      await planArcs(
+        storyId,
+        sagaId,
+        currentState.trim() || defaultCurrentState,
+      );
       router.refresh();
     } catch (e) {
       setError((e as Error).message);
@@ -34,22 +36,23 @@ export function PlanArcsButton({
   }
 
   return (
-    <div className="studio-panel form-grid">
+    <div className="studio-panel">
       <div className="field-group">
-      <label>Current state for Arc Planner</label>
-      <textarea
-        rows={4}
-        value={currentState}
-        onChange={(e) => setCurrentState(e.target.value)}
-      />
+        <label>Current state for Arc Planner</label>
+        <textarea
+          rows={15}
+          value={currentState}
+          onChange={(e) => setCurrentState(e.target.value)}
+        />
       </div>
       <button
         className="primary"
         type="button"
         disabled={loading}
         onClick={handlePlanArcs}
+        style={{ marginTop: 15 }}
       >
-        {loading ? 'Planning arcs...' : 'Plan arcs'}
+        {loading ? "Planning arcs..." : "Plan arcs"}
       </button>
       {error && <p className="error">{error}</p>}
     </div>

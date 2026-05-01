@@ -84,7 +84,10 @@ export async function getSeedsDueForChapter(db: Db, storyId: string, chapterNumb
 }
 
 export async function getRecentSummaries(db: Db, storyId: string, beforeChapter: number, limit: number): Promise<ChapterSummaryCompact[]> {
-  const rows = await db.select().from(chapterSummaries).where(
+  const rows = await db.select({
+    chapterNumber: chapterSummaries.chapterNumber,
+    summary: chapterSummaries.summary,
+  }).from(chapterSummaries).where(
     and(
       eq(chapterSummaries.storyId, storyId),
       lt(chapterSummaries.chapterNumber, beforeChapter),
@@ -110,7 +113,10 @@ export async function getTopKCanonFacts(db: Db, storyId: string, embedding: numb
 
 export async function getPastChapterSummaries(db: Db, storyId: string, currentChapter: number, minGap: number, topK: number): Promise<ChapterSummaryCompact[]> {
   const threshold = currentChapter - minGap;
-  const rows = await db.select().from(chapterSummaries).where(
+  const rows = await db.select({
+    chapterNumber: chapterSummaries.chapterNumber,
+    summary: chapterSummaries.summary,
+  }).from(chapterSummaries).where(
     and(
       eq(chapterSummaries.storyId, storyId),
       lt(chapterSummaries.chapterNumber, threshold),
