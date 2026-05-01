@@ -60,12 +60,21 @@ export default async function ChapterDetailPage({
             <span>Packet: {chapter.packetAuditStatus}</span>
           </p>
         </div>
-        {canRetry && (
-          <RegenerateButton
-            storyId={id}
-            chapterNumber={chapter.chapterNumber}
-          />
-        )}
+        <div className="studio-actions">
+          <a
+            href={`/read/${id}/${chapter.chapterNumber}`}
+            className="nav-link"
+            style={{ fontWeight: 700 }}
+          >
+            Read →
+          </a>
+          {canRetry && (
+            <RegenerateButton
+              storyId={id}
+              chapterNumber={chapter.chapterNumber}
+            />
+          )}
+        </div>
       </header>
       {chapter.summary && (
         <details open style={{ marginBottom: 16 }}>
