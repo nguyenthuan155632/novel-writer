@@ -8,6 +8,7 @@ import {
   type ModelOption,
   type ModelRoutes,
 } from '@/lib/api/models';
+import { fillAllModelRoutes } from './model-settings-state';
 
 export default function ModelSettings() {
   const [routes, setRoutes] = useState<Partial<ModelRoutes>>({});
@@ -37,6 +38,11 @@ export default function ModelSettings() {
 
   function setRoute(role: AgentRole, model: string) {
     setRoutes((current) => ({ ...current, [role]: model }));
+    setSaved(false);
+  }
+
+  function fillRoutes(model: string) {
+    setRoutes(fillAllModelRoutes(options, model));
     setSaved(false);
   }
 
@@ -75,8 +81,8 @@ export default function ModelSettings() {
             key={hint}
             type="button"
             className="model-hint"
-            title="Copy this model ID into the focused field"
-            onClick={() => navigator.clipboard?.writeText(hint)}
+            title="Fill all agent model inputs with this model ID"
+            onClick={() => fillRoutes(hint)}
           >
             {hint}
           </button>

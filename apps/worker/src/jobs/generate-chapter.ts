@@ -31,6 +31,7 @@ import {
   getStoryBible,
   getArcById,
   getArcForChapter,
+  getSagaForChapter,
   getActiveCharacters,
   getOpenThreadsForStory,
   getSeedsDueForChapter,
@@ -511,6 +512,12 @@ export async function executeGenerateChapterPipeline(
         t.state !== "resolved" && t.introducedChapter < data.chapterNumber - 10,
     );
 
+    const saga = await getSagaForChapter(
+      db,
+      data.storyId,
+      data.chapterNumber,
+    );
+
     const arcStart = arc?.startChapter ?? data.chapterNumber;
     const arcEnd = arc?.endChapter ?? data.chapterNumber;
     const arcSpan = Math.max(1, arcEnd - arcStart + 1);
@@ -527,6 +534,35 @@ export async function executeGenerateChapterPipeline(
             ? `Đã qua nửa arc — mỗi chương phải có tiến triển rõ rệt về cấp độ tu luyện hoặc resolve thread. Tránh lặp lại tình huống của 2 chương gần nhất.`
             : `Đang ở giai đoạn xây dựng arc — vẫn cần mỗi chương đẩy ít nhất 1 thread tiến lên.`;
       pacingHint = `\n\n# PACING (arc ${arcPosition}/${arcSpan} ≈ ${arcProgressPct}%)\n${urgency}`;
+    }
+
+    if (
+      saga?.startChapter != null &&
+      saga?.endChapter != null &&
+      Array.isArray(saga.expectedTurningPoints) &&
+      saga.expectedTurningPoints.length > 0
+    ) {
+      const sagaSpan = Math.max(1, saga.endChapter - saga.startChapter + 1);
+      const sagaPosition = data.chapterNumber - saga.startChapter + 1;
+      const sagaProgressPct = Math.round((sagaPosition / sagaSpan) * 100);
+      const tps = saga.expectedTurningPoints as string[];
+      const expectedTpIndex = Math.min(
+        tps.length - 1,
+        Math.floor((sagaPosition - 1) / (sagaSpan / tps.length)),
+      );
+      const tpList = tps
+        .map((tp, i) => {
+          const marker =
+            i < expectedTpIndex ? "[ĐÃ PHẢI XẢY RA]" :
+            i === expectedTpIndex ? "[ĐANG/SẮP XẢY RA NGAY]" :
+            "[sắp tới]";
+          return `${i + 1}. ${marker} ${tp}`;
+        })
+        .join("\n");
+      pacingHint += `\n\n# SAGA PACING (saga ${sagaPosition}/${sagaSpan} ≈ ${sagaProgressPct}%)
+Đối chiếu với # 5 CHƯƠNG GẦN NHẤT: nếu turning point được đánh dấu [ĐÃ PHẢI XẢY RA] mà chưa thấy trong các chương đó → chương này PHẢI đẩy nó xảy ra ngay (ưu tiên hơn cả arc goal). Không được nhảy cóc qua TP chưa xảy ra.
+Turning points của saga:
+${tpList}`;
     }
 
     const packetInput = {
