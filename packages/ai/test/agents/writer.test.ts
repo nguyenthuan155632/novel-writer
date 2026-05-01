@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { WriterAgent, parseTitleAndContent } from '../../src/agents/writer.ts';
 import { MockProvider } from '../../src/providers/mock.ts';
-import '../../src/prompts/writer.v1.ts';
+import '../../src/prompts/writer.v2.ts';
 
 describe('parseTitleAndContent', () => {
   it('parses TITLE: prefix format', () => {
@@ -44,6 +44,7 @@ describe('WriterAgent', () => {
       chapterNumber: 5,
       storyId: 'story-1',
       traceId: 'trace-1',
+      genreDef: { slug: 'tien_hiep', viLabel: 'Tiên hiệp', viDescription: '', family: 'cultivation', allowedTropes: [], discouragedTropes: [], toneGuidance: '', worldbuildingGuidance: '', examplePremises: [] } as any,
     });
 
     expect(result.title).toBe('Sương Mù Đỏ');
@@ -54,7 +55,7 @@ describe('WriterAgent', () => {
     const calls = provider.getCalls();
     expect(calls).toHaveLength(1);
     expect(calls[0]!.metadata!.agentRole).toBe('writer');
-    expect(calls[0]!.metadata!.promptVersion).toBe('v1');
+    expect(calls[0]!.metadata!.promptVersion).toBe('v2');
   });
 
   it('sends system and user messages', async () => {
@@ -69,6 +70,7 @@ describe('WriterAgent', () => {
       chapterNumber: 1,
       storyId: 's1',
       traceId: 't1',
+      genreDef: { slug: 'tien_hiep', viLabel: 'Tiên hiệp', viDescription: '', family: 'cultivation', allowedTropes: [], discouragedTropes: [], toneGuidance: '', worldbuildingGuidance: '', examplePremises: [] } as any,
     });
 
     const call = provider.getCalls()[0]!;

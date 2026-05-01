@@ -6,7 +6,7 @@ import type { LLMProvider } from '../providers/types.ts';
 import { withCompletionRetryRaw } from '../parse-completion-json.ts';
 import type { Logger } from './packet-generator.js';
 import { SagaPlannerOutputSchema, type SagaPlannerOutput } from '../schemas/saga.ts';
-import { sagaPlannerPromptV1 } from '../prompts/saga-planner.v1.ts';
+import { sagaPlannerPromptV2 } from '../prompts/saga-planner.v2.ts';
 import type { SagaPlannerInput, SagaPlannerResult } from './saga-planner.types.ts';
 
 export type SagaPlannerDeps = {
@@ -20,9 +20,11 @@ export class SagaPlannerAgent {
 
   async plan(input: SagaPlannerInput): Promise<SagaPlannerResult> {
     const log = this.deps.logger.child({ agent: 'saga_planner', storyId: input.storyId });
-    const built = sagaPlannerPromptV1.build({
+    const built = sagaPlannerPromptV2.build({
       bibleCompact: input.bibleCompact,
       targetChapters: input.targetChapters,
+      genreDef: input.genreDef,
+      storyOptions: input.storyOptions,
     } as Record<string, unknown>);
 
     const response = await withCompletionRetryRaw(
@@ -35,8 +37,8 @@ export class SagaPlannerAgent {
         ],
         temperature: 0.7,
         metadata: {
-          agentRole: sagaPlannerPromptV1.agentRole,
-          promptVersion: sagaPlannerPromptV1.version,
+          agentRole: sagaPlannerPromptV2.agentRole,
+          promptVersion: sagaPlannerPromptV2.version,
           storyId: input.storyId,
         },
       }),
@@ -55,7 +57,7 @@ export class SagaPlannerAgent {
 
     return {
       output: parsed,
-      promptVersion: sagaPlannerPromptV1.version,
+      promptVersion: sagaPlannerPromptV2.version,
       usage: response.usage,
     };
   }

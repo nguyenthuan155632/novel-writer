@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { LlmValidatorAgent } from '../../src/agents/llm-validator.ts';
 import { MockProvider } from '../../src/providers/mock.ts';
-import '../../src/prompts/llm-validator.v1.ts';
+import '../../src/prompts/llm-validator.v2.ts';
 
 const VALID_VALIDATOR_OUTPUT = JSON.stringify({
   pass: true,
@@ -31,6 +31,8 @@ describe('LlmValidatorAgent', () => {
       chapterNumber: 5,
       storyId: 'story-1',
       traceId: 'trace-1',
+      genreDef: { slug: 'tien_hiep', viLabel: 'Tiên hiệp', viDescription: '', family: 'cultivation', allowedTropes: [], discouragedTropes: [], toneGuidance: '', worldbuildingGuidance: '', examplePremises: [] } as any,
+      personalityDef: { slug: 'tram_on', viLabel: '', viDescription: '', voiceHints: '', decisionStyle: '', dialogueStyle: '', conflictResponse: '', driftSignals: [] } as any,
     });
 
     expect(result.output.pass).toBe(true);
@@ -56,6 +58,8 @@ describe('LlmValidatorAgent', () => {
       chapterNumber: 5,
       storyId: 's1',
       traceId: 't1',
+      genreDef: { slug: 'tien_hiep', viLabel: 'Tiên hiệp', viDescription: '', family: 'cultivation', allowedTropes: [], discouragedTropes: [], toneGuidance: '', worldbuildingGuidance: '', examplePremises: [] } as any,
+      personalityDef: { slug: 'tram_on', viLabel: '', viDescription: '', voiceHints: '', decisionStyle: '', dialogueStyle: '', conflictResponse: '', driftSignals: [] } as any,
     });
 
     expect(result.output.pass).toBe(false);

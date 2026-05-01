@@ -9,7 +9,7 @@ function makeContext(overrides?: { hot?: Partial<HotTier>; warm?: Partial<WarmTi
       systemRules: 'rules',
       bibleCompact: 'compact',
       styleGuide: 'guide',
-      powerRules: 'power',
+      powerSystem: 'power', powerSystemKind: '', genreContract: '', personalityContract: '', storyOptionsBlock: '',
       styleFewShots: [],
       ...overrides?.hot,
     },

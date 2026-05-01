@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { PacketGenerator } from '../../src/agents/packet-generator.ts';
 import { MockProvider } from '../../src/providers/mock.ts';
 import type { Logger } from '../../src/agents/packet-generator.ts';
-import '../../src/prompts/packet-generator.v1.ts';
+import '../../src/prompts/packet-generator.v2.ts';
 
 const silentLogger: Logger = {
   child: () => silentLogger,
@@ -30,6 +30,9 @@ describe('PacketGenerator', () => {
       bibleCompact: 'b', arcSummary: 'a', recentChapterSummaries: [],
       activeCharacters: [], openThreads: [], duePlantedSeeds: [], overdueThreads: [],
       forbiddenRules: '', chapterNumber: 1, arcGoals: 'g',
+      genreDef: { slug: 'tien_hiep', viLabel: 'Tiên hiệp', viDescription: '', family: 'cultivation', allowedTropes: [], discouragedTropes: [], toneGuidance: '', worldbuildingGuidance: '', examplePremises: [] } as any,
+      personalityDef: { slug: 'tram_on', viLabel: '', viDescription: '', voiceHints: '', decisionStyle: '', dialogueStyle: '', conflictResponse: '', driftSignals: [] } as any,
+      storyOptions: {} as any,
     }, { traceId: 't', storyId: 's' });
     expect(r.packet.chapterNumber).toBe(1);
     expect(r.packet.requiredEvents).toHaveLength(1);
@@ -44,6 +47,9 @@ describe('PacketGenerator', () => {
       bibleCompact: 'b', arcSummary: 'a', recentChapterSummaries: [],
       activeCharacters: [], openThreads: [], duePlantedSeeds: [], overdueThreads: [],
       forbiddenRules: '', chapterNumber: 1, arcGoals: 'g',
+      genreDef: { slug: 'tien_hiep', viLabel: 'Tiên hiệp', viDescription: '', family: 'cultivation', allowedTropes: [], discouragedTropes: [], toneGuidance: '', worldbuildingGuidance: '', examplePremises: [] } as any,
+      personalityDef: { slug: 'tram_on', viLabel: '', viDescription: '', voiceHints: '', decisionStyle: '', dialogueStyle: '', conflictResponse: '', driftSignals: [] } as any,
+      storyOptions: {} as any,
     }, { traceId: 't', storyId: 's' })).rejects.toThrow();
   });
 
@@ -67,6 +73,9 @@ describe('PacketGenerator', () => {
       bibleCompact: 'b', arcSummary: 'a', recentChapterSummaries: [],
       activeCharacters: [], openThreads: [], duePlantedSeeds: [], overdueThreads: [],
       forbiddenRules: '', chapterNumber: 4, arcGoals: 'g',
+      genreDef: { slug: 'tien_hiep', viLabel: 'Tiên hiệp', viDescription: '', family: 'cultivation', allowedTropes: [], discouragedTropes: [], toneGuidance: '', worldbuildingGuidance: '', examplePremises: [] } as any,
+      personalityDef: { slug: 'tram_on', viLabel: '', viDescription: '', voiceHints: '', decisionStyle: '', dialogueStyle: '', conflictResponse: '', driftSignals: [] } as any,
+      storyOptions: {} as any,
     }, { traceId: 't', storyId: 's' });
 
     expect(r.packet.goal.length).toBeLessThanOrEqual(500);

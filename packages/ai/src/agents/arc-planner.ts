@@ -6,12 +6,14 @@ import type { LLMProvider } from '../providers/types.ts';
 import { withCompletionRetryRaw } from '../parse-completion-json.ts';
 import type { Logger } from './packet-generator.ts';
 import { ArcPlannerOutputSchema, ARC_PLANNER_JSON_SCHEMA, type ArcPlannerOutput } from '../schemas/arc.ts';
-import { arcPlannerPromptV1 } from '../prompts/arc-planner.v1.ts';
+import { arcPlannerPromptV2 } from '../prompts/arc-planner.v2.ts';
 
 export interface ArcPlannerInput {
   storyId: string;
   sagaId: string;
   currentState: string;
+  genreDef: import('@novel/core').GenreDef;
+  storyOptions: import('@novel/core').StoryOptions;
 }
 
 export interface ArcPlannerResult {
@@ -46,7 +48,7 @@ export class ArcPlannerAgent {
       return pc >= (saga.startChapter ?? 0) && pc <= (saga.endChapter ?? 0);
     });
 
-    const built = arcPlannerPromptV1.build({
+    const built = arcPlannerPromptV2.build({
       sagaTitle: saga.title,
       sagaStart: saga.startChapter,
       sagaEnd: saga.endChapter,
@@ -54,6 +56,8 @@ export class ArcPlannerAgent {
       turningPoints: saga.expectedTurningPoints,
       currentState: input.currentState,
       unresolvedSeeds: sagaSeeds,
+      genreDef: input.genreDef,
+      storyOptions: input.storyOptions,
     } as Record<string, unknown>);
 
     const response = await withCompletionRetryRaw(
@@ -63,7 +67,7 @@ export class ArcPlannerAgent {
         messages: [{ role: 'system', content: built.system }, { role: 'user', content: built.user }],
         responseSchema: ARC_PLANNER_JSON_SCHEMA,
         temperature: 0.7,
-        metadata: { agentRole: arcPlannerPromptV1.agentRole, promptVersion: arcPlannerPromptV1.version, storyId: input.storyId },
+        metadata: { agentRole: arcPlannerPromptV2.agentRole, promptVersion: arcPlannerPromptV2.version, storyId: input.storyId },
       }),
       3,
     );
@@ -77,7 +81,7 @@ export class ArcPlannerAgent {
     }
 
     log.info({ arcCount: parsed.arcs.length }, 'plan ok');
-    return { output: parsed, promptVersion: arcPlannerPromptV1.version, usage: response.usage };
+    return { output: parsed, promptVersion: arcPlannerPromptV2.version, usage: response.usage };
   }
 
   async persist(storyId: string, sagaId: string, output: ArcPlannerOutput): Promise<{ arcsUpserted: number }> {

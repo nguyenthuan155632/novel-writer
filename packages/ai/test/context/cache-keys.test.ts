@@ -8,7 +8,7 @@ describe('computeHotHash', () => {
       systemRules: 'rules',
       bibleCompact: 'compact',
       styleGuide: 'guide',
-      powerRules: 'power',
+      powerSystem: 'power', powerSystemKind: '', genreContract: '', personalityContract: '', storyOptionsBlock: '',
       styleFewShots: [],
     };
     const hash = computeHotHash(hot);
@@ -20,15 +20,15 @@ describe('computeHotHash', () => {
       systemRules: 'rules',
       bibleCompact: 'compact',
       styleGuide: 'guide',
-      powerRules: 'power',
+      powerSystem: 'power', powerSystemKind: '', genreContract: '', personalityContract: '', storyOptionsBlock: '',
       styleFewShots: [{ excerpt: 'test' }],
     };
     expect(computeHotHash(hot)).toBe(computeHotHash(hot));
   });
 
   it('produces different hash for different inputs', () => {
-    const a: HotTier = { systemRules: 'a', bibleCompact: '', styleGuide: '', powerRules: '', styleFewShots: [] };
-    const b: HotTier = { systemRules: 'b', bibleCompact: '', styleGuide: '', powerRules: '', styleFewShots: [] };
+    const a: HotTier = { systemRules: 'a', bibleCompact: '', styleGuide: '', powerSystem: '', powerSystemKind: '', genreContract: '', personalityContract: '', storyOptionsBlock: '', styleFewShots: [] };
+    const b: HotTier = { systemRules: 'b', bibleCompact: '', styleGuide: '', powerSystem: '', powerSystemKind: '', genreContract: '', personalityContract: '', storyOptionsBlock: '', styleFewShots: [] };
     expect(computeHotHash(a)).not.toBe(computeHotHash(b));
   });
 });

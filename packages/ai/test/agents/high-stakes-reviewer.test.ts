@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { HighStakesReviewerAgent } from '../../src/agents/high-stakes-reviewer.ts';
 import { MockProvider } from '../../src/providers/mock.ts';
 import type { Logger } from '../../src/agents/packet-generator.ts';
-import '../../src/prompts/high-stakes-reviewer.v1.ts';
+import '../../src/prompts/high-stakes-reviewer.v2.ts';
 
 const silentLogger: Logger = { child: () => silentLogger, error: () => {}, info: () => {} };
 
@@ -24,6 +24,8 @@ describe('HighStakesReviewerAgent.review', () => {
     const r = await agent.review({
       storyId: 's', chapterId: 'c', chapterNumber: 1, triggerReason: 'manual',
       chapter: { title: 'Chapter 1', content: 'content' }, arcSummary: 'a', bibleCompact: 'b',
+      genreDef: { slug: 'tien_hiep', viLabel: 'Tiên hiệp', viDescription: '', family: 'cultivation', allowedTropes: [], discouragedTropes: [], toneGuidance: '', worldbuildingGuidance: '', examplePremises: [] } as any,
+      personalityDef: { slug: 'tram_on', viLabel: '', viDescription: '', voiceHints: '', decisionStyle: '', dialogueStyle: '', conflictResponse: '', driftSignals: [] } as any,
     });
     expect(r.reviewId).toBe('rev-1');
     expect(r.output.approve).toBe(true);
@@ -38,6 +40,8 @@ describe('HighStakesReviewerAgent.review', () => {
     await agent.review({
       storyId: 's', chapterId: 'c', chapterNumber: 1, triggerReason: 'manual',
       chapter: { title: 'Chapter 1', content: 'content' }, arcSummary: 'a', bibleCompact: 'b',
+      genreDef: { slug: 'tien_hiep', viLabel: 'Tiên hiệp', viDescription: '', family: 'cultivation', allowedTropes: [], discouragedTropes: [], toneGuidance: '', worldbuildingGuidance: '', examplePremises: [] } as any,
+      personalityDef: { slug: 'tram_on', viLabel: '', viDescription: '', voiceHints: '', decisionStyle: '', dialogueStyle: '', conflictResponse: '', driftSignals: [] } as any,
     });
 
     expect(provider.getCalls()[0]!.model).toBe('gemma4:e4b');

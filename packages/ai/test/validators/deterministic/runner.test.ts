@@ -6,7 +6,7 @@ function makeInput(overrides: Partial<CheckInput> = {}): CheckInput {
   return {
     content: Array(2000).fill('word').join(' ') + ' Đột nhiên một bóng hình xuất hiện. Anh ta chiến đấu。',
     context: {
-      hot: { systemRules: '', bibleCompact: '', styleGuide: '', powerRules: '', styleFewShots: [] },
+      hot: { systemRules: '', bibleCompact: '', styleGuide: '', powerSystem: '', powerSystemKind: '', genreContract: '', personalityContract: '', storyOptionsBlock: '', styleFewShots: [] },
       warm: { sagaSummary: '', arcSummary: '', activeCharacters: [], arcOpenThreads: [], arcPlantedSeeds: [] },
       cold: { recentSummaries: [], retrievedFacts: [], retrievedPastChapters: [], seedsToPlantNow: [], packet: {} as any },
       meta: { storyId: 's1', chapterNumber: 1, arcId: 'a1', hotHash: '', warmHash: '', targetInputBudget: 6000 },
