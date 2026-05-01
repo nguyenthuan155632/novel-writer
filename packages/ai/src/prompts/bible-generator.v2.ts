@@ -26,8 +26,7 @@ ${personalityContract}
 
 ${storyOptionsBlock}
 
-Premise (ý tưởng ngườ
-i dùng):
+Premise (ý tưởng người dùng):
 ${i.premise}
 
 Mục tiêu độ dài: ${i.target_chapter_count} chương
@@ -49,8 +48,7 @@ Ràng buộc:
 - Phong cách "show, don't tell" cinematic.
 - Giữ tính nhất quán nội bộ — không có rules mâu thuẫn.
 
-Trả lờ
-i JSON thuần, không markdown, không giải thích thêm.`;
+Trả lời JSON thuần, không markdown, không giải thích thêm.`;
 };
 
 export const bibleGeneratorPromptV2: PromptTemplate = {
