@@ -34,6 +34,8 @@ const plugin: FastifyPluginCallback = (app, _opts, done) => {
       targetChapterCount: body.targetChapterCount,
     }).returning();
 
+    if (!row) return reply.status(500).send({ error: 'insert_failed' });
+
     await db.insert(storySettings).values({
       storyId: row.id,
       overrides: { storyOptions: body.storyOptions },

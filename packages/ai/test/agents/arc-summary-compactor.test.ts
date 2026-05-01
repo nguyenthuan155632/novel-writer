@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { ArcSummaryCompactorAgent } from '../../src/agents/arc-summary-compactor.ts';
 import { MockProvider } from '../../src/providers/mock.ts';
 import type { Logger } from '../../src/agents/packet-generator.ts';
-import '../../src/prompts/arc-summary-compactor.v1.ts';
+import '../../src/prompts/arc-summary-compactor.v2.ts';
 
 const silentLogger: Logger = { child: () => silentLogger, error: () => {}, info: () => {} };
 

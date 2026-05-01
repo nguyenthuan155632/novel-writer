@@ -8,7 +8,7 @@
  * This script will spend real credits. Run only when you intend to.
  */
 import { generateBible } from '@novel/ai/agents/bible-generator';
-import '@novel/ai/prompts/bible-generator.v1';
+import '@novel/ai/prompts/bible-generator.v2';
 import { OpenCodeProvider } from '@novel/ai/providers/opencode';
 import { LoggedLLMProvider, makeDrizzleRecorder } from '@novel/ai/llm-call-logger';
 import { getDb } from '@novel/db';
