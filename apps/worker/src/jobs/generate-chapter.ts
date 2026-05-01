@@ -108,7 +108,9 @@ function serializeContextForWriter(ctx: ChapterContext): string {
   if (ctx.warm.arcOpenThreads.length > 0) {
     const threads = ctx.warm.arcOpenThreads
       .map((t) => {
-        const deadline = t.plannedResolutionChapter ? ` → resolve by ch${t.plannedResolutionChapter}` : '';
+        const deadline = t.plannedResolutionChapter
+          ? ` → resolve by ch${t.plannedResolutionChapter}`
+          : "";
         return `- ${t.title} [${t.state}] (from ch${t.introducedChapter})${deadline}`;
       })
       .join("\n");
@@ -157,7 +159,9 @@ function serializeContextForWriter(ctx: ChapterContext): string {
     parts.push(`Cliffhanger: ${p.cliffhanger}`);
     parts.push(`Characters present: ${p.charactersPresent.join(", ")}`);
     if (p.requiredEvents.length > 0)
-      parts.push(`Required events (nên xảy ra trong chương này):\n${p.requiredEvents.map((e, i) => `  ${i + 1}. ${e.description}`).join("\n")}`);
+      parts.push(
+        `Required events (nên xảy ra trong chương này):\n${p.requiredEvents.map((e, i) => `  ${i + 1}. ${e.description}`).join("\n")}`,
+      );
     if (p.forbiddenMoves.length > 0)
       parts.push(`Forbidden: ${p.forbiddenMoves.join("; ")}`);
   }
@@ -528,11 +532,7 @@ export async function executeGenerateChapterPipeline(
         t.state !== "resolved" && t.introducedChapter < data.chapterNumber - 10,
     );
 
-    const saga = await getSagaForChapter(
-      db,
-      data.storyId,
-      data.chapterNumber,
-    );
+    const saga = await getSagaForChapter(db, data.storyId, data.chapterNumber);
 
     const arcStart = arc?.startChapter ?? data.chapterNumber;
     const arcEnd = arc?.endChapter ?? data.chapterNumber;
@@ -569,9 +569,11 @@ export async function executeGenerateChapterPipeline(
       const tpList = tps
         .map((tp, i) => {
           const marker =
-            i < expectedTpIndex ? "[trễ tiến độ]" :
-            i === expectedTpIndex ? "[đang diễn ra]" :
-            "[sắp tới]";
+            i < expectedTpIndex
+              ? "[trễ tiến độ]"
+              : i === expectedTpIndex
+                ? "[đang diễn ra]"
+                : "[sắp tới]";
           return `${i + 1}. ${marker} ${tp}`;
         })
         .join("\n");
@@ -583,13 +585,13 @@ ${tpList}`;
       const overdueTps = tps.slice(0, expectedTpIndex);
       if (overdueTps.length > 0) {
         const currentRealms = activeCharacters
-          .filter(c => c.status === 'alive' && c.currentRealm)
-          .map(c => `${c.name}: ${c.currentRealm}`)
-          .join(', ');
+          .filter((c) => c.status === "alive" && c.currentRealm)
+          .map((c) => `${c.name}: ${c.currentRealm}`)
+          .join(", ");
         pacingHint += `\n\n# TIẾN ĐỘ NHÂN VẬT
 Các turning point sau đang trễ tiến độ — đối chiếu với cảnh giới/trạng thái nhân vật hiện tại và xem xét nên advance trong chương này:
-${overdueTps.map(tp => `  - ${tp}`).join('\n')}
-Trạng thái hiện tại: ${currentRealms || '(chưa xác định)'}`;
+${overdueTps.map((tp) => `  - ${tp}`).join("\n")}
+Trạng thái hiện tại: ${currentRealms || "(chưa xác định)"}`;
       }
     }
 
@@ -597,9 +599,7 @@ Trạng thái hiện tại: ${currentRealms || '(chưa xác định)'}`;
       ? (arc.expectedChanges as string[])
       : [];
     const arcPlanText = [
-      arc?.premise
-        ? `Premise (kế hoạch gốc, KHÔNG đổi):\n${arc.premise}`
-        : "",
+      arc?.premise ? `Premise (kế hoạch gốc, KHÔNG đổi):\n${arc.premise}` : "",
       arcExpectedChanges.length > 0
         ? `Expected changes (nên xảy ra trong arc):\n${arcExpectedChanges.map((c, i) => `  ${i + 1}. ${c}`).join("\n")}`
         : "",
@@ -648,20 +648,36 @@ Trạng thái hiện tại: ${currentRealms || '(chưa xác định)'}`;
     let packetResult: PacketGenerationResult;
     let attemptCount = 1;
 
-    packetResult = await packetGen.generate({ ...packetInput, genreDef: domain.genreDef, personalityDef: domain.personalityDef, storyOptions: domain.storyOptions }, {
-      traceId,
-      storyId: data.storyId,
-    });
+    packetResult = await packetGen.generate(
+      {
+        ...packetInput,
+        genreDef: domain.genreDef,
+        personalityDef: domain.personalityDef,
+        storyOptions: domain.storyOptions,
+      },
+      {
+        traceId,
+        storyId: data.storyId,
+      },
+    );
     accumulateUsage(packetResult.usage, tokenAcc);
     totalCost += estimateCostUsd(packetModel, packetResult.usage);
 
     const overdueTurningPoints: string[] =
-      saga?.startChapter != null && saga?.endChapter != null && Array.isArray(saga.expectedTurningPoints)
+      saga?.startChapter != null &&
+      saga?.endChapter != null &&
+      Array.isArray(saga.expectedTurningPoints)
         ? (() => {
             const tps = saga.expectedTurningPoints as string[];
-            const sagaSpanLocal = Math.max(1, saga.endChapter! - saga.startChapter! + 1);
+            const sagaSpanLocal = Math.max(
+              1,
+              saga.endChapter! - saga.startChapter! + 1,
+            );
             const sagaPosLocal = data.chapterNumber - saga.startChapter! + 1;
-            const expectedIdx = Math.min(tps.length - 1, Math.floor((sagaPosLocal - 1) / (sagaSpanLocal / tps.length)));
+            const expectedIdx = Math.min(
+              tps.length - 1,
+              Math.floor((sagaPosLocal - 1) / (sagaSpanLocal / tps.length)),
+            );
             return tps.slice(0, expectedIdx);
           })()
         : [];
@@ -682,7 +698,9 @@ Trạng thái hiện tại: ${currentRealms || '(chưa xác định)'}`;
       overdueTurningPoints,
     };
 
-    const auditResult = auditPacket(auditInput, { genreFamily: domain.genreFamily });
+    const auditResult = auditPacket(auditInput, {
+      genreFamily: domain.genreFamily,
+    });
 
     if (auditResult.requiresRegenerate && attemptCount < 2) {
       log.warn(
@@ -690,11 +708,19 @@ Trạng thái hiện tại: ${currentRealms || '(chưa xác định)'}`;
         "packet audit failed, regenerating with hints",
       );
       const hints = auditResult.issues.map((i) => i.message);
-      packetResult = await packetGen.generate({ ...packetInput, genreDef: domain.genreDef, personalityDef: domain.personalityDef, storyOptions: domain.storyOptions }, {
-        traceId,
-        storyId: data.storyId,
-        auditHints: hints,
-      });
+      packetResult = await packetGen.generate(
+        {
+          ...packetInput,
+          genreDef: domain.genreDef,
+          personalityDef: domain.personalityDef,
+          storyOptions: domain.storyOptions,
+        },
+        {
+          traceId,
+          storyId: data.storyId,
+          auditHints: hints,
+        },
+      );
       attemptCount++;
       accumulateUsage(packetResult.usage, tokenAcc);
       totalCost += estimateCostUsd(packetModel, packetResult.usage);
@@ -1135,6 +1161,11 @@ Trạng thái hiện tại: ${currentRealms || '(chưa xác định)'}`;
   }
 }
 
+/** Maximum number of pipeline attempts (1 initial + N-1 retries). */
+const MAX_PIPELINE_ATTEMPTS = 3;
+/** Delay in ms before each retry attempt (index 0 = before attempt 2, index 1 = before attempt 3). */
+const PIPELINE_RETRY_BACKOFF_MS = [5_000, 15_000] as const;
+
 export async function runGenerateChapterJob(
   data: GenerateChapterJob,
   ctx: { logger: Logger },
@@ -1192,12 +1223,53 @@ export async function runGenerateChapterJob(
     logger: ctx.logger as any,
   });
 
-  return executeGenerateChapterPipeline(data, {
+  const deps: GenerateChapterDeps = {
     db,
     provider,
     embeddingService,
     logger: ctx.logger,
     mode: data.mode ?? "safe",
     effectiveConfig,
-  });
+  };
+
+  let lastError: unknown;
+  for (let attempt = 1; attempt <= MAX_PIPELINE_ATTEMPTS; attempt++) {
+    if (attempt > 1) {
+      const delayMs =
+        PIPELINE_RETRY_BACKOFF_MS[attempt - 2] ??
+        PIPELINE_RETRY_BACKOFF_MS[PIPELINE_RETRY_BACKOFF_MS.length - 1];
+      ctx.logger.warn(
+        {
+          attempt,
+          maxAttempts: MAX_PIPELINE_ATTEMPTS,
+          delayMs,
+          storyId: data.storyId,
+          chapterNumber: data.chapterNumber,
+        },
+        "retrying generate-chapter pipeline after failure",
+      );
+      await new Promise<void>((resolve) => setTimeout(resolve, delayMs));
+    }
+    try {
+      return await executeGenerateChapterPipeline(
+        { ...data, retryAttempt: attempt },
+        deps,
+      );
+    } catch (err) {
+      lastError = err;
+      ctx.logger.error(
+        {
+          err,
+          attempt,
+          maxAttempts: MAX_PIPELINE_ATTEMPTS,
+          storyId: data.storyId,
+          chapterNumber: data.chapterNumber,
+        },
+        `generate-chapter pipeline attempt ${attempt}/${MAX_PIPELINE_ATTEMPTS} failed`,
+      );
+    }
+  }
+
+  // All attempts exhausted — re-throw the last error so BullMQ marks the job as failed.
+  throw lastError;
 }
