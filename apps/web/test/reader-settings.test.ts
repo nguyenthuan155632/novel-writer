@@ -5,6 +5,8 @@ import {
   MAX_FONT_SIZE,
   MIN_FONT_SIZE,
   clampFontSize,
+  getFontOption,
+  getThemePreset,
   parseReaderSettings,
 } from '../app/read/[storyId]/[chapterNumber]/reader-settings';
 
@@ -28,6 +30,14 @@ describe('clampFontSize', () => {
   it('returns the default when the input is not a finite number', () => {
     expect(clampFontSize(Number.NaN)).toBe(DEFAULT_READER_SETTINGS.fontSize);
     expect(clampFontSize(Number.POSITIVE_INFINITY)).toBe(DEFAULT_READER_SETTINGS.fontSize);
+  });
+
+  it('accepts the exact minimum without clamping', () => {
+    expect(clampFontSize(MIN_FONT_SIZE)).toBe(MIN_FONT_SIZE);
+  });
+
+  it('accepts the exact maximum without clamping', () => {
+    expect(clampFontSize(MAX_FONT_SIZE)).toBe(MAX_FONT_SIZE);
   });
 });
 
@@ -79,5 +89,20 @@ describe('parseReaderSettings', () => {
       fontFamily: DEFAULT_READER_SETTINGS.fontFamily,
       fontSize: 24,
     });
+  });
+});
+
+describe('getThemePreset', () => {
+  it('returns the correct preset for a valid theme id', () => {
+    const preset = getThemePreset('sepia');
+    expect(preset.id).toBe('sepia');
+    expect(preset.background).toBe('#f4ecd8');
+  });
+});
+
+describe('getFontOption', () => {
+  it('returns the correct font option for a valid font id', () => {
+    const opt = getFontOption('arial');
+    expect(opt.stack).toContain('Arial');
   });
 });
