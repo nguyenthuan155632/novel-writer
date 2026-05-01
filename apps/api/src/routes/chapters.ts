@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { getDb } from '@novel/db';
 import { arcs, chapters, sagas, storyBibles } from '@novel/db/schema';
 import { eq, and, asc, desc, gte, isNull, lte, or } from 'drizzle-orm';
+import { newTraceId } from '@novel/core/trace';
 import {
   enqueueGenerateChapter,
   getGenerateChapterStatus,
@@ -104,10 +105,12 @@ const plugin: FastifyPluginCallback = (app, _opts, done) => {
     }
 
     const llmSnapshot = await getQueueLlmSnapshot();
+    const traceId = (req as unknown as { traceId?: string }).traceId ?? newTraceId();
     const { jobId } = await enqueueGenerateChapter({
       storyId,
       chapterNumber: body.chapterNumber,
       mode: body.mode,
+      traceId,
       llmProvider: llmSnapshot.llmProvider,
       modelRoutes: llmSnapshot.modelRoutes,
     });

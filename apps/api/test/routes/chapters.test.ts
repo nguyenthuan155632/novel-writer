@@ -99,6 +99,7 @@ describe('chapters routes', () => {
       storyId,
       chapterNumber: 1,
       mode: 'safe',
+      traceId: expect.any(String),
       llmProvider: 'openrouter',
       modelRoutes: expect.objectContaining({ writer: 'google/gemini-2.5-flash' }),
     }));
@@ -123,6 +124,7 @@ describe('chapters routes', () => {
     expect(mockEnqueue).toHaveBeenNthCalledWith(1, expect.objectContaining({
       storyId,
       chapterNumber: 1,
+      traceId: expect.any(String),
       llmProvider: 'openrouter',
       modelRoutes: expect.objectContaining({ writer: 'openrouter/writer-v1' }),
     }));
@@ -137,6 +139,7 @@ describe('chapters routes', () => {
     expect(mockEnqueue).toHaveBeenNthCalledWith(2, expect.objectContaining({
       storyId,
       chapterNumber: 2,
+      traceId: expect.any(String),
       llmProvider: 'ollama',
       modelRoutes: expect.objectContaining({ writer: 'ollama/writer-local' }),
     }));

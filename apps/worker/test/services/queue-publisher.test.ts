@@ -29,6 +29,15 @@ describe('queue publisher', () => {
     expect(firstOptions?.jobId).not.toBe(secondOptions?.jobId);
   });
 
+  it('does not include undefined in refresh-arc-summary job ids when traceId is missing at runtime', async () => {
+    const { enqueueRefreshArcSummary } = await import('../../src/services/queue-publisher.js');
+
+    await enqueueRefreshArcSummary({ storyId: 'story-1', arcId: 'arc-1' } as any);
+
+    const options = addMock.mock.calls[0]?.[2];
+    expect(options?.jobId).not.toContain('undefined');
+  });
+
   it('creates a fresh refresh-saga-summary job for repeated refreshes of the same saga', async () => {
     const sagaAddMock = vi.fn(async (_name: string, _data: unknown, options: { jobId: string }) => ({
       id: options.jobId,
@@ -45,5 +54,20 @@ describe('queue publisher', () => {
     const firstOptions = sagaAddMock.mock.calls[0]?.[2];
     const secondOptions = sagaAddMock.mock.calls[1]?.[2];
     expect(firstOptions?.jobId).not.toBe(secondOptions?.jobId);
+  });
+
+  it('does not include undefined in refresh-saga-summary job ids when traceId is missing at runtime', async () => {
+    const sagaAddMock = vi.fn(async (_name: string, _data: unknown, options: { jobId: string }) => ({
+      id: options.jobId,
+    }));
+    const queues = await import('../../src/queues.js');
+    vi.mocked(queues.createRefreshSagaSummaryQueue).mockReturnValue({ add: sagaAddMock } as any);
+
+    const { enqueueRefreshSagaSummary } = await import('../../src/services/queue-publisher.js');
+
+    await enqueueRefreshSagaSummary({ storyId: 'story-1', sagaId: 'saga-1' } as any);
+
+    const options = sagaAddMock.mock.calls[0]?.[2];
+    expect(options?.jobId).not.toContain('undefined');
   });
 });

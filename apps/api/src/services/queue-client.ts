@@ -58,6 +58,7 @@ export async function enqueueGenerateChapter(data: {
   storyId: string;
   chapterNumber: number;
   mode: string;
+  traceId: string;
   llmProvider?: LlmProviderId;
   modelRoutes?: Partial<ModelRoutes>;
 }): Promise<{ jobId: string }> {
