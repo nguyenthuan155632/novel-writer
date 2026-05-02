@@ -1,1 +1,6 @@
-{}
+{
+  "cfPipeline.mcpPackage": "github:hueanmy/aidlc-pipeline",
+  "cfPipeline.platform": "generic",
+  "cfPipeline.autoConfigureMcp": true,
+  "cfPipeline.epicsPath": "docs/sdlc/epics"
+}
