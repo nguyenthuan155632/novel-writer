@@ -32,6 +32,7 @@ import {
   getPlantedSeedsForStory,
   getFactionsForStory,
   getTimelineEventsForChapter,
+  getPendingCanonUpdatesForStory,
 } from "./retrieval.js";
 import { shrinkToFit } from "./shrink.js";
 import { renderGenreContract } from "../prompts/contracts/genre-contract.js";
@@ -96,6 +97,7 @@ export async function buildContext(
     recentSummaries,
     knownFactions,
     timelineEventsRows,
+    pendingCanonUpdatesRows,
   ] = await Promise.all([
     getActiveCharacters(db, storyId, chapterNumber),
     getOpenThreadsForStory(db, storyId),
@@ -109,6 +111,7 @@ export async function buildContext(
     ),
     getFactionsForStory(db, storyId),
     getTimelineEventsForChapter(db, storyId, chapterNumber),
+    getPendingCanonUpdatesForStory(db, storyId),
   ]);
 
   const arcSeeds = filterArcSeeds(allSeeds, chapterNumber);
@@ -197,6 +200,7 @@ export async function buildContext(
     retrievedPastChapters: pastChapterSummaries,
     seedsToPlantNow: dueSeeds,
     timelineEvents: timelineEventsRows,
+    pendingCanonUpdates: pendingCanonUpdatesRows,
     packet,
   };
 

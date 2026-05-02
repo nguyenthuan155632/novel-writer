@@ -30,6 +30,7 @@ function makeInput(content: string, deadCharacters: string[] = []): CheckInput {
         retrievedPastChapters: [],
         seedsToPlantNow: [],
         timelineEvents: [],
+      pendingCanonUpdates: [],
         packet: {} as any,
       },
       meta: {

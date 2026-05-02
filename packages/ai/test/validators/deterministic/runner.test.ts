@@ -35,6 +35,7 @@ function makeInput(overrides: Partial<CheckInput> = {}): CheckInput {
         retrievedPastChapters: [],
         seedsToPlantNow: [],
         timelineEvents: [],
+      pendingCanonUpdates: [],
         packet: {} as any,
       },
       meta: {

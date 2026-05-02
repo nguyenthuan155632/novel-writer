@@ -9,6 +9,7 @@ import {
   chapterSummaries,
   factions,
   timelineEvents,
+  pendingCanonUpdates,
 } from "@novel/db/schema";
 import type { Db } from "@novel/db";
 import type { CanonFact, Saga, Arc, StoryBible } from "@novel/db/schema";
@@ -19,6 +20,7 @@ import {
   compactSummary,
   compactFact,
   compactFaction,
+  compactPendingCanonUpdate,
 } from "./compact.js";
 import type {
   CharacterCompact,
@@ -28,6 +30,7 @@ import type {
   CanonFactCompact,
   FactionCompact,
   TimelineEventCompact,
+  PendingCanonUpdateCompact,
 } from "./types.js";
 
 export async function getStoryBible(
@@ -267,6 +270,25 @@ export async function getTimelineEventsForChapter(
     eventText: r.eventText,
     importance: r.importance ?? "medium",
   }));
+}
+
+export async function getPendingCanonUpdatesForStory(
+  db: Db,
+  storyId: string,
+  limit = 10,
+): Promise<PendingCanonUpdateCompact[]> {
+  const rows = await db
+    .select()
+    .from(pendingCanonUpdates)
+    .where(
+      and(
+        eq(pendingCanonUpdates.storyId, storyId),
+        eq(pendingCanonUpdates.resolution, "pending"),
+      ),
+    )
+    .orderBy(desc(pendingCanonUpdates.createdAt))
+    .limit(limit);
+  return rows.map((r) => compactPendingCanonUpdate(r));
 }
 
 export type RetrievalResult = {

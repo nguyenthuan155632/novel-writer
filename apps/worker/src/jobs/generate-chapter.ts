@@ -194,6 +194,19 @@ function serializeContextForWriter(ctx: ChapterContext): string {
     parts.push(`# TIMELINE EVENTS\n${events}`);
   }
 
+  if (ctx.cold.pendingCanonUpdates && ctx.cold.pendingCanonUpdates.length > 0) {
+    const pending = ctx.cold.pendingCanonUpdates
+      .map((p) => {
+        const conflict =
+          p.conflictStatus !== "none" ? ` \u26A0 ${p.conflictStatus}` : "";
+        return `- [${p.updateType} ${p.targetTable}]${conflict} ${p.summary}`;
+      })
+      .join("\n");
+    parts.push(
+      `# PENDING CANON UPDATES (ch\u01B0a apply \u2014 KH\u00D4NG d\u1EF1a v\u00E0o \u0111\u1EC3 vi\u1EBFt)\n${pending}`,
+    );
+  }
+
   if (ctx.cold.packet) {
     const p = ctx.cold.packet;
     parts.push(`# CHAPTER PLAN (packet)`);

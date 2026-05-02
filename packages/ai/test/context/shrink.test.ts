@@ -41,6 +41,7 @@ function makeContext(overrides?: {
       retrievedPastChapters: [],
       seedsToPlantNow: [],
       timelineEvents: [],
+      pendingCanonUpdates: [],
       packet: {
         chapterNumber: 1,
         goal: "test goal",

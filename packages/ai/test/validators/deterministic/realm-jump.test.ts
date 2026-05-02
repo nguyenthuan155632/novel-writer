@@ -33,6 +33,7 @@ function makeInput(
         retrievedPastChapters: [],
         seedsToPlantNow: [],
         timelineEvents: [],
+      pendingCanonUpdates: [],
         packet: {} as any,
       },
       meta: {

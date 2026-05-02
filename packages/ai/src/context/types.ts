@@ -57,6 +57,15 @@ export type TimelineEventCompact = {
   importance: string;
 };
 
+export type PendingCanonUpdateCompact = {
+  id: string;
+  updateType: string;
+  targetTable: string;
+  conflictStatus: string;
+  conflictReasons: string[];
+  summary: string;
+};
+
 export type WarmTier = {
   sagaSummary: string;
   arcSummary: string;
@@ -93,6 +102,7 @@ export type ColdTier = {
   retrievedPastChapters: ChapterSummaryCompact[];
   seedsToPlantNow: SeedCompact[];
   timelineEvents: TimelineEventCompact[];
+  pendingCanonUpdates: PendingCanonUpdateCompact[];
   packet: ChapterPacket;
 };
 
