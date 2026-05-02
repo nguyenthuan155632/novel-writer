@@ -15,6 +15,7 @@ coverage/
 # Obsidian local/device state
 docs/graph/.obsidian/workspace.json
 docs/graph/.obsidian/workspace-mobile.json
+docs/graph/.obsidian/graph.json
 
 # Obsidian plugin settings/secrets
 docs/graph/.obsidian/plugins/*/data.json
