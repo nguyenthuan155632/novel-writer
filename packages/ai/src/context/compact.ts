@@ -1,4 +1,6 @@
-import type { CharacterCompact, ThreadCompact, SeedCompact, ChapterSummaryCompact, CanonFactCompact } from './types.js';
+import type { CharacterCompact, ThreadCompact, SeedCompact, ChapterSummaryCompact, CanonFactCompact, FactionCompact } from './types.js';
+
+const FACTION_STATUSES = ['active', 'destroyed', 'hidden', 'absorbed', 'unknown'] as const;
 
 export function compactCharacter(c: {
   id: string;
@@ -63,4 +65,23 @@ export function compactSummary(s: { chapterNumber: number; summary: string }): C
 
 export function compactFact(f: { id: string; topic: string; importance: string; fact: string }): CanonFactCompact {
   return { id: f.id, topic: f.topic, importance: f.importance, fact: f.fact };
+}
+
+export function compactFaction(f: {
+  id: string;
+  name: string;
+  status: string;
+  type?: string | null;
+  powerLevel?: string | null;
+}): FactionCompact {
+  const status = (FACTION_STATUSES as readonly string[]).includes(f.status)
+    ? (f.status as FactionCompact['status'])
+    : 'unknown';
+  return {
+    id: f.id,
+    name: f.name,
+    status,
+    type: f.type ?? undefined,
+    powerLevel: f.powerLevel ?? undefined,
+  };
 }

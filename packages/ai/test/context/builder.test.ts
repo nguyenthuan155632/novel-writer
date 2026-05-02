@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { buildContext } from '../../src/context/builder.js';
 import type { ChapterPacket } from '../../src/schemas/packet.js';
 import type { EmbeddingService, EmbeddingResponse } from '../../src/embeddings/types.js';
-import type { CharacterCompact, ThreadCompact, SeedCompact, ChapterSummaryCompact, CanonFactCompact } from '../../src/context/types.js';
+import type { CharacterCompact, ThreadCompact, SeedCompact, ChapterSummaryCompact, CanonFactCompact, FactionCompact } from '../../src/context/types.js';
 
 vi.mock('../../src/context/retrieval.js', () => ({
   getStoryBible: vi.fn().mockResolvedValue(null),
@@ -15,6 +15,7 @@ vi.mock('../../src/context/retrieval.js', () => ({
   getRecentSummaries: vi.fn().mockResolvedValue([] as ChapterSummaryCompact[]),
   getTopKCanonFacts: vi.fn().mockResolvedValue([] as CanonFactCompact[]),
   getPastChapterSummaries: vi.fn().mockResolvedValue([] as ChapterSummaryCompact[]),
+  getFactionsForStory: vi.fn().mockResolvedValue([] as FactionCompact[]),
 }));
 
 const mockEmbeddingService: EmbeddingService = {

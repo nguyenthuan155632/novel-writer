@@ -5,9 +5,10 @@ export const unknownLocationCheck: DeterministicCheck = {
   severity: 'low',
   run(input: CheckInput): CheckResult {
     const issues: string[] = [];
-    const knownLocations = new Set(input.canon.knownLocationNames.map(n => n.toLowerCase()));
-    const knownCharacters = new Set(input.canon.knownCharacterNames.map(n => n.toLowerCase()));
-    const knownBloodlines = new Set(input.canon.knownBloodlineNames.map(n => n.toLowerCase()));
+    const knownLocations = new Set((input.canon.knownLocationNames ?? []).map(n => n.toLowerCase()));
+    const knownCharacters = new Set((input.canon.knownCharacterNames ?? []).map(n => n.toLowerCase()));
+    const knownBloodlines = new Set((input.canon.knownBloodlineNames ?? []).map(n => n.toLowerCase()));
+    const knownFactions = new Set((input.canon.knownFactionNames ?? []).map(n => n.toLowerCase()));
 
     const locationPrefixes = ['tại', 'ở', 'đến', 'về', 'từ'];
     const vietnameseNamePattern = /(?:[A-ZÀÁẢÃẠĂẮẰẲẴẶÂẤẦẨẪẬĐÉÈẺẼẸÊẾỀỂỄỆÍÌỈĨỊÓÒỎÕỌÔỐỒỔỖỘƠỚỜỞỠỢÚÙỦŨỤƯỨỪỬỮỰÝỲỶỸỴ][a-zàáảãạăằắẳẵặâầấẩẫậđèéẻẽẹêềếểễệìíỉĩịòóỏõọôồốổỗộơờớởỡợùúủũụưừứửữựỳýỷỹỵ]+(?:\s+[A-ZÀÁẢÃẠĂẮẰẲẴẶÂẤẦẨẪẬĐÉÈẺẼẸÊẾỀỂỄỆÍÌỈĨỊÓÒỎÕỌÔỐỒỔỖỘƠỚỜỞỠỢÚÙỦŨỤƯỨỪỬỮỰÝỲỶỸỴ][a-zàáảãạăằắẳẵặâầấẩẫậđèéẻẽẹêềếểễệìíỉĩịòóỏõọôồốổỗộơờớởỡợùúủũụưừứửữựỳýỷỹỵ]+)+)/gu;
@@ -16,7 +17,12 @@ export const unknownLocationCheck: DeterministicCheck = {
     for (const match of matches) {
       const name = match[0]!;
       const lower = name.toLowerCase();
-      if (knownCharacters.has(lower) || knownBloodlines.has(lower) || knownLocations.has(lower)) {
+      if (
+        knownCharacters.has(lower) ||
+        knownBloodlines.has(lower) ||
+        knownLocations.has(lower) ||
+        knownFactions.has(lower)
+      ) {
         continue;
       }
       const idx = match.index!;

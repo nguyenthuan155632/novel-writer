@@ -7,6 +7,7 @@ import { lockedFactCheck } from './locked-fact.ts';
 import { makeForbiddenMoveCheck } from './forbidden-move.ts';
 import { unknownCharacterCheck } from './unknown-character.ts';
 import { unknownLocationCheck } from './unknown-location.ts';
+import { unknownFactionCheck } from './unknown-faction.ts';
 import { newBloodlineSourceCheck } from './new-bloodline-source.ts';
 import { cliffhangerCheck } from './cliffhanger.ts';
 import { conflictPresenceCheck } from './conflict-presence.ts';
@@ -26,6 +27,7 @@ export function buildChecks(forbiddenRulesText: string, genreFamily: GenreFamily
     wordCountCheck,
     unknownCharacterCheck,
     unknownLocationCheck,
+    unknownFactionCheck,
     cliffhangerCheck,
     conflictPresenceCheck,
     styleRedFlagsCheck,

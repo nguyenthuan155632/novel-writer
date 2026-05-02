@@ -28,9 +28,16 @@ function makeInput(overrides: Partial<CheckInput> = {}): CheckInput {
 describe('buildChecks', () => {
   it('returns all checks sorted by severity', () => {
     const checks = buildChecks('', 'cultivation');
-    expect(checks.length).toBe(12);
+    // 12 prior checks + unknown_faction = 13 for cultivation.
+    expect(checks.length).toBe(13);
     expect(checks[0]!.severity).toBe('critical');
     expect(checks[checks.length - 1]!.severity).toBe('low');
+  });
+
+  it('includes unknown_faction for every genre family', () => {
+    expect(buildChecks('', 'cultivation').map(c => c.id)).toContain('unknown_faction');
+    expect(buildChecks('', 'ability').map(c => c.id)).toContain('unknown_faction');
+    expect(buildChecks('', 'urban').map(c => c.id)).toContain('unknown_faction');
   });
 });
 

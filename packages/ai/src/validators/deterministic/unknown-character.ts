@@ -21,6 +21,9 @@ export const unknownCharacterCheck: DeterministicCheck = {
     (input.canon.knownLocationNames || []).forEach((n) =>
       knownNames.add(n.toLowerCase()),
     );
+    (input.canon.knownFactionNames || []).forEach((n) =>
+      knownNames.add(n.toLowerCase()),
+    );
 
     (input.canon.lockedFacts || []).forEach((f) => {
       if (f.topic) knownNames.add(f.topic.toLowerCase());

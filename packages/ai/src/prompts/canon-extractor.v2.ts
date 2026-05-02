@@ -19,7 +19,8 @@ Quy tắc:
 - Realm regression (nếu có hệ thống cảnh giới) phải có intentionalRegression=true CHỈ KHI có đoạn nội tâm/hội thoại giải thích.
 - Thread chỉ resolve khi có scene closure rõ ràng.
 - Canon fact importance='locked' chỉ dành cho quy tắc thế giới cốt lõi.
-- Trả JSON đúng schema ExtractorOutput.`,
+- factionUpdates: dùng action='create' khi một môn phái / gia tộc / vương triều / liên minh MỚI thực sự xuất hiện và có tên riêng; action='update' khi một phái đã có trong CANON SNAPSHOT thay đổi status (active/destroyed/hidden/absorbed), thay đổi alliances/enemies, hoặc lộ thêm ideology/powerLevel. KHÔNG tạo create cho phái đã có (sẽ bị từ chối).
+- Trả JSON đúng schema ExtractorOutput. Nếu không có thay đổi nào thì để mảng rỗng.`,
     user: [
       `# CHƯƠNG ${String(input.chapterNumber)}`,
       input.chapterContent,

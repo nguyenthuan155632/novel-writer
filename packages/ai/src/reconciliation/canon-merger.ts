@@ -1,5 +1,5 @@
 import { eq, and } from 'drizzle-orm';
-import { characters, canonFacts, openThreads, timelineEvents, pendingCanonUpdates, plantedSeeds } from '@novel/db/schema';
+import { characters, canonFacts, openThreads, timelineEvents, pendingCanonUpdates, plantedSeeds, factions } from '@novel/db/schema';
 import type { CanonSnapshot } from './conflict-detector.ts';
 import type { EmbeddingService } from '../embeddings/types.ts';
 import type { ExtractorOutput } from '../schemas/extractor.ts';
@@ -72,6 +72,14 @@ export class CanonMerger {
           charactersInvolved: (r.payload.charactersInvolved as string[] | undefined) ?? undefined,
           significance: (r.payload.significance as 'minor' | 'major' | 'pivotal' | undefined) ?? 'minor',
         })),
+      factionUpdates: params.rows
+        .filter(r => r.targetTable === 'factions')
+        .map(r => ({
+          action: r.updateType as 'create' | 'update',
+          targetId: r.targetId ?? undefined,
+          name: (r.payload.name as string) ?? '',
+          fields: (r.payload.fields as Record<string, unknown>) ?? {},
+        })),
       seedsResolvedThisChapter: params.seedsResolvedIds,
     };
 
@@ -80,11 +88,18 @@ export class CanonMerger {
     const autoApplyRows: CanonMergerRow[] = [];
 
     for (const row of params.rows) {
-      const hasConflict = conflicts.some(
-        c => c.targetTable === row.targetTable &&
-          c.targetId === row.targetId &&
-          row.payload[c.payloadKey] !== undefined
-      );
+      const hasConflict = conflicts.some(c => {
+        if (c.targetTable !== row.targetTable) return false;
+        // Update rows carry a concrete targetId; require an exact id match plus
+        // the conflicting payload key to be set on this specific row.
+        if (row.targetId != null) {
+          return c.targetId === row.targetId && row.payload[c.payloadKey] !== undefined;
+        }
+        // Create rows have no id yet, so any same-table conflict that flags a
+        // payload key actually present on this row should route to pending
+        // (e.g. `duplicate_fact`, `duplicate_faction`).
+        return row.payload[c.payloadKey] !== undefined;
+      });
 
       if (hasConflict) {
         const conflictReasons = conflicts
@@ -238,6 +253,42 @@ export class CanonMerger {
               paidOffAtChapter: (row.payload.paidOffAtChapter as number | undefined) ?? chapterNumber,
             })
             .where(and(eq(plantedSeeds.id, row.targetId), eq(plantedSeeds.storyId, storyId)));
+        }
+        break;
+      }
+      case 'factions': {
+        if (row.updateType === 'create') {
+          // For create rows, the worker emits the new fields at the top level of the payload
+          // (mirroring the character create-row shape) so the merger can persist them directly.
+          const fields = (row.payload.fields as Record<string, unknown> | undefined) ?? row.payload;
+          await this.deps.db.insert(factions).values({
+            storyId,
+            name: (row.payload.name as string) ?? 'Unnamed',
+            type: (fields.type as string | undefined) ?? null,
+            ideology: (fields.ideology as string | undefined) ?? null,
+            powerLevel: (fields.powerLevel as string | undefined) ?? null,
+            knownMembers: (fields.knownMembers as string[] | undefined) ?? [],
+            alliances: (fields.alliances as string[] | undefined) ?? [],
+            enemies: (fields.enemies as string[] | undefined) ?? [],
+            status: (fields.status as string | undefined) ?? 'active',
+            notes: (fields.notes as string | undefined) ?? null,
+          });
+        } else if (row.updateType === 'update' && row.targetId) {
+          const fields = (row.payload.fields as Record<string, unknown> | undefined) ?? {};
+          const setFields: Record<string, unknown> = {};
+          if (fields.type !== undefined) setFields.type = fields.type;
+          if (fields.ideology !== undefined) setFields.ideology = fields.ideology;
+          if (fields.powerLevel !== undefined) setFields.powerLevel = fields.powerLevel;
+          if (fields.status !== undefined) setFields.status = fields.status;
+          if (fields.knownMembers !== undefined) setFields.knownMembers = fields.knownMembers;
+          if (fields.alliances !== undefined) setFields.alliances = fields.alliances;
+          if (fields.enemies !== undefined) setFields.enemies = fields.enemies;
+          if (fields.notes !== undefined) setFields.notes = fields.notes;
+          if (Object.keys(setFields).length > 0) {
+            await this.deps.db.update(factions)
+              .set(setFields)
+              .where(and(eq(factions.id, row.targetId), eq(factions.storyId, storyId)));
+          }
         }
         break;
       }

@@ -53,11 +53,36 @@ export const TimelineEventSchema = z.object({
   significance: z.enum(['minor', 'major', 'pivotal']).default('minor'),
 });
 
+export const FactionStatusEnum = z.enum(['active', 'destroyed', 'hidden', 'absorbed', 'unknown']);
+
+/**
+ * Models often emit free-form labels for ideology/powerLevel; we treat them as
+ * opaque short strings rather than enums so the schema does not reject novel
+ * but valid descriptions (e.g. "tà phái mạnh nhất Đông Vực").
+ */
+export const FactionUpdateSchema = z.object({
+  action: z.enum(['create', 'update']),
+  targetId: optionalUuidFromUnknown,
+  name: z.string().min(1).max(120),
+  fields: z.object({
+    type: z.string().max(60).optional(),
+    ideology: z.string().max(400).optional(),
+    powerLevel: z.string().max(120).optional(),
+    status: FactionStatusEnum.optional(),
+    knownMembers: z.array(z.string()).max(50).optional(),
+    alliances: z.array(z.string()).max(30).optional(),
+    enemies: z.array(z.string()).max(30).optional(),
+    notes: z.string().max(800).optional(),
+  }).partial(),
+});
+
 export const ExtractorOutputSchema = z.object({
   characterUpdates: z.array(CharacterUpdateSchema).max(20),
   newCanonFacts: z.array(CanonFactProposalSchema).max(15),
   threadUpdates: z.array(ThreadUpdateSchema).max(15),
   newTimelineEvents: z.array(TimelineEventSchema).max(20),
+  // Backward-compatible: older extractor responses without factionUpdates default to [].
+  factionUpdates: z.array(FactionUpdateSchema).max(10).default([]),
   seedsResolvedThisChapter: z
     .array(z.unknown())
     .max(10)
@@ -139,10 +164,36 @@ export const EXTRACTOR_JSON_SCHEMA: JsonSchema = {
         required: ['description'],
       },
     },
+    factionUpdates: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          action: { type: 'string', enum: ['create', 'update'] },
+          targetId: { type: 'string' },
+          name: { type: 'string' },
+          fields: {
+            type: 'object',
+            properties: {
+              type: { type: 'string' },
+              ideology: { type: 'string' },
+              powerLevel: { type: 'string' },
+              status: { type: 'string', enum: ['active', 'destroyed', 'hidden', 'absorbed', 'unknown'] },
+              knownMembers: { type: 'array', items: { type: 'string' } },
+              alliances: { type: 'array', items: { type: 'string' } },
+              enemies: { type: 'array', items: { type: 'string' } },
+              notes: { type: 'string' },
+            },
+          },
+        },
+        required: ['action', 'name', 'fields'],
+      },
+    },
     seedsResolvedThisChapter: {
       type: 'array',
       items: { type: 'string' },
     },
   },
+  // factionUpdates is optional in the wire schema (defaults to []) for backward compatibility.
   required: ['characterUpdates', 'newCanonFacts', 'threadUpdates', 'newTimelineEvents', 'seedsResolvedThisChapter'],
 };

@@ -23,14 +23,36 @@ export type CanonSnapshotThread = {
   status: string;
 };
 
+export type CanonSnapshotFaction = {
+  id: string;
+  name: string;
+  status: string;
+  type?: string;
+  /** Field names locked against further updates (e.g. ['status']). */
+  lockedFields: string[];
+};
+
 export type CanonSnapshot = {
   characters: CanonSnapshotCharacter[];
   canonFacts: CanonSnapshotCanonFact[];
   threads: CanonSnapshotThread[];
+  /**
+   * Optional for backward compatibility with snapshots/tests predating
+   * faction-aware canon. Treat `undefined` as `[]`.
+   */
+  factions?: CanonSnapshotFaction[];
 };
 
 export type ConflictEntry = {
-  type: 'locked_field' | 'realm_regression' | 'locked_fact' | 'duplicate_fact' | 'dead_character_action' | 'thread_status_invalid';
+  type:
+    | 'locked_field'
+    | 'realm_regression'
+    | 'locked_fact'
+    | 'duplicate_fact'
+    | 'dead_character_action'
+    | 'thread_status_invalid'
+    | 'duplicate_faction'
+    | 'destroyed_faction_action';
   targetTable: string;
   targetId?: string;
   reason: string;
@@ -138,6 +160,58 @@ export function detectConflicts(extracted: ExtractorOutput, snapshot: CanonSnaps
           reason: `Thread "${existing.title}" is already resolved, cannot reopen to "${tu.state}"`,
           payloadKey: 'status',
         });
+      }
+    }
+  }
+
+  const snapshotFactions = snapshot.factions ?? [];
+  const factionById = new Map(snapshotFactions.map(f => [f.id, f]));
+  const factionByName = new Map(snapshotFactions.map(f => [f.name.toLowerCase(), f]));
+  for (const fu of extracted.factionUpdates) {
+    const existing = fu.targetId
+      ? factionById.get(fu.targetId)
+      : factionByName.get(fu.name.toLowerCase());
+
+    if (fu.action === 'create' && existing) {
+      // Refuse to create a duplicate-named faction; updates should target the existing row instead.
+      conflicts.push({
+        type: 'duplicate_faction',
+        targetTable: 'factions',
+        targetId: existing.id,
+        reason: `Faction "${existing.name}" already exists; create rejected (use update instead)`,
+        payloadKey: 'name',
+      });
+      continue;
+    }
+
+    if (fu.action === 'update' && existing) {
+      const updatedFields = Object.keys(fu.fields);
+
+      const lockedUpdates = updatedFields.filter(f => existing.lockedFields.includes(f));
+      for (const field of lockedUpdates) {
+        conflicts.push({
+          type: 'locked_field',
+          targetTable: 'factions',
+          targetId: existing.id,
+          reason: `Field "${field}" is locked on faction "${existing.name}"`,
+          payloadKey: field,
+        });
+      }
+
+      // A destroyed/absorbed faction can only be updated by status (e.g. revive → 'hidden')
+      // or by adding clarifying notes. Membership/alliance shifts after destruction are nonsense.
+      const isTerminal = existing.status === 'destroyed' || existing.status === 'absorbed';
+      if (isTerminal) {
+        const forbiddenFields = updatedFields.filter(f => f !== 'status' && f !== 'notes');
+        for (const f of forbiddenFields) {
+          conflicts.push({
+            type: 'destroyed_faction_action',
+            targetTable: 'factions',
+            targetId: existing.id,
+            reason: `Faction "${existing.name}" is ${existing.status}; field "${f}" cannot change`,
+            payloadKey: f,
+          });
+        }
       }
     }
   }

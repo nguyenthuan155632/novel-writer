@@ -191,6 +191,14 @@ function buildCanonSnapshotFromContext(ctx: ChapterContext): CanonSnapshot {
       title: t.title,
       status: t.state,
     })),
+    factions: (ctx.warm.knownFactions ?? []).map((f) => ({
+      id: f.id,
+      name: f.name,
+      status: f.status,
+      type: f.type,
+      // Lock status of terminal factions so canon-merger refuses accidental revives.
+      lockedFields: f.status === "destroyed" || f.status === "absorbed" ? ["status"] : [],
+    })),
   };
 }
 
@@ -217,6 +225,15 @@ function buildCanonSnapshotText(snapshot: CanonSnapshot): string {
       .join("\n");
     parts.push(`## Threads\n${threads}`);
   }
+  if (snapshot.factions && snapshot.factions.length > 0) {
+    const factionLines = snapshot.factions
+      .map(
+        (f) =>
+          `- ${f.name} [${f.status}]${f.type ? ` type=${f.type}` : ""}${f.lockedFields.length > 0 ? ` locked=${f.lockedFields.join(",")}` : ""}`,
+      )
+      .join("\n");
+    parts.push(`## Factions\n${factionLines}`);
+  }
   return parts.join("\n\n");
 }
 
@@ -230,6 +247,11 @@ function buildCheckCanon(ctx: ChapterContext): CheckInput["canon"] {
     knownBloodlineNames: ctx.warm.activeCharacters
       .flatMap((c) => c.bloodlines)
       .filter((v, i, a) => a.indexOf(v) === i),
+    knownFactionNames: (ctx.warm.knownFactions ?? [])
+      // Suppress destroyed factions so the unknown-faction check still complains
+      // if the writer accidentally resurrects a wiped sect.
+      .filter((f) => f.status !== "destroyed")
+      .map((f) => f.name),
     lockedFacts: ctx.cold.retrievedFacts
       .filter((f) => f.importance === "locked")
       .map((f) => ({ topic: f.topic, fact: f.fact })),
@@ -298,6 +320,26 @@ function extractorOutputToRows(
         significance: te.significance,
       },
     });
+  }
+
+  for (const fu of extracted.factionUpdates) {
+    if (fu.action === "update" && fu.targetId) {
+      rows.push({
+        updateType: fu.action,
+        targetTable: "factions",
+        targetId: fu.targetId,
+        payload: { name: fu.name, fields: fu.fields },
+      });
+    } else if (fu.action === "create") {
+      // Mirrors the character-create payload shape so applyRow / pending-updates
+      // can read top-level fields directly.
+      rows.push({
+        updateType: fu.action,
+        targetTable: "factions",
+        targetId: null,
+        payload: { name: fu.name, ...fu.fields },
+      });
+    }
   }
 
   return rows;

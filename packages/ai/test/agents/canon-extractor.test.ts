@@ -32,6 +32,7 @@ const VALID_EXTRACTOR_OUTPUT = JSON.stringify({
     charactersInvolved: ['Lam Trach'],
     significance: 'major',
   }],
+  factionUpdates: [],
   seedsResolvedThisChapter: [],
 });
 

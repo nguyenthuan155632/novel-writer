@@ -9,6 +9,7 @@ import {
   getStoryBible, getSagaForChapter, getArcById, getActiveCharacters,
   getOpenThreadsForStory, getSeedsDueForChapter, getRecentSummaries,
   getTopKCanonFacts, getPastChapterSummaries, getPlantedSeedsForStory,
+  getFactionsForStory,
 } from './retrieval.js';
 import { shrinkToFit } from './shrink.js';
 import { renderGenreContract } from '../prompts/contracts/genre-contract.js';
@@ -49,12 +50,13 @@ export async function buildContext(deps: BuildContextDeps): Promise<ChapterConte
     getArcById(db, arcId),
   ]);
 
-  const [characters, threads, allSeeds, dueSeeds, recentSummaries] = await Promise.all([
+  const [characters, threads, allSeeds, dueSeeds, recentSummaries, knownFactions] = await Promise.all([
     getActiveCharacters(db, storyId, chapterNumber),
     getOpenThreadsForStory(db, storyId),
     getPlantedSeedsForStory(db, storyId),
     getSeedsDueForChapter(db, storyId, chapterNumber),
     getRecentSummaries(db, storyId, chapterNumber, cfg.RECENT_CHAPTER_SUMMARIES_COUNT),
+    getFactionsForStory(db, storyId),
   ]);
 
   const arcSeeds = filterArcSeeds(allSeeds, chapterNumber);
@@ -90,6 +92,7 @@ export async function buildContext(deps: BuildContextDeps): Promise<ChapterConte
     activeCharacters: characters,
     arcOpenThreads: threads,
     arcPlantedSeeds: arcSeeds,
+    knownFactions,
   };
 
   const goalText = packet.goal;

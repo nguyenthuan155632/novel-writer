@@ -43,6 +43,22 @@ const BASE_SNAPSHOT: CanonSnapshot = {
       status: 'resolved',
     },
   ],
+  factions: [
+    {
+      id: '66666666-6666-6666-6666-666666666666',
+      name: 'Thiên Kiếm Môn',
+      status: 'active',
+      type: 'sect',
+      lockedFields: [],
+    },
+    {
+      id: '77777777-7777-7777-7777-777777777777',
+      name: 'Hắc Phong Trại',
+      status: 'destroyed',
+      type: 'bandit',
+      lockedFields: ['status'],
+    },
+  ],
 };
 
 describe('detectConflicts', () => {
@@ -57,6 +73,7 @@ describe('detectConflicts', () => {
       newCanonFacts: [],
       threadUpdates: [],
       newTimelineEvents: [],
+      factionUpdates: [],
       seedsResolvedThisChapter: [],
     };
     const conflicts = detectConflicts(extracted, BASE_SNAPSHOT);
@@ -74,6 +91,7 @@ describe('detectConflicts', () => {
       newCanonFacts: [],
       threadUpdates: [],
       newTimelineEvents: [],
+      factionUpdates: [],
       seedsResolvedThisChapter: [],
     };
     const conflicts = detectConflicts(extracted, BASE_SNAPSHOT);
@@ -92,6 +110,7 @@ describe('detectConflicts', () => {
       newCanonFacts: [],
       threadUpdates: [],
       newTimelineEvents: [],
+      factionUpdates: [],
       seedsResolvedThisChapter: [],
     };
     const conflicts = detectConflicts(extracted, BASE_SNAPSHOT);
@@ -111,6 +130,7 @@ describe('detectConflicts', () => {
       newCanonFacts: [],
       threadUpdates: [],
       newTimelineEvents: [],
+      factionUpdates: [],
       seedsResolvedThisChapter: [],
     };
     const conflicts = detectConflicts(extracted, BASE_SNAPSHOT);
@@ -127,6 +147,7 @@ describe('detectConflicts', () => {
       }],
       threadUpdates: [],
       newTimelineEvents: [],
+      factionUpdates: [],
       seedsResolvedThisChapter: [],
     };
     const conflicts = detectConflicts(extracted, BASE_SNAPSHOT);
@@ -145,6 +166,7 @@ describe('detectConflicts', () => {
       newCanonFacts: [],
       threadUpdates: [],
       newTimelineEvents: [],
+      factionUpdates: [],
       seedsResolvedThisChapter: [],
     };
     const conflicts = detectConflicts(extracted, BASE_SNAPSHOT);
@@ -162,11 +184,85 @@ describe('detectConflicts', () => {
         state: 'open',
       }],
       newTimelineEvents: [],
+      factionUpdates: [],
       seedsResolvedThisChapter: [],
     };
     const conflicts = detectConflicts(extracted, BASE_SNAPSHOT);
     expect(conflicts).toHaveLength(1);
     expect(conflicts[0]!.type).toBe('thread_status_invalid');
+  });
+
+  it('flags duplicate-faction create against an existing faction', () => {
+    const extracted: ExtractorOutput = {
+      characterUpdates: [],
+      newCanonFacts: [],
+      threadUpdates: [],
+      newTimelineEvents: [],
+      factionUpdates: [{
+        action: 'create',
+        name: 'Thiên Kiếm Môn',
+        fields: { type: 'sect' },
+      }],
+      seedsResolvedThisChapter: [],
+    };
+    const conflicts = detectConflicts(extracted, BASE_SNAPSHOT);
+    expect(conflicts).toHaveLength(1);
+    expect(conflicts[0]!.type).toBe('duplicate_faction');
+    expect(conflicts[0]!.targetTable).toBe('factions');
+  });
+
+  it('flags non-status/non-notes updates against a destroyed faction', () => {
+    const extracted: ExtractorOutput = {
+      characterUpdates: [],
+      newCanonFacts: [],
+      threadUpdates: [],
+      newTimelineEvents: [],
+      factionUpdates: [{
+        action: 'update',
+        targetId: '77777777-7777-7777-7777-777777777777',
+        name: 'Hắc Phong Trại',
+        fields: { alliances: ['Thiên Kiếm Môn'] },
+      }],
+      seedsResolvedThisChapter: [],
+    };
+    const conflicts = detectConflicts(extracted, BASE_SNAPSHOT);
+    expect(conflicts.some(c => c.type === 'destroyed_faction_action')).toBe(true);
+  });
+
+  it('also flags status changes on destroyed factions because status is locked', () => {
+    const extracted: ExtractorOutput = {
+      characterUpdates: [],
+      newCanonFacts: [],
+      threadUpdates: [],
+      newTimelineEvents: [],
+      factionUpdates: [{
+        action: 'update',
+        targetId: '77777777-7777-7777-7777-777777777777',
+        name: 'Hắc Phong Trại',
+        fields: { status: 'active' },
+      }],
+      seedsResolvedThisChapter: [],
+    };
+    const conflicts = detectConflicts(extracted, BASE_SNAPSHOT);
+    expect(conflicts.some(c => c.type === 'locked_field' && c.payloadKey === 'status')).toBe(true);
+  });
+
+  it('allows a notes-only update on a destroyed faction', () => {
+    const extracted: ExtractorOutput = {
+      characterUpdates: [],
+      newCanonFacts: [],
+      threadUpdates: [],
+      newTimelineEvents: [],
+      factionUpdates: [{
+        action: 'update',
+        targetId: '77777777-7777-7777-7777-777777777777',
+        name: 'Hắc Phong Trại',
+        fields: { notes: 'Tàn dư bị truy bắt khắp nơi.' },
+      }],
+      seedsResolvedThisChapter: [],
+    };
+    const conflicts = detectConflicts(extracted, BASE_SNAPSHOT);
+    expect(conflicts).toHaveLength(0);
   });
 
   it('detects multiple conflicts from same update', () => {
@@ -192,6 +288,7 @@ describe('detectConflicts', () => {
       newCanonFacts: [],
       threadUpdates: [],
       newTimelineEvents: [],
+      factionUpdates: [],
       seedsResolvedThisChapter: [],
     };
     const conflicts = detectConflicts(extracted, snapshot);

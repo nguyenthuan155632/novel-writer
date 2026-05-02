@@ -30,14 +30,21 @@ Stores canonical faction records — organisations, sects, and alliances that ex
 - `storyId` → `stories.id`
 
 ## Read By
-- [[modules/context-builder]]
+- [[modules/context-builder]] — `getFactionsForStory()` populates `WarmTier.knownFactions`
+- [[validators/check-unknown-faction]] — flags Vietnamese faction-prefixed proper nouns missing from this table
+- [[validators/check-unknown-location]] / [[validators/check-unknown-character]] — defensively suppress false positives
 
 ## Written By
-- [[modules/canon-merger]]
-- [[agents/canon-extractor]]
+- [[modules/canon-merger]] — `applyRow` case `factions` (auto mode) and route `POST /api/stories/:id/pending-updates/:updateId/approve` (review mode)
+- [[agents/canon-extractor]] — emits `factionUpdates[]`
 
 ## Updated By
-- [[modules/canon-merger]]
+- [[modules/canon-merger]] — partial update path with locked-field + destroyed/absorbed guardrails
+
+## Conflict Detection
+- `duplicate_faction` — create rejected when the name already exists
+- `destroyed_faction_action` — only `status` and `notes` may change on a destroyed/absorbed faction
+- `locked_field` — destroyed/absorbed factions have `status` locked by snapshot construction
 
 ## Related Domain Concepts
 - [[domain-story]]
@@ -76,11 +83,12 @@ Faction/organization records — ideology, power level, alliances, enemies.
 - `storyId` → `stories`
 
 ## Read By
-- [[modules/context-builder]]
+- [[modules/context-builder]] — `getFactionsForStory()` populates `WarmTier.knownFactions`
+- [[validators/check-unknown-faction]]
 
 ## Written By
-- [[modules/canon-merger]]
-- [[agents/canon-extractor]]
+- [[modules/canon-merger]] — `applyRow` case `factions`
+- [[agents/canon-extractor]] — `factionUpdates[]`
 
 ## Related Domain Concepts
 - [[domain/story]]

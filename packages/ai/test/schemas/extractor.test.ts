@@ -97,4 +97,59 @@ describe('ExtractorOutputSchema', () => {
     const result = ExtractorOutputSchema.parse(data);
     expect(result.threadUpdates[0]!.plannedResolutionChapter).toBe(12);
   });
+
+  it('defaults factionUpdates to [] when omitted (backward compat with v2 prompts)', () => {
+    const data = {
+      characterUpdates: [],
+      newCanonFacts: [],
+      threadUpdates: [],
+      newTimelineEvents: [],
+      seedsResolvedThisChapter: [],
+    };
+    const result = ExtractorOutputSchema.parse(data);
+    expect(result.factionUpdates).toEqual([]);
+  });
+
+  it('parses factionUpdates create + update with status enum', () => {
+    const data = {
+      characterUpdates: [],
+      newCanonFacts: [],
+      threadUpdates: [],
+      newTimelineEvents: [],
+      factionUpdates: [
+        { action: 'create', name: 'Thiên Kiếm Môn', fields: { type: 'sect', powerLevel: 'top-tier' } },
+        { action: 'update', targetId: '99999999-9999-9999-9999-999999999999', name: 'Hắc Phong Trại', fields: { status: 'destroyed' } },
+      ],
+      seedsResolvedThisChapter: [],
+    };
+    const result = ExtractorOutputSchema.parse(data);
+    expect(result.factionUpdates).toHaveLength(2);
+    expect(result.factionUpdates[0]!.fields.type).toBe('sect');
+    expect(result.factionUpdates[1]!.fields.status).toBe('destroyed');
+  });
+
+  it('rejects factionUpdates with invalid status enum', () => {
+    const data = {
+      characterUpdates: [],
+      newCanonFacts: [],
+      threadUpdates: [],
+      newTimelineEvents: [],
+      factionUpdates: [{ action: 'update', name: 'X', fields: { status: 'imploded' } }],
+      seedsResolvedThisChapter: [],
+    };
+    expect(() => ExtractorOutputSchema.parse(data)).toThrow();
+  });
+
+  it('drops bad targetId placeholder on faction updates', () => {
+    const data = {
+      characterUpdates: [],
+      newCanonFacts: [],
+      threadUpdates: [],
+      newTimelineEvents: [],
+      factionUpdates: [{ action: 'update', name: 'X', fields: { status: 'active' }, targetId: 'not-a-uuid' }],
+      seedsResolvedThisChapter: [],
+    };
+    const result = ExtractorOutputSchema.parse(data);
+    expect(result.factionUpdates[0]!.targetId).toBeUndefined();
+  });
 });

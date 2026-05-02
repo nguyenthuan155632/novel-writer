@@ -36,6 +36,7 @@ const CLEAN_SNAPSHOT: CanonSnapshot = {
   }],
   canonFacts: [],
   threads: [],
+  factions: [],
 };
 
 describe('CanonMerger', () => {
@@ -186,6 +187,125 @@ describe('CanonMerger', () => {
 
     expect(result.autoAppliedCount).toBe(2);
     expect(result.conflicts).toHaveLength(0);
+  });
+
+  it('auto-applies a faction create row in auto mode', async () => {
+    const { db, inserts } = mockDb();
+    const merger = new CanonMerger({ db, embeddingService: new MockEmbeddingService() });
+
+    const rows: CanonMergerRow[] = [
+      {
+        updateType: 'create',
+        targetTable: 'factions',
+        targetId: null,
+        // Mirrors worker.extractorOutputToRows shape: top-level name + spread fields.
+        payload: {
+          name: 'Hỏa Vân Tông',
+          type: 'sect',
+          ideology: 'tôn sùng lửa',
+          powerLevel: 'mid-tier',
+          status: 'active',
+          alliances: ['Thiên Kiếm Môn'],
+          enemies: [],
+        },
+      },
+    ];
+
+    const result = await merger.submit({
+      storyId: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+      chapterId: 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb',
+      chapterNumber: 7,
+      rows,
+      seedsResolvedIds: [],
+      mode: 'auto',
+      traceId: 'trace-faction-create',
+    }, CLEAN_SNAPSHOT);
+
+    expect(result.autoAppliedCount).toBe(1);
+    expect(result.pendingCount).toBe(0);
+    expect(inserts).toContainEqual(expect.objectContaining({
+      vals: expect.objectContaining({
+        name: 'Hỏa Vân Tông',
+        type: 'sect',
+        status: 'active',
+      }),
+    }));
+  });
+
+  it('queues a duplicate-faction create as pending with conflict', async () => {
+    const { db } = mockDb();
+    const merger = new CanonMerger({ db, embeddingService: new MockEmbeddingService() });
+
+    const snapshot: CanonSnapshot = {
+      ...CLEAN_SNAPSHOT,
+      factions: [{
+        id: '66666666-6666-6666-6666-666666666666',
+        name: 'Thiên Kiếm Môn',
+        status: 'active',
+        type: 'sect',
+        lockedFields: [],
+      }],
+    };
+
+    const rows: CanonMergerRow[] = [{
+      updateType: 'create',
+      targetTable: 'factions',
+      targetId: null,
+      payload: { name: 'Thiên Kiếm Môn', type: 'sect' },
+    }];
+
+    const result = await merger.submit({
+      storyId: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+      chapterId: 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb',
+      chapterNumber: 8,
+      rows,
+      seedsResolvedIds: [],
+      mode: 'auto',
+      traceId: 'trace-faction-dup',
+    }, snapshot);
+
+    expect(result.conflicts.some(c => c.type === 'duplicate_faction')).toBe(true);
+    expect(result.pendingCount).toBe(1);
+    expect(result.autoAppliedCount).toBe(0);
+  });
+
+  it('applies a faction status update in auto mode', async () => {
+    const { db, updates } = mockDb();
+    const merger = new CanonMerger({ db, embeddingService: new MockEmbeddingService() });
+
+    const snapshot: CanonSnapshot = {
+      ...CLEAN_SNAPSHOT,
+      factions: [{
+        id: '66666666-6666-6666-6666-666666666666',
+        name: 'Thiên Kiếm Môn',
+        status: 'active',
+        type: 'sect',
+        lockedFields: [],
+      }],
+    };
+
+    const rows: CanonMergerRow[] = [{
+      updateType: 'update',
+      targetTable: 'factions',
+      targetId: '66666666-6666-6666-6666-666666666666',
+      payload: { name: 'Thiên Kiếm Môn', fields: { status: 'destroyed', notes: 'Bị Hỏa Vân Tông tiêu diệt.' } },
+    }];
+
+    const result = await merger.submit({
+      storyId: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+      chapterId: 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb',
+      chapterNumber: 9,
+      rows,
+      seedsResolvedIds: [],
+      mode: 'auto',
+      traceId: 'trace-faction-update',
+    }, snapshot);
+
+    expect(result.autoAppliedCount).toBe(1);
+    expect(result.conflicts).toHaveLength(0);
+    expect(updates).toContainEqual(expect.objectContaining({
+      vals: expect.objectContaining({ status: 'destroyed' }),
+    }));
   });
 
   it('marks resolved planted seeds as paid off in auto mode', async () => {

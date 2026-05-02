@@ -17,7 +17,9 @@ A faction is an organization, institution, or social group in the story world �
 - `alignment` — narrative alignment (e.g., `righteous | demonic | neutral | hidden`)
 - `storyId` — belongs to a single story
 - Factions can appear in [[domain/canon-fact]] entries (e.g., "The Azure Sword Sect was destroyed in chapter 100")
-- New unnamed factions introduced in prose are flagged by [[validators/check-unknown-location]] or a character check if they are referenced but not in the DB
+- New factions introduced in prose with a Vietnamese faction prefix (`môn phái`, `gia tộc`, `tông môn`, `liên minh`, `vương triều`, `đế quốc`, `tà phái`, `chính phái`, `thương hội`, `sơn trại`, ...) are flagged by [[validators/check-unknown-faction]] when not in the `factions` table
+- Faction lifecycle changes (status `active → destroyed | hidden | absorbed`, alliance/enemy shifts) are extracted by [[agents/canon-extractor]] as `factionUpdates[]` and applied by [[modules/canon-merger]]
+- Destroyed/absorbed factions have `status` snapshot-locked; only `status` (revival) and `notes` may change without conflict
 
 > **Note:** Exact schema fields should be verified against `packages/db/src/schema/factions.ts`.
 

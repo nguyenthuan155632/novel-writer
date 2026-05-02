@@ -1,9 +1,9 @@
 import { eq, and, gte, lte, desc, lt, sql } from 'drizzle-orm';
-import { storyBibles, sagas, arcs, characters, openThreads, plantedSeeds, chapterSummaries } from '@novel/db/schema';
+import { storyBibles, sagas, arcs, characters, openThreads, plantedSeeds, chapterSummaries, factions } from '@novel/db/schema';
 import type { Db } from '@novel/db';
 import type { CanonFact, Saga, Arc, StoryBible } from '@novel/db/schema';
-import { compactCharacter, compactThread, compactSeed, compactSummary, compactFact } from './compact.js';
-import type { CharacterCompact, ThreadCompact, SeedCompact, ChapterSummaryCompact, CanonFactCompact } from './types.js';
+import { compactCharacter, compactThread, compactSeed, compactSummary, compactFact, compactFaction } from './compact.js';
+import type { CharacterCompact, ThreadCompact, SeedCompact, ChapterSummaryCompact, CanonFactCompact, FactionCompact } from './types.js';
 
 export async function getStoryBible(db: Db, storyId: string): Promise<StoryBible | null> {
   const rows = await db.select().from(storyBibles)
@@ -52,6 +52,17 @@ export async function getActiveCharacters(db: Db, storyId: string, chapterNumber
     )
   ).orderBy(desc(characters.lastSeenChapter));
   return rows.map(c => compactCharacter(c));
+}
+
+export async function getFactionsForStory(db: Db, storyId: string): Promise<FactionCompact[]> {
+  const rows = await db.select({
+    id: factions.id,
+    name: factions.name,
+    status: factions.status,
+    type: factions.type,
+    powerLevel: factions.powerLevel,
+  }).from(factions).where(eq(factions.storyId, storyId));
+  return rows.map(r => compactFaction(r));
 }
 
 export async function getOpenThreadsForStory(db: Db, storyId: string): Promise<ThreadCompact[]> {

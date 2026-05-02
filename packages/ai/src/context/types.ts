@@ -42,12 +42,30 @@ export type SeedCompact = {
   status: 'pending' | 'planted' | 'paid_off' | 'abandoned';
 };
 
+export type FactionCompact = {
+  id: string;
+  name: string;
+  status: 'active' | 'destroyed' | 'hidden' | 'absorbed' | 'unknown';
+  type?: string;
+  powerLevel?: string;
+};
+
 export type WarmTier = {
   sagaSummary: string;
   arcSummary: string;
   activeCharacters: CharacterCompact[];
   arcOpenThreads: ThreadCompact[];
   arcPlantedSeeds: SeedCompact[];
+  /**
+   * All canonical factions for this story. Kept in WARM (not COLD) because the
+   * unknown-faction validator and canon-extractor both need a stable list every
+   * chapter, not a vector-retrieved subset.
+   *
+   * Optional for backward compatibility with older test fixtures and snapshots
+   * predating faction-aware canon. Production builder always populates it;
+   * consumers should treat `undefined` as `[]`.
+   */
+  knownFactions?: FactionCompact[];
 };
 
 export type ChapterSummaryCompact = {

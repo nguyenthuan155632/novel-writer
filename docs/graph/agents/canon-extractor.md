@@ -17,14 +17,15 @@ Extracts structured canon updates from generated chapter: character state change
 - LLM provider
 
 ## Outputs
-- `ExtractorOutputSchema`: `{ characters, canonFacts, threadUpdates, timelineEvents, resolvedSeeds }`
+- `ExtractorOutputSchema`: `{ characterUpdates, newCanonFacts, threadUpdates, newTimelineEvents, factionUpdates, seedsResolvedThisChapter }`
+- `factionUpdates[]` is backward-compatible (zod `.default([])`) — older v2 responses that omit it still parse cleanly
 - Passed to [[modules/canon-merger]] for staging/applying
 
 ## Prompt
-- [[prompts/prompt-canon-extractor-v2]]
+- [[prompts/prompt-canon-extractor-v2]] — system prompt updated to require `factionUpdates` for new sects/clans/kingdoms and lifecycle changes (status, alliances, enemies)
 
 ## Schema
-`packages/ai/src/schemas/extractor.ts` — `ExtractorOutputSchema`
+`packages/ai/src/schemas/extractor.ts` — `ExtractorOutputSchema`, `FactionUpdateSchema`
 
 ## Depends On
 - [[prompts/prompt-canon-extractor-v2]]
@@ -38,6 +39,7 @@ Extracts structured canon updates from generated chapter: character state change
 - [[database/tables/open-threads]] (via merger)
 - [[database/tables/timeline-events]] (via merger)
 - [[database/tables/planted-seeds]] (via merger)
+- [[database/tables/factions]] (via merger)
 
 ## Related Flows
 - [[flows/canon-reconciliation-flow]]
@@ -49,7 +51,7 @@ source: packages/ai/src/agents/canon-extractor.ts
 # Agent: Canon Extractor
 
 ## Responsibility
-Extracts structured canon updates from finalized chapter: character state changes, new canon facts, thread updates, timeline events, resolved seeds.
+Extracts structured canon updates from finalized chapter: character state changes, new canon facts, thread updates, timeline events, faction lifecycle changes, resolved seeds.
 
 ## Source Evidence
 `packages/ai/src/agents/canon-extractor.ts` — `CanonExtractor`
@@ -60,14 +62,14 @@ Extracts structured canon updates from finalized chapter: character state change
 - LLM provider
 
 ## Outputs
-- `ExtractorOutputSchema`: `{ characters, canonFacts, threadUpdates, timelineEvents, resolvedSeeds }`
+- `ExtractorOutputSchema`: `{ characterUpdates, newCanonFacts, threadUpdates, newTimelineEvents, factionUpdates, seedsResolvedThisChapter }`
 - Passed to [[modules/canon-merger]]
 
 ## Prompt
 [[prompts/prompt-canon-extractor-v2]]
 
 ## Schema
-`packages/ai/src/schemas/extractor.ts` — `ExtractorOutputSchema`
+`packages/ai/src/schemas/extractor.ts` — `ExtractorOutputSchema`, `FactionUpdateSchema`
 
 ## Used By
 - [[jobs/job-generate-chapter]] (Stage 9 — CANON EXTRACTION)
@@ -78,6 +80,7 @@ Extracts structured canon updates from finalized chapter: character state change
 - [[database/tables/open-threads]] (via merger)
 - [[database/tables/timeline-events]] (via merger)
 - [[database/tables/planted-seeds]] (via merger)
+- [[database/tables/factions]] (via merger)
 
 ## Related Flows
 - [[flows/canon-reconciliation-flow]]
