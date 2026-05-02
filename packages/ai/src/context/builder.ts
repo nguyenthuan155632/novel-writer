@@ -222,6 +222,36 @@ export async function buildContext(
       ? computeProgressPercent(chapterNumber, arc.startChapter, arc.endChapter)
       : null;
 
+  const sagaRange =
+    saga?.startChapter != null && saga?.endChapter != null
+      ? `${chapterNumber - saga.startChapter + 1}/${saga.endChapter - saga.startChapter + 1}`
+      : null;
+
+  const arcRange =
+    arc?.startChapter != null && arc?.endChapter != null
+      ? `${chapterNumber - arc.startChapter + 1}/${arc.endChapter - arc.startChapter + 1}`
+      : null;
+
+  const sagaPhase = progressPhaseFor(sagaProgressPercent);
+  const arcPhase = progressPhaseFor(arcProgressPercent);
+
+  let activeTurningPoint: string | null = null;
+  if (
+    saga?.startChapter != null &&
+    saga?.endChapter != null &&
+    Array.isArray(saga.expectedTurningPoints) &&
+    (saga.expectedTurningPoints as string[]).length > 0
+  ) {
+    const tps = saga.expectedTurningPoints as string[];
+    const sagaSpan = Math.max(1, saga.endChapter - saga.startChapter + 1);
+    const sagaPosition = chapterNumber - saga.startChapter + 1;
+    const idx = Math.min(
+      tps.length - 1,
+      Math.max(0, Math.floor((sagaPosition - 1) / (sagaSpan / tps.length))),
+    );
+    activeTurningPoint = tps[idx] ?? null;
+  }
+
   let ctx: ChapterContext = {
     hot,
     warm,
@@ -234,6 +264,11 @@ export async function buildContext(
       warmHash,
       sagaProgressPercent,
       arcProgressPercent,
+      sagaRange,
+      arcRange,
+      sagaPhase,
+      arcPhase,
+      activeTurningPoint,
       targetInputBudget: cfg.TOKEN_BUDGET_NORMAL,
     },
   };
@@ -310,6 +345,20 @@ export function computeProgressPercent(
   const position = chapterNumber - startChapter + 1;
   const clamped = Math.max(0, Math.min(span, position));
   return Math.round((clamped / span) * 100);
+}
+
+export type ProgressPhase =
+  | "setup"
+  | "development"
+  | "climax_buildup"
+  | "climax";
+
+export function progressPhaseFor(percent: number | null): ProgressPhase | null {
+  if (percent == null) return null;
+  if (percent < 30) return "setup";
+  if (percent < 60) return "development";
+  if (percent < 80) return "climax_buildup";
+  return "climax";
 }
 
 function filterArcSeeds(

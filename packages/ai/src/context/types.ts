@@ -108,6 +108,11 @@ export type ChapterContext = {
     warmHash: string;
     sagaProgressPercent: number | null;
     arcProgressPercent: number | null;
+    sagaRange: string | null;
+    arcRange: string | null;
+    sagaPhase: "setup" | "development" | "climax_buildup" | "climax" | null;
+    arcPhase: "setup" | "development" | "climax_buildup" | "climax" | null;
+    activeTurningPoint: string | null;
     targetInputBudget: number;
   };
 };

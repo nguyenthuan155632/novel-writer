@@ -60,6 +60,11 @@ function makeContext(overrides?: {
       warmHash: "",
       sagaProgressPercent: null,
       arcProgressPercent: null,
+      sagaRange: null,
+      arcRange: null,
+      sagaPhase: null,
+      arcPhase: null,
+      activeTurningPoint: null,
       targetInputBudget: 6000,
     },
   };
