@@ -41,6 +41,32 @@ While not LLMs, these components are critical parts of the agentic workflow:
 - **Deterministic Validator**: Regex-based checks for forbidden words, formatting, and technical metadata.
 - **Canon Merger**: Logic for auto-merging low-conflict facts or queuing them for human review.
 
+## Local Working Protocol: Obsidian Graph First
+
+You have access to Obsidian through the `mcp-obsidian` MCP server.
+
+Before doing any non-trivial coding task, architecture task, debugging task, refactor, database change, worker change, AI provider change, validation change, or prompt change:
+
+1. Search Obsidian first.
+2. Use search terms based on the current task.
+3. Read the most relevant Obsidian notes before planning.
+4. In your plan, mention:
+   - Obsidian notes consulted
+   - relevant architecture/domain constraints found
+   - whether documentation is missing or outdated
+5. Only then inspect or modify source code.
+
+After completing work:
+1. If architecture, flow, schema, domain behavior, config, validation, or error handling changed, update the relevant Obsidian notes.
+2. If no relevant note exists, create one.
+3. In the final response, include:
+   - Obsidian notes read
+   - Obsidian notes updated
+   - source files changed
+
+Do not copy secrets into Obsidian.
+Document env var names only, never values.
+
 ## Pipeline Integration
 
 Most generation tasks follow this sequence:

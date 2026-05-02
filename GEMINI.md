@@ -49,6 +49,32 @@ This project is a single-user local application designed to generate long-form (
 - **Styling**: Prefer Vanilla CSS for the web frontend.
 - **Prompting**: Prompts are defined as `DualPromptTemplate` or `PromptTemplate` in `packages/ai/src/prompts/` and registered in the registry.
 
+## Local Working Protocol: Obsidian Graph First
+
+You have access to Obsidian through the `mcp-obsidian` MCP server.
+
+Before doing any non-trivial coding task, architecture task, debugging task, refactor, database change, worker change, AI provider change, validation change, or prompt change:
+
+1. Search Obsidian first.
+2. Use search terms based on the current task.
+3. Read the most relevant Obsidian notes before planning.
+4. In your plan, mention:
+   - Obsidian notes consulted
+   - relevant architecture/domain constraints found
+   - whether documentation is missing or outdated
+5. Only then inspect or modify source code.
+
+After completing work:
+1. If architecture, flow, schema, domain behavior, config, validation, or error handling changed, update the relevant Obsidian notes.
+2. If no relevant note exists, create one.
+3. In the final response, include:
+   - Obsidian notes read
+   - Obsidian notes updated
+   - source files changed
+
+Do not copy secrets into Obsidian.
+Document env var names only, never values.
+
 ## Common Workflows
 
 1. **New Feature**: Add schema to `packages/db`, run `pnpm db:generate`, implement logic in `packages/core` or `packages/ai`, and expose via `apps/api`.
