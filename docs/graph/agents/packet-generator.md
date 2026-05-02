@@ -17,7 +17,13 @@ Generates the `ChapterPacket` — a structured chapter plan with goal, required 
 
 ## Outputs
 - `ChapterPacketSchema` validated object — `ChapterPacket`
-- On parse failure: attempts JSON repair (`repairPacket`), then sentence-safe normalization
+- On parse failure: attempts JSON repair (`repairPacket`) with the original packet planning context, then sentence-safe normalization
+
+## JSON Repair Context
+- Repair prompt version is derived from packet prompt version as `v2-repair-v2`
+- The repair call receives the original system contracts and packet request under `# PACKET REPAIR CONTEXT`
+- Context includes Bible compact, active arc/saga request text, recent summaries, active characters, open threads, due seeds, forbidden rules, pacing/progress hints, genre/personality contracts, and story options
+- Repair remains constrained to schema repair: it may fill missing required fields from context, but should not create a new chapter plan when the broken JSON still preserves the original intent
 
 ## Prompt
 - [[prompts/prompt-packet-generator-v2]] — `DualPromptTemplate`
@@ -56,7 +62,13 @@ Generates the ChapterPacket — structured chapter plan with goal, events, chara
 
 ## Outputs
 - `ChapterPacketSchema` validated `ChapterPacket`
-- On parse failure: JSON repair (`repairPacket`), then sentence-safe normalization
+- On parse failure: JSON repair (`repairPacket`) with original packet planning context, then sentence-safe normalization
+
+## JSON Repair Context
+- Repair prompt version is derived from packet prompt version as `v2-repair-v2`
+- The repair call receives the original system contracts and packet request under `# PACKET REPAIR CONTEXT`
+- Context includes Bible compact, active arc/saga request text, recent summaries, active characters, open threads, due seeds, forbidden rules, pacing/progress hints, genre/personality contracts, and story options
+- Repair remains constrained to schema repair: it may fill missing required fields from context, but should not create a new chapter plan when the broken JSON still preserves the original intent
 
 ## Prompt
 [[prompts/prompt-packet-generator-v2]] — DualPromptTemplate

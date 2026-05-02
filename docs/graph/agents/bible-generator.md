@@ -16,6 +16,9 @@ Generates the initial story bible from story premise, genre, personality, tone a
 - `genreDef`, `personalityDef`, `storyOptions` (from [[modules/story-domain]])
 - LLM provider
 
+## Tone / Mood Priority
+`storyOptions.darkLevel` is passed through [[prompts/contract-story-options]]. A bright dark level should reduce gloom and preserve hope inside the selected genre; genre still controls tropes/world mechanics/forbidden rules.
+
 ## Outputs
 - `BibleV2Schema` validated object — persisted to [[database/tables/story-bibles]]
 
@@ -57,6 +60,9 @@ Generates the initial story bible from premise, genre, personality, tone and sto
 - Story premise, genre, personality, tone
 - `genreDef`, `personalityDef`, `storyOptions` from [[modules/story-domain]]
 - LLM provider instance
+
+## Tone / Mood Priority
+`storyOptions.darkLevel` is passed through [[prompts/contract-story-options]]. A bright dark level should reduce gloom and preserve hope inside the selected genre; genre still controls tropes/world mechanics/forbidden rules.
 
 ## Outputs
 - `BibleV2Schema` validated object

@@ -45,6 +45,8 @@ function makeInput(
         warmHash: "",
         sagaProgressPercent: null,
         arcProgressPercent: null,
+        sagaProgressSource: null,
+        arcProgressSource: null,
         sagaRange: null,
         arcRange: null,
         sagaPhase: null,

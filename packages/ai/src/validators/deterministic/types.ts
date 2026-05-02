@@ -1,6 +1,6 @@
-import type { ChapterContext } from '../../context/types.ts';
+import type { ChapterContext } from "../../context/types.ts";
 
-export type Severity = 'low' | 'medium' | 'high' | 'critical';
+export type Severity = "low" | "medium" | "high" | "critical";
 
 export type CheckInput = {
   content: string;
@@ -35,5 +35,15 @@ export type CheckResult = {
 export type DeterministicCheck = {
   id: string;
   severity: Severity;
+  llmVerifiable?: boolean;
   run(input: CheckInput): CheckResult;
+};
+
+/** An issue flagged by a deterministic check that needs LLM confirmation. */
+export type PendingVerificationItem = {
+  checkId: string;
+  severity: Severity;
+  issue: string;
+  /** Text snippet surrounding the flagged item for LLM context */
+  snippet: string;
 };

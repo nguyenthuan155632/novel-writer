@@ -2,7 +2,7 @@ import type { GenreDef, PersonalityDef, StoryOptions } from "@novel/core";
 import { registerPrompt, type DualPromptTemplate } from "./registry.ts";
 import { renderGenreContract } from "./contracts/genre-contract.ts";
 import { renderPersonalityContract } from "./contracts/personality-contract.ts";
-import { renderStoryOptionsBlock } from "./contracts/story-options-block.ts";
+import { buildStoryOptionsBlock } from "./contracts/story-options-block.ts";
 
 export const highStakesReviewerPromptV2: DualPromptTemplate = {
   agentRole: "high_stakes_reviewer",
@@ -17,7 +17,7 @@ ${renderGenreContract(genreDef, input.storyOptions as StoryOptions)}
 
 ${renderPersonalityContract(personalityDef)}
 
-${renderStoryOptionsBlock(input.storyOptions as StoryOptions)}
+${buildStoryOptionsBlock({ storyOptions: input.storyOptions as StoryOptions, target: "validator" })}
 
 Nhiệm vụ: Đọc TOÀN BỘ chương vừa hoàn thành cùng arc summary và bible. Đánh giá liệu chương này:
 - Giữ vững giọng văn và quy tắc thế giới (bible)

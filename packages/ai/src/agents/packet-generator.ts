@@ -25,7 +25,7 @@ export type PacketGenerationResult = {
   cost: number;
 };
 
-const PACKET_REPAIR_PROMPT_VERSION = `${packetGeneratorPromptV2.version}-repair-v1`;
+const PACKET_REPAIR_PROMPT_VERSION = `${packetGeneratorPromptV2.version}-repair-v2`;
 
 function mergeUsage(a: CompletionUsage, b: CompletionUsage): CompletionUsage {
   return {
@@ -103,6 +103,7 @@ export class PacketGenerator {
 
   private async repairPacket(
     rawContent: string,
+    repairContext: { systemPrompt: string; userPrompt: string },
     ctx: { traceId: string; storyId: string },
   ): Promise<{ content: string; usage: CompletionUsage }> {
     const repaired = await withCompletionRetryRaw(
@@ -112,7 +113,12 @@ export class PacketGenerator {
         messages: [
           {
             role: 'system',
-            content: 'Bạn là bộ sửa JSON ChapterPacket. Chỉ trả JSON hợp lệ, không giải thích.',
+            content: [
+              'Bạn là bộ sửa JSON ChapterPacket.',
+              'Chỉ trả JSON hợp lệ, không giải thích.',
+              'Dùng context đi kèm để phục hồi field bị thiếu/hỏng, nhưng KHÔNG lập kế hoạch mới nếu JSON gốc đã có ý chính.',
+              'Không thêm sự kiện, nhân vật, seed, hoặc trope trái với Bible/Saga/Arc/Genre/Story Options trong context.',
+            ].join('\n'),
           },
           {
             role: 'user',
@@ -120,6 +126,12 @@ export class PacketGenerator {
               'Sửa JSON sau để đúng schema ChapterPacket và giữ nguyên ý chính.',
               'Giới hạn: goal<=500, conflict<=500, cliffhanger<=500, mỗi requiredEvents.description<=500.',
               'Nếu quá dài, rút gọn mạch lạc, không cắt cụt giữa ý.',
+              'Nếu JSON gốc thiếu field bắt buộc, dùng context dưới đây để điền giá trị tối thiểu, đúng kế hoạch.',
+              '# PACKET REPAIR CONTEXT',
+              '## SYSTEM CONTRACTS',
+              repairContext.systemPrompt,
+              '## ORIGINAL PACKET REQUEST',
+              repairContext.userPrompt,
               'JSON gốc:',
               rawContent,
             ].join('\n\n'),
@@ -173,7 +185,11 @@ export class PacketGenerator {
     } catch (err) {
       log.info({ err, raw: rawContent.slice(0, 500) }, 'packet parse failed, attempting repair');
       try {
-        const repaired = await this.repairPacket(rawContent, { traceId: ctx.traceId, storyId: ctx.storyId });
+        const repaired = await this.repairPacket(
+          rawContent,
+          { systemPrompt: built.system, userPrompt: userWithHints },
+          { traceId: ctx.traceId, storyId: ctx.storyId },
+        );
         rawContent = repaired.content;
         totalUsage = mergeUsage(totalUsage, repaired.usage);
         parsed = parsePacketContent(rawContent);

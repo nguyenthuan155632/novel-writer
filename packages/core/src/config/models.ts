@@ -12,6 +12,7 @@ const DEFAULT_MODEL_ROUTES = {
   summary_compactor: DEFAULT_MODEL_ID,
   arc_summary_compactor: DEFAULT_MODEL_ID,
   high_stakes_reviewer: DEFAULT_MODEL_ID,
+  deterministic_verifier: DEFAULT_MODEL_ID,
 };
 
 export const MODEL_CONFIG = {
@@ -162,6 +163,13 @@ export const MODEL_OPTIONS: ModelOption[] = [
     label: "High-stakes reviewer",
     envVar: "HIGH_STAKES_MODEL",
     description: "Reviews important chapters with a stronger model.",
+  },
+  {
+    role: "deterministic_verifier",
+    label: "Deterministic verifier",
+    envVar: "DETERMINISTIC_VERIFIER_MODEL",
+    description:
+      "Confirms or dismisses regex-flagged issues (unknown characters, locations, realm jumps).",
   },
 ];
 

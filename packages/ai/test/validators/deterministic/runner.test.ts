@@ -35,7 +35,7 @@ function makeInput(overrides: Partial<CheckInput> = {}): CheckInput {
         retrievedPastChapters: [],
         seedsToPlantNow: [],
         timelineEvents: [],
-      pendingCanonUpdates: [],
+        pendingCanonUpdates: [],
         packet: {} as any,
       },
       meta: {
@@ -46,6 +46,8 @@ function makeInput(overrides: Partial<CheckInput> = {}): CheckInput {
         warmHash: "",
         sagaProgressPercent: null,
         arcProgressPercent: null,
+        sagaProgressSource: null,
+        arcProgressSource: null,
         sagaRange: null,
         arcRange: null,
         sagaPhase: null,
@@ -153,5 +155,55 @@ describe("buildChecks gating by genreFamily", () => {
   it("omits realm_jump for urban", () => {
     const checks = buildChecks("forbidden text", "urban");
     expect(checks.map((c) => c.id)).not.toContain("realm_jump");
+  });
+});
+
+describe("llmVerifiable checks produce pendingVerification", () => {
+  it("moves llmVerifiable check failures to pendingVerification instead of failing", () => {
+    const checks = buildChecks("", "cultivation");
+    // Content with unknown character near action verb to trigger unknown_character
+    const input = makeInput({
+      content:
+        Array(2000).fill("word").join(" ") +
+        " Đột nhiên Trần Đại Hiệp bước tới, rút kiếm chém xuống. Hắn chiến đấu với kẻ thù.",
+      canon: {
+        deadCharacterNames: [],
+        knownCharacterNames: ["Lâm Phong"],
+        knownLocationNames: [],
+        knownBloodlineNames: [],
+        lockedFacts: [],
+        realmByCharacter: {},
+      },
+    });
+    const result = runDeterministicValidator(input, checks);
+    // unknown_character is llmVerifiable, so it should NOT cause pass=false directly
+    const charCheck = result.checks.find((c) => c.id === "unknown_character");
+    expect(charCheck?.pass).toBe(true);
+    expect(charCheck?.issues).toEqual([]);
+    // Instead, issues go to pendingVerification
+    expect(result.pendingVerification.length).toBeGreaterThan(0);
+    expect(result.pendingVerification[0]!.checkId).toBe("unknown_character");
+    expect(result.pendingVerification[0]!.snippet).toContain("Trần Đại Hiệp");
+  });
+
+  it("non-llmVerifiable checks still fail normally", () => {
+    const checks = buildChecks("", "cultivation");
+    const input = makeInput({
+      content: "Short.",
+      canon: {
+        deadCharacterNames: [],
+        knownCharacterNames: [],
+        knownLocationNames: [],
+        knownBloodlineNames: [],
+        lockedFacts: [],
+        realmByCharacter: {},
+      },
+    });
+    const result = runDeterministicValidator(input, checks);
+    // word_count is NOT llmVerifiable, so it should fail directly
+    const wcCheck = result.checks.find((c) => c.id === "word_count");
+    expect(wcCheck?.pass).toBe(false);
+    expect(result.pass).toBe(false);
+    expect(result.pendingVerification.length).toBe(0);
   });
 });

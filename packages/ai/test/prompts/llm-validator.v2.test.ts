@@ -18,4 +18,19 @@ describe("llmValidatorPromptV2", () => {
     expect(built.system).toContain("Đô thị");
     expect(built.system).toContain("Gian xảo, thực dụng");
   });
+
+  it("does not force cultivation realm wording for non-cultivation genres", () => {
+    const built = llmValidatorPromptV2.build({
+      serializedContext: "C",
+      chapterContent: "x",
+      chapterTitle: "t",
+      chapterNumber: 1,
+      genreDef: findGenre("do_thi"),
+      personalityDef: findPersonality("cunning_pragmatic"),
+      storyOptions: {},
+    });
+
+    expect(built.system).not.toContain("cảnh giới lệch tiến độ");
+    expect(built.system).toContain("tiến triển sức mạnh/trạng thái lệch tiến độ");
+  });
 });

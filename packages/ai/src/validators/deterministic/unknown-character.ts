@@ -3,6 +3,7 @@ import type { CheckInput, CheckResult, DeterministicCheck } from "./types.ts";
 export const unknownCharacterCheck: DeterministicCheck = {
   id: "unknown_character",
   severity: "medium",
+  llmVerifiable: true,
   run(input: CheckInput): CheckResult {
     const issues: string[] = [];
     const reported = new Set<string>();
@@ -70,7 +71,10 @@ export const unknownCharacterCheck: DeterministicCheck = {
       const idx = match.index ?? 0;
       const name = match[0]!;
       const before = input.content.slice(Math.max(0, idx - 40), idx);
-      const after = input.content.slice(idx + name.length, idx + name.length + 40);
+      const after = input.content.slice(
+        idx + name.length,
+        idx + name.length + 40,
+      );
 
       return (
         characterActionAfterPattern.test(after) ||
@@ -82,16 +86,14 @@ export const unknownCharacterCheck: DeterministicCheck = {
     for (const match of matches) {
       const name = match[0]!;
       const lower = name.toLowerCase();
-      if (
-        !knownNames.has(lower) &&
-        !reported.has(lower) &&
-        looksLikeCharacterMention(match)
-      ) {
-        reported.add(lower);
-        issues.push(
-          `Nhân vật "${name}" không có trong danh sách known characters.`,
-        );
-      }
+
+      if (knownNames.has(lower) || reported.has(lower)) continue;
+      if (!looksLikeCharacterMention(match)) continue;
+
+      reported.add(lower);
+      issues.push(
+        `Nhân vật "${name}" không có trong danh sách known characters.`,
+      );
     }
 
     return { pass: issues.length === 0, issues };

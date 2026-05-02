@@ -1,5 +1,5 @@
 import type { GenreDef, StoryOptions } from "@novel/core";
-import { TONES, PACINGS, POVS, MORALITIES } from "@novel/core";
+import { TONES, PACINGS, POVS, MORALITIES, DARK_LEVELS } from "@novel/core";
 
 export function renderGenreContract(g: GenreDef, opts: StoryOptions): string {
   const label = <T extends { slug: string; viLabel: string }>(
@@ -17,6 +17,8 @@ export function renderGenreContract(g: GenreDef, opts: StoryOptions): string {
   if (moralityLbl) optLines.push(`Protagonist morality: ${moralityLbl}`);
   const pacingLbl = label(PACINGS, opts.pacing);
   if (pacingLbl) optLines.push(`Pacing: ${pacingLbl}`);
+  const darkLbl = label(DARK_LEVELS, opts.darkLevel);
+  if (darkLbl) optLines.push(`Dark level: ${darkLbl}`);
 
   return [
     "# GENRE CONTRACT (BẮT BUỘC)",
@@ -34,7 +36,8 @@ export function renderGenreContract(g: GenreDef, opts: StoryOptions): string {
     "",
     "# PRIORITY RULES",
     "- Genre đã chọn là ràng buộc ưu tiên cao.",
-    "- Khi xung đột giữa default template và genre option, GENRE thắng.",
+    "- Genre thắng cho trope, world mechanics và forbidden rules.",
+    "- Story options thắng cho tone, pacing, POV, morality và mức độ sáng/tối trong phạm vi genre đã chọn.",
     "- Khi xung đột giữa genre và canon đã tồn tại, CANON thắng nhưng giữ consistency.",
     "- KHÔNG tự ý đưa trope của thể loại khác vào nếu chưa có trong canon.",
   ]

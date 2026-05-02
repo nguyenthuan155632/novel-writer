@@ -5,7 +5,7 @@ source: packages/ai/src/prompts/contracts/story-options-block.ts
 # Prompt Contract: Story Options Block
 **Function:** `renderStoryOptionsBlock(storyOptions)`
 **Source:** `packages/ai/src/prompts/contracts/story-options-block.ts`
-**Purpose:** Renders tone, pacing, POV, morality, romance level etc as prompt text.
+**Purpose:** Renders tone, pacing, POV, morality, romance level, dark level etc as prompt text. `darkLevel` also emits explicit mood guidance; for example `bright` tells prompts to reduce gloom and preserve hope.
 **Used by:** [[modules/context-builder]] (HOT tier)
 **Depends on:** [[domain/story-options]]
 ---
@@ -14,6 +14,6 @@ source: packages/ai/src/prompts/contracts/story-options-block.ts
 ---
 # Prompt Contract: Story Options Block
 **Function:** `renderStoryOptionsBlock(storyOptions)`
-**Purpose:** Renders tone, pacing, POV, morality, romance level etc as prompt text.
+**Purpose:** Renders tone, pacing, POV, morality, romance level, dark level etc as prompt text. `darkLevel` also emits explicit mood guidance; for example `bright` tells prompts to reduce gloom and preserve hope.
 **Used by:** [[modules/context-builder]] (HOT tier)
 **Depends on:** [[domain/story-options]]

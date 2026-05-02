@@ -31,6 +31,18 @@ const VALID_NON_NAME_ABBREVIATIONS = new Set([
   "TV",
   "BT",
   "ĐN",
+  // Onomatopoeia / sound effects
+  "BOOM",
+  "BANG",
+  "CRACK",
+  "THUD",
+  "ROAR",
+  "SNAP",
+  "SLAM",
+  "WHAM",
+  "RẦM",
+  "BỐP",
+  "SẦM",
 ]);
 
 const NAME_ABBREVIATION_PATTERN = /\b([A-Z]{2,4})\b/g;

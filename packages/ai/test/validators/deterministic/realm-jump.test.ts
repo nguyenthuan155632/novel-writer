@@ -33,7 +33,7 @@ function makeInput(
         retrievedPastChapters: [],
         seedsToPlantNow: [],
         timelineEvents: [],
-      pendingCanonUpdates: [],
+        pendingCanonUpdates: [],
         packet: {} as any,
       },
       meta: {
@@ -44,6 +44,8 @@ function makeInput(
         warmHash: "",
         sagaProgressPercent: null,
         arcProgressPercent: null,
+        sagaProgressSource: null,
+        arcProgressSource: null,
         sagaRange: null,
         arcRange: null,
         sagaPhase: null,
@@ -86,35 +88,44 @@ describe("realmJumpCheck", () => {
     expect(result.pass).toBe(true);
   });
 
-  it("fails when multiple breakthroughs detected", () => {
+  it("passes when one event generates several mentions", () => {
     const result = realmJumpCheck.run(
       makeInput(
-        "Lam Trach đột phá cảnh giới luyện khí. Sau đó, anh lại đột phá lần nữa.",
+        "Hắn chuẩn bị đột phá. Khí lực bùng nổ, đột phá thành công! Thăng cấp lên Tụ Khí. Lên cảnh giới mới rồi! Mọi người kinh ngạc hắn đột phá nhanh quá.",
         { "Lam Trach": "phàm nhân" },
       ),
     );
-    expect(result.pass).toBe(false);
-    expect(result.issues[0]).toContain("Lam Trach");
+    // 5 mentions but only 1 actual event — under threshold of 24 (3 max × 8 per event)
+    expect(result.pass).toBe(true);
   });
 
-  it("fails with generic message when no character realm info", () => {
-    const result = realmJumpCheck.run(
-      makeInput("Hắn đột phá cảnh giới. Rồi lại đột phá thêm lần nữa."),
-    );
-    expect(result.pass).toBe(false);
-    expect(result.issues[0]).not.toContain("(");
-  });
-
-  // Known limitation: global word-count means enemy/flashback breakthroughs
-  // also increment the counter. Accepted tradeoff — severity is 'high' not 'critical'.
-  it("known limitation: counts all breakthrough keywords regardless of subject", () => {
+  it("passes when mentions are within the higher threshold", () => {
+    // 8 mentions → ~1 estimated event ≤ max 3
     const result = realmJumpCheck.run(
       makeInput(
-        "Địch nhân đột phá. Lam Trach quan sát. Tên địch lại đột phá thêm một lần.",
-        { "Lam Trach": "luyện khí" },
+        "Đột phá lần một. Thăng cấp. Lên cảnh giới mới. Lại đột phá lần hai. Thăng cấp lần nữa. Lên cảnh giới cao hơn. Rồi lại đột phá. Lại thăng cấp.",
+        { "Lam Trach": "phàm nhân" },
       ),
     );
-    // Two "đột phá" by the enemy — Lam Trach did not break through, but check still fires.
+    // 8 mentions / 8 per event = 1 event ≤ 3 max → pass
+    expect(result.pass).toBe(true);
+  });
+
+  it("fails when mentions suggest too many breakthrough events", () => {
+    // 25+ mentions → ~4 estimated events > max 3
+    const content = Array(26).fill("đột phá").join(". ");
+    const result = realmJumpCheck.run(
+      makeInput(content, { "Lam Trach": "phàm nhân" }),
+    );
     expect(result.pass).toBe(false);
+    expect(result.issues[0]).toContain("sự kiện đột phá");
+  });
+
+  it("includes mention count in issue message", () => {
+    // Need > 24 mentions to trigger failure
+    const content = Array(30).fill("đột phá").join(". ");
+    const result = realmJumpCheck.run(makeInput(content));
+    expect(result.pass).toBe(false);
+    expect(result.issues[0]).toContain("lần nhắc");
   });
 });

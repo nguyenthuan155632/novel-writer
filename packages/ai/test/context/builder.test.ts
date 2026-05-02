@@ -33,6 +33,7 @@ vi.mock("../../src/context/retrieval.js", () => ({
     .fn()
     .mockResolvedValue([] as TimelineEventCompact[]),
   getPendingCanonUpdatesForStory: vi.fn().mockResolvedValue([]),
+  getStoryTargetChapterCount: vi.fn().mockResolvedValue(100),
 }));
 
 const mockEmbeddingService: EmbeddingService = {
@@ -157,18 +158,21 @@ describe("buildContext progress meta", () => {
     expect(result.meta.arcPhase).toBe("climax");
     expect(result.meta.sagaRange).toBe("10/10");
     expect(result.meta.arcRange).toBe("3/3");
+    expect(result.meta.sagaProgressSource).toBe("planned_range");
+    expect(result.meta.arcProgressSource).toBe("planned_range");
     expect(result.meta.activeTurningPoint).toBe("TP2");
   });
 
-  it("returns null progress fields for open-ended sagas/arcs", async () => {
+  it("uses story target as fallback for open-ended saga and arc progress", async () => {
     const retrieval = await import("../../src/context/retrieval.js");
+    vi.mocked(retrieval.getStoryTargetChapterCount).mockResolvedValueOnce(100);
     vi.mocked(retrieval.getSagaForChapter).mockResolvedValueOnce({
       id: "saga-1",
       storyId: "story-1",
       premise: "",
       startChapter: 1,
       endChapter: null,
-      expectedTurningPoints: [],
+      expectedTurningPoints: ["TP1", "TP2", "TP3", "TP4"],
       rollingSummary: null,
     } as any);
     vi.mocked(retrieval.getArcById).mockResolvedValueOnce({
@@ -176,7 +180,7 @@ describe("buildContext progress meta", () => {
       storyId: "story-1",
       sagaId: "saga-1",
       premise: "",
-      startChapter: null,
+      startChapter: 1,
       endChapter: null,
       mainConflict: null,
       expectedChanges: [],
@@ -185,12 +189,16 @@ describe("buildContext progress meta", () => {
       rollingSummary: null,
     } as any);
 
-    const result = await buildContext({ ...baseDeps, chapterNumber: 5 });
+    const result = await buildContext({ ...baseDeps, chapterNumber: 25 });
 
-    expect(result.meta.sagaProgressPercent).toBeNull();
-    expect(result.meta.arcProgressPercent).toBeNull();
-    expect(result.meta.sagaPhase).toBeNull();
-    expect(result.meta.arcPhase).toBeNull();
-    expect(result.meta.activeTurningPoint).toBeNull();
+    expect(result.meta.sagaProgressPercent).toBe(25);
+    expect(result.meta.arcProgressPercent).toBe(25);
+    expect(result.meta.sagaProgressSource).toBe("story_target_fallback");
+    expect(result.meta.arcProgressSource).toBe("story_target_fallback");
+    expect(result.meta.sagaRange).toBe("25/100");
+    expect(result.meta.arcRange).toBe("25/100");
+    expect(result.meta.sagaPhase).toBe("setup");
+    expect(result.meta.arcPhase).toBe("setup");
+    expect(result.meta.activeTurningPoint).toBe("TP1");
   });
 });

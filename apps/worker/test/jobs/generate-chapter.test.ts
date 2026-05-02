@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockGetArcForChapter = vi.fn();
 const mockOpenCodeProvider = vi.fn();
@@ -14,6 +14,14 @@ const mockLoadStoryDomainContext = vi.fn().mockResolvedValue({
   storyOptions: {},
   genreFamily: 'cultivation',
 });
+
+async function expectNoArcFailureWithRetries(
+  run: Promise<unknown>,
+): Promise<void> {
+  const assertion = expect(run).rejects.toThrow(/No arc found/);
+  await vi.advanceTimersByTimeAsync(20_000);
+  await assertion;
+}
 
 vi.mock('@novel/ai', () => ({
   PacketGenerator: class {},
@@ -32,10 +40,12 @@ vi.mock('@novel/ai', () => ({
   detectConflicts: vi.fn(),
   formatValidationReport: vi.fn().mockReturnValue(''),
   loadStoryDomainContext: mockLoadStoryDomainContext,
+  computeProgressWindow: vi.fn().mockReturnValue(null),
   getStoryBible: vi.fn().mockResolvedValue(null),
   getArcById: vi.fn(),
   getArcForChapter: mockGetArcForChapter,
   getSagaForChapter: vi.fn().mockResolvedValue(null),
+  getStoryTargetChapterCount: vi.fn().mockResolvedValue(100),
   getActiveCharacters: vi.fn().mockResolvedValue([]),
   getOpenThreadsForStory: vi.fn().mockResolvedValue([]),
   getPlantedSeedsForStory: vi.fn().mockResolvedValue([]),
@@ -126,14 +136,19 @@ describe('executeGenerateChapterPipeline', () => {
     loggedInner = undefined;
   });
 
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it('uses the OpenRouter provider when the job was enqueued with openrouter selected', async () => {
+    vi.useFakeTimers();
     mockGetArcForChapter.mockResolvedValue(null);
     process.env.OPENROUTER_API_KEY = 'openrouter-key';
 
     const fakeLogger = { child: () => fakeLogger, info: () => {}, warn: () => {}, error: () => {} };
     const { runGenerateChapterJob } = await import('../../src/jobs/generate-chapter.js');
 
-    await expect(runGenerateChapterJob(
+    await expectNoArcFailureWithRetries(runGenerateChapterJob(
       {
         storyId: '00000000-0000-0000-0000-000000000001',
         chapterNumber: 1,
@@ -142,7 +157,7 @@ describe('executeGenerateChapterPipeline', () => {
         llmProvider: 'openrouter',
       } as any,
       { logger: fakeLogger as any },
-    )).rejects.toThrow(/No arc found/);
+    ));
 
     expect(mockOpenRouterProvider).toHaveBeenCalledWith(expect.objectContaining({
       apiKey: 'openrouter-key',
@@ -153,13 +168,14 @@ describe('executeGenerateChapterPipeline', () => {
   });
 
   it('uses the Ollama provider when the job was enqueued with ollama selected', async () => {
+    vi.useFakeTimers();
     mockGetArcForChapter.mockResolvedValue(null);
     process.env.OLLAMA_BASE_URL = 'http://127.0.0.1:11434/v1';
 
     const fakeLogger = { child: () => fakeLogger, info: () => {}, warn: () => {}, error: () => {} };
     const { runGenerateChapterJob } = await import('../../src/jobs/generate-chapter.js');
 
-    await expect(runGenerateChapterJob(
+    await expectNoArcFailureWithRetries(runGenerateChapterJob(
       {
         storyId: '00000000-0000-0000-0000-000000000001',
         chapterNumber: 1,
@@ -168,7 +184,7 @@ describe('executeGenerateChapterPipeline', () => {
         llmProvider: 'ollama',
       } as any,
       { logger: fakeLogger as any },
-    )).rejects.toThrow(/No arc found/);
+    ));
 
     expect(mockOllamaProvider).toHaveBeenCalledWith(expect.objectContaining({
       baseUrl: 'http://127.0.0.1:11434/v1',
@@ -179,13 +195,14 @@ describe('executeGenerateChapterPipeline', () => {
   });
 
   it('uses the vMLX provider when the job was enqueued with vmlx selected', async () => {
+    vi.useFakeTimers();
     mockGetArcForChapter.mockResolvedValue(null);
     process.env.VMLX_BASE_URL = 'http://127.0.0.1:8000/v1';
 
     const fakeLogger = { child: () => fakeLogger, info: () => {}, warn: () => {}, error: () => {} };
     const { runGenerateChapterJob } = await import('../../src/jobs/generate-chapter.js');
 
-    await expect(runGenerateChapterJob(
+    await expectNoArcFailureWithRetries(runGenerateChapterJob(
       {
         storyId: '00000000-0000-0000-0000-000000000001',
         chapterNumber: 1,
@@ -194,7 +211,7 @@ describe('executeGenerateChapterPipeline', () => {
         llmProvider: 'vmlx',
       } as any,
       { logger: fakeLogger as any },
-    )).rejects.toThrow(/No arc found/);
+    ));
 
     expect(mockVmlxProvider).toHaveBeenCalledWith(expect.objectContaining({
       baseUrl: 'http://127.0.0.1:8000/v1',

@@ -1,4 +1,5 @@
 import type { ChapterPacket } from "../schemas/packet.js";
+import type { ProgressWindowSource } from "./progress.js";
 
 export type StyleFewShot = { excerpt: string; sourceChapter?: number };
 
@@ -118,6 +119,8 @@ export type ChapterContext = {
     warmHash: string;
     sagaProgressPercent: number | null;
     arcProgressPercent: number | null;
+    sagaProgressSource: ProgressWindowSource | null;
+    arcProgressSource: ProgressWindowSource | null;
     sagaRange: string | null;
     arcRange: string | null;
     sagaPhase: "setup" | "development" | "climax_buildup" | "climax" | null;

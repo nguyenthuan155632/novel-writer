@@ -6,11 +6,23 @@ import {
   canonFacts,
   chapters,
   openThreads,
+  pendingCanonUpdates,
   sagas,
   storyBibles,
   timelineEvents,
 } from "@novel/db/schema";
-import { eq, and, asc, desc, gte, isNull, lte, or, sql } from "drizzle-orm";
+import {
+  eq,
+  and,
+  asc,
+  desc,
+  gte,
+  isNull,
+  lte,
+  or,
+  sql,
+  count,
+} from "drizzle-orm";
 import { newTraceId } from "@novel/core/trace";
 import {
   enqueueGenerateChapter,
@@ -110,6 +122,27 @@ const plugin: FastifyPluginCallback = (app, _opts, done) => {
         )
         .limit(1);
       if (!row) return reply.code(404).send({ error: "chapter_not_found" });
+
+      // Safeguard: auto-complete if paused_pending_updates but nothing left to review
+      if (row.status === "paused_pending_updates") {
+        const [pendingRow] = await db
+          .select({ pending: count() })
+          .from(pendingCanonUpdates)
+          .where(
+            and(
+              eq(pendingCanonUpdates.chapterId, row.id),
+              eq(pendingCanonUpdates.resolution, "pending"),
+            ),
+          );
+        if (!pendingRow || pendingRow.pending === 0) {
+          await db
+            .update(chapters)
+            .set({ status: "completed", updatedAt: new Date() })
+            .where(eq(chapters.id, row.id));
+          row.status = "completed";
+        }
+      }
+
       return reply.send({ chapter: row });
     },
   );

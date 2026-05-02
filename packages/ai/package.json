@@ -11,6 +11,8 @@
     "./agents/*": "./src/agents/*.ts",
     "./schemas/*": "./src/schemas/*.ts",
     "./prompts/*": "./src/prompts/*.ts",
+    "./utils/*": "./src/utils/*.ts",
+    "./validators/deterministic/*": "./src/validators/deterministic/*.ts",
     "./llm-call-logger": "./src/llm-call-logger.ts"
   },
   "scripts": {

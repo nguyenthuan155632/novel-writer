@@ -1,6 +1,10 @@
-import { getArc } from '@/lib/api/arcs';
+import { getArc } from "@/lib/api/arcs";
 
-export default async function ArcDetail({ params }: { params: Promise<{ id: string; arcId: string }> }) {
+export default async function ArcDetail({
+  params,
+}: {
+  params: Promise<{ id: string; arcId: string }>;
+}) {
   const { id, arcId } = await params;
   let arc: Awaited<ReturnType<typeof getArc>> | null = null;
   let error: string | null = null;
@@ -28,18 +32,43 @@ export default async function ArcDetail({ params }: { params: Promise<{ id: stri
         <div>
           <p className="studio-kicker">Arc</p>
           <h1>{arc.title}</h1>
-          <p className="meta-line">Chapters {arc.startChapter}–{arc.endChapter} · summary v{arc.summaryVersion}</p>
+          <p className="meta-line">
+            Chapters {arc.startChapter}–{arc.endChapter} · summary v
+            {arc.summaryVersion}
+          </p>
         </div>
       </header>
       <section className="studio-panel">
         <h2 style={{ marginTop: 0 }}>Premise</h2>
         <p>{arc.premise}</p>
         <h2>Expected changes</h2>
-        <ul>{arc.expectedChanges.map((c, i) => <li key={i}>{c}</li>)}</ul>
+        <ul>
+          {arc.expectedChanges.map((c, i) => (
+            <li key={i}>{c}</li>
+          ))}
+        </ul>
+        <h2>Covered turning points</h2>
+        {arc.coveredTurningPoints.length > 0 ? (
+          <ul>
+            {arc.coveredTurningPoints.map((tp) => (
+              <li key={tp}>TP {tp}</li>
+            ))}
+          </ul>
+        ) : (
+          <p className="muted">(none)</p>
+        )}
         <h2>Seeds to resolve in arc</h2>
-        <ul>{arc.seedsToResolveInArc.map((k) => <li key={k}><code>{k}</code></li>)}</ul>
+        <ul>
+          {arc.seedsToResolveInArc.map((k) => (
+            <li key={k}>
+              <code>{k}</code>
+            </li>
+          ))}
+        </ul>
         <h2>Rolling summary</h2>
-        <pre style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>{arc.rollingSummary ?? '(not generated)'}</pre>
+        <pre style={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
+          {arc.rollingSummary ?? "(not generated)"}
+        </pre>
       </section>
     </>
   );

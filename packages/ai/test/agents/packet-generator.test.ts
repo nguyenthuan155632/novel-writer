@@ -85,4 +85,70 @@ describe('PacketGenerator', () => {
     expect(r.packet.notes?.length ?? 0).toBeLessThanOrEqual(500);
     expect(provider.getCalls().length).toBe(2);
   });
+
+  it('includes packet planning context in the JSON repair call', async () => {
+    let callCount = 0;
+    const provider = new MockProvider({
+      responder: {
+        kind: 'fn',
+        fn: () => {
+          callCount++;
+          return {
+            content: callCount === 1 ? '{"chapterNumber":' : VALID_PACKET,
+            usage: {
+              inputTokens: 100,
+              outputTokens: 50,
+              cachedInputTokens: 0,
+            },
+            finishReason: 'stop',
+            raw: { mocked: true },
+          };
+        },
+      },
+    });
+    const gen = new PacketGenerator({ provider, logger: silentLogger });
+
+    await gen.generate({
+      bibleCompact: 'BIBLE_MARKER long-term world constraints',
+      arcSummary: 'ARC_MARKER current arc plan',
+      recentChapterSummaries: [{ chapterNumber: 3, summary: 'RECENT_MARKER' }],
+      activeCharacters: [
+        {
+          name: 'Lam Trach',
+          currentRealm: 'none',
+          status: 'alive',
+          faction: 'Night Bureau',
+        },
+      ],
+      openThreads: [{ title: 'THREAD_MARKER missing witness', state: 'open' }],
+      duePlantedSeeds: [
+        {
+          id: 'seed-1',
+          seedText: 'SEED_MARKER red umbrella',
+          payoffDescription: 'reveals assassin',
+          plantWindowEnd: 5,
+        },
+      ],
+      overdueThreads: [],
+      forbiddenRules: 'FORBIDDEN_MARKER do not resolve betrayal',
+      chapterNumber: 5,
+      arcGoals: 'PROGRESS_MARKER arc 5/10 source=planned_range',
+      genreDef: { slug: 'do_thi', viLabel: 'Đô thị', viDescription: '', family: 'urban', allowedTropes: [], discouragedTropes: [], toneGuidance: '', worldbuildingGuidance: '', examplePremises: [] } as any,
+      personalityDef: { slug: 'tram_on', viLabel: '', viDescription: '', voiceHints: '', decisionStyle: '', dialogueStyle: '', conflictResponse: '', driftSignals: [] } as any,
+      storyOptions: { pov: 'first', tone: 'dark' } as any,
+    }, { traceId: 't', storyId: 's' });
+
+    const repairCall = provider.getCalls()[1];
+    const repairUser = repairCall?.messages.find((m) => m.role === 'user')?.content ?? '';
+
+    expect(repairUser).toContain('# PACKET REPAIR CONTEXT');
+    expect(repairUser).toContain('BIBLE_MARKER');
+    expect(repairUser).toContain('ARC_MARKER');
+    expect(repairUser).toContain('RECENT_MARKER');
+    expect(repairUser).toContain('THREAD_MARKER');
+    expect(repairUser).toContain('SEED_MARKER');
+    expect(repairUser).toContain('FORBIDDEN_MARKER');
+    expect(repairUser).toContain('PROGRESS_MARKER');
+    expect(repairUser).toContain('STORY OPTIONS');
+  });
 });

@@ -22,7 +22,7 @@ import {
   runDeterministicValidator,
   type DeterministicValidatorResult,
   buildContext,
-  computeProgressPercent,
+  computeProgressWindow,
   type ChapterContext,
   type CheckInput,
   CanonMerger,
@@ -37,12 +37,18 @@ import {
   getOpenThreadsForStory,
   getSeedsDueForChapter,
   getRecentSummaries,
+  getStoryTargetChapterCount,
   type EmbeddingService,
   OpenRouterEmbeddingService,
   formatValidationReport,
   loadStoryDomainContext,
   type StoryDomainContext,
 } from "@novel/ai";
+import { verifyDeterministicFindings } from "@novel/ai/validators/deterministic/verifier";
+import {
+  parseRealmLadder,
+  DEFAULT_REALM_LADDER,
+} from "@novel/ai/utils/realm-order";
 import { mkdir, writeFile } from "fs/promises";
 import { join } from "path";
 import { OpenCodeProvider } from "@novel/ai/providers/opencode";
@@ -81,7 +87,10 @@ export interface GenerateChapterDeps {
   effectiveConfig?: EffectiveConfig;
 }
 
-function serializeContextForWriter(ctx: ChapterContext): string {
+export function serializeContextForWriter(
+  ctx: ChapterContext,
+  opts?: { realmLadder?: readonly string[] },
+): string {
   const parts: string[] = [];
 
   if (ctx.hot.systemRules) parts.push(`# SYSTEM RULES\n${ctx.hot.systemRules}`);
@@ -89,6 +98,13 @@ function serializeContextForWriter(ctx: ChapterContext): string {
     parts.push(`# BIBLE COMPACT\n${ctx.hot.bibleCompact}`);
   if (ctx.hot.styleGuide) parts.push(`# STYLE GUIDE\n${ctx.hot.styleGuide}`);
   if (ctx.hot.powerSystem) parts.push(`# POWER RULES\n${ctx.hot.powerSystem}`);
+
+  // Inject structured power progression ladder so the LLM knows exact order
+  if (opts?.realmLadder && opts.realmLadder.length > 0) {
+    parts.push(
+      `# POWER PROGRESSION (thấp → cao)\n${opts.realmLadder.join(" → ")}`,
+    );
+  }
 
   for (const shot of ctx.hot.styleFewShots) {
     parts.push(`# STYLE EXAMPLE\n${shot.excerpt}`);
@@ -102,14 +118,22 @@ function serializeContextForWriter(ctx: ChapterContext): string {
   if (ctx.meta.sagaProgressPercent != null) {
     const range = ctx.meta.sagaRange ? ` (chapter ${ctx.meta.sagaRange})` : "";
     const phase = ctx.meta.sagaPhase ? `, phase=${ctx.meta.sagaPhase}` : "";
+    const source = ctx.meta.sagaProgressSource
+      ? `, source=${ctx.meta.sagaProgressSource}`
+      : "";
     progressLines.push(
-      `Saga: ${ctx.meta.sagaProgressPercent}%${range}${phase}`,
+      `Saga: ${ctx.meta.sagaProgressPercent}%${range}${phase}${source}`,
     );
   }
   if (ctx.meta.arcProgressPercent != null) {
     const range = ctx.meta.arcRange ? ` (chapter ${ctx.meta.arcRange})` : "";
     const phase = ctx.meta.arcPhase ? `, phase=${ctx.meta.arcPhase}` : "";
-    progressLines.push(`Arc: ${ctx.meta.arcProgressPercent}%${range}${phase}`);
+    const source = ctx.meta.arcProgressSource
+      ? `, source=${ctx.meta.arcProgressSource}`
+      : "";
+    progressLines.push(
+      `Arc: ${ctx.meta.arcProgressPercent}%${range}${phase}${source}`,
+    );
   }
   if (ctx.meta.activeTurningPoint) {
     progressLines.push(`Active turning point: ${ctx.meta.activeTurningPoint}`);
@@ -225,7 +249,31 @@ function serializeContextForWriter(ctx: ChapterContext): string {
   return parts.join("\n\n");
 }
 
-function buildCanonSnapshotFromContext(ctx: ChapterContext): CanonSnapshot {
+/**
+ * Resolve the realm ladder for a story bible with fallback cascade:
+ * 1. bible.realmLadder (structured, from LLM at bible-gen time)
+ * 2. parseRealmLadder(bible.cultivationSystem) (heuristic parse of free-form text)
+ * 3. DEFAULT_REALM_LADDER only if genreFamily === 'cultivation' (backward-compat)
+ * 4. [] (empty) for non-cultivation stories without a ladder
+ */
+function resolveRealmLadder(
+  bible: { realmLadder?: string[] | null; cultivationSystem?: string | null },
+  genreFamily: string,
+): string[] {
+  if (bible.realmLadder && bible.realmLadder.length > 0) {
+    return bible.realmLadder;
+  }
+  const parsed = parseRealmLadder(bible.cultivationSystem);
+  if (parsed.length > 0) return parsed;
+  // Only use the hardcoded default for cultivation stories (backward-compat)
+  if (genreFamily === "cultivation") return [...DEFAULT_REALM_LADDER];
+  return [];
+}
+
+function buildCanonSnapshotFromContext(
+  ctx: ChapterContext,
+  realmLadder?: string[],
+): CanonSnapshot {
   return {
     characters: ctx.warm.activeCharacters.map((c) => ({
       id: c.id,
@@ -256,6 +304,7 @@ function buildCanonSnapshotFromContext(ctx: ChapterContext): CanonSnapshot {
       lockedFields:
         f.status === "destroyed" || f.status === "absorbed" ? ["status"] : [],
     })),
+    realmLadder,
   };
 }
 
@@ -631,43 +680,54 @@ export async function executeGenerateChapterPipeline(
         t.state !== "resolved" && t.introducedChapter < data.chapterNumber - 10,
     );
 
-    const saga = await getSagaForChapter(db, data.storyId, data.chapterNumber);
+    const [saga, storyTargetChapterCount] = await Promise.all([
+      getSagaForChapter(db, data.storyId, data.chapterNumber),
+      getStoryTargetChapterCount(db, data.storyId),
+    ]);
 
-    const arcStart = arc?.startChapter ?? data.chapterNumber;
-    const arcEnd = arc?.endChapter ?? data.chapterNumber;
-    const arcSpan = Math.max(1, arcEnd - arcStart + 1);
-    const arcPosition = data.chapterNumber - arcStart + 1;
-    const arcProgressPct = computeProgressPercent(
-      data.chapterNumber,
-      arcStart,
-      arcEnd,
-    );
-    const chaptersRemainingInArc = Math.max(0, arcEnd - data.chapterNumber);
+    const arcProgress = computeProgressWindow({
+      chapterNumber: data.chapterNumber,
+      startChapter: arc?.startChapter,
+      endChapter: arc?.endChapter,
+      fallbackEndChapter: saga?.endChapter ?? storyTargetChapterCount,
+      fallbackSource:
+        saga?.endChapter != null
+          ? "saga_end_fallback"
+          : "story_target_fallback",
+    });
+    const chaptersRemainingInArc = arcProgress
+      ? Math.max(0, arcProgress.endChapter - data.chapterNumber)
+      : 0;
 
     let pacingHint = "";
-    if (arc?.endChapter != null && arc?.startChapter != null) {
+    if (arcProgress) {
       const urgency =
-        arcProgressPct >= 80
+        arcProgress.percent >= 80
           ? `Chỉ còn ${chaptersRemainingInArc} chương trong arc — nên đẩy plot về phía climax, tránh filler hoặc kéo dài không cần thiết.`
-          : arcProgressPct >= 50
+          : arcProgress.percent >= 50
             ? `Đã qua nửa arc — mỗi chương nên có tiến triển rõ rệt về nhân vật hoặc resolve ít nhất 1 thread.`
             : `Giai đoạn xây dựng arc — mỗi chương nên đẩy ít nhất 1 thread tiến lên.`;
-      pacingHint = `\n\n# PACING (arc ${arcPosition}/${arcSpan} ≈ ${arcProgressPct}%)\n${urgency}`;
+      pacingHint = `\n\n# PACING (arc ${arcProgress.range} ≈ ${arcProgress.percent}%, source=${arcProgress.source})\n${urgency}`;
     }
 
+    const sagaProgress = computeProgressWindow({
+      chapterNumber: data.chapterNumber,
+      startChapter: saga?.startChapter,
+      endChapter: saga?.endChapter,
+      fallbackEndChapter: storyTargetChapterCount,
+      fallbackSource: "story_target_fallback",
+    });
+
     if (
-      saga?.startChapter != null &&
-      saga?.endChapter != null &&
-      Array.isArray(saga.expectedTurningPoints) &&
+      sagaProgress &&
+      Array.isArray(saga?.expectedTurningPoints) &&
       saga.expectedTurningPoints.length > 0
     ) {
-      const sagaSpan = Math.max(1, saga.endChapter - saga.startChapter + 1);
-      const sagaPosition = data.chapterNumber - saga.startChapter + 1;
-      const sagaProgressPct = computeProgressPercent(
-        data.chapterNumber,
-        saga.startChapter,
-        saga.endChapter,
+      const sagaSpan = Math.max(
+        1,
+        sagaProgress.endChapter - sagaProgress.startChapter + 1,
       );
+      const sagaPosition = data.chapterNumber - sagaProgress.startChapter + 1;
       const tps = saga.expectedTurningPoints as string[];
       const expectedTpIndex = Math.min(
         tps.length - 1,
@@ -684,7 +744,7 @@ export async function executeGenerateChapterPipeline(
           return `${i + 1}. ${marker} ${tp}`;
         })
         .join("\n");
-      pacingHint += `\n\n# SAGA PACING (saga ${sagaPosition}/${sagaSpan} ≈ ${sagaProgressPct}%)
+      pacingHint += `\n\n# SAGA PACING (saga ${sagaProgress.range} ≈ ${sagaProgress.percent}%, source=${sagaProgress.source})
 Đối chiếu với # 5 CHƯƠNG GẦN NHẤT: nếu turning point được đánh dấu [trễ tiến độ] mà chưa thấy trong các chương đó, chương này nên đẩy nó xảy ra để truyện bắt kịp nhịp saga.
 Turning points của saga:
 ${tpList}`;
@@ -744,6 +804,7 @@ Trạng thái hiện tại: ${currentRealms || "(chưa xác định)"}`;
       forbiddenRules: bible.forbiddenRules,
       chapterNumber: data.chapterNumber,
       arcGoals: (arc?.mainConflict ?? arc?.premise ?? "") + pacingHint,
+      realmLadder: resolveRealmLadder(bible, domain.genreFamily),
     };
 
     const packetModel = modelForRole(effectiveConfig, "packet_generator");
@@ -807,6 +868,7 @@ Trạng thái hiện tại: ${currentRealms || "(chưa xác định)"}`;
 
     const auditResult = auditPacket(auditInput, {
       genreFamily: domain.genreFamily,
+      realmLadder: resolveRealmLadder(bible, domain.genreFamily),
     });
 
     if (auditResult.requiresRegenerate && attemptCount < 2) {
@@ -882,7 +944,9 @@ Trạng thái hiện tại: ${currentRealms || "(chưa xác định)"}`;
         | undefined,
     });
 
-    const serializedContext = serializeContextForWriter(context);
+    const serializedContext = serializeContextForWriter(context, {
+      realmLadder: resolveRealmLadder(bible, domain.genreFamily),
+    });
 
     const writerModel = modelForRole(effectiveConfig, "writer");
     const writer = new WriterAgent({
@@ -915,6 +979,39 @@ Trạng thái hiện tại: ${currentRealms || "(chưa xác định)"}`;
       checkInput,
       checks,
     );
+
+    // Phase 2: LLM verification of flagged candidates (unknown_character, unknown_location, etc.)
+    if (detResult.pendingVerification.length > 0) {
+      const verifierModel = modelForRole(
+        effectiveConfig,
+        "deterministic_verifier",
+      );
+      const verifyResult = await verifyDeterministicFindings(
+        { provider, model: verifierModel, logger: log },
+        detResult.pendingVerification,
+      );
+      accumulateUsage(verifyResult.usage, tokenAcc);
+      totalCost += estimateCostUsd(verifierModel, verifyResult.usage);
+
+      // Merge confirmed issues back into detResult
+      for (const confirmed of verifyResult.confirmed) {
+        const existing = detResult.checks.find(
+          (c) => c.id === confirmed.checkId,
+        );
+        if (existing) {
+          existing.pass = false;
+          existing.issues.push(confirmed.issue);
+        }
+        detResult.pass = false;
+      }
+
+      if (verifyResult.dismissed.length > 0) {
+        log.info(
+          { dismissed: verifyResult.dismissed },
+          "LLM verifier dismissed false positives from deterministic checks",
+        );
+      }
+    }
 
     await db
       .update(chapters)
@@ -1092,7 +1189,10 @@ Trạng thái hiện tại: ${currentRealms || "(chưa xác định)"}`;
       logger: log,
       model: canonExtractorModel,
     });
-    const canonSnapshot = buildCanonSnapshotFromContext(context);
+    const canonSnapshot = buildCanonSnapshotFromContext(
+      context,
+      resolveRealmLadder(bible, domain.genreFamily),
+    );
     const canonSnapshotText = buildCanonSnapshotText(canonSnapshot);
 
     const extractionResult = await canonExtractor.extract(

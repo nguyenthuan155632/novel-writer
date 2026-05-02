@@ -20,4 +20,10 @@ describe('renderGenreContract', () => {
     expect(out).toContain('Tuỳ chọn');
     expect(out).not.toContain('Avoid unless explicitly in canon:');
   });
+
+  it('keeps story options authoritative for voice and mood within the selected genre', () => {
+    const out = renderGenreContract(findGenre('mat_the'), { tone: 'soft', darkLevel: 'bright' });
+    expect(out).toContain('Tone: Nhẹ nhàng');
+    expect(out).toContain('Story options thắng cho tone, pacing, POV, morality và mức độ sáng/tối');
+  });
 });

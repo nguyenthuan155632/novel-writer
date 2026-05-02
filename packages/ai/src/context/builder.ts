@@ -33,11 +33,21 @@ import {
   getFactionsForStory,
   getTimelineEventsForChapter,
   getPendingCanonUpdatesForStory,
+  getStoryTargetChapterCount,
 } from "./retrieval.js";
 import { shrinkToFit } from "./shrink.js";
 import { renderGenreContract } from "../prompts/contracts/genre-contract.js";
 import { renderPersonalityContract } from "../prompts/contracts/personality-contract.js";
-import { renderStoryOptionsBlock } from "../prompts/contracts/story-options-block.js";
+import { buildStoryOptionsBlock } from "../prompts/contracts/story-options-block.js";
+import { computeProgressWindow, progressPhaseFor } from "./progress.js";
+
+export {
+  computeProgressPercent,
+  computeProgressWindow,
+  progressPhaseFor,
+  type ProgressPhase,
+  type ProgressWindowSource,
+} from "./progress.js";
 
 interface BuilderLogger {
   child(bindings: Record<string, unknown>): BuilderLogger;
@@ -84,9 +94,10 @@ export async function buildContext(
 
   const hot = buildHotTier(bible, deps.domain, cfg);
 
-  const [saga, arc] = await Promise.all([
+  const [saga, arc, storyTargetChapterCount] = await Promise.all([
     getSagaForChapter(db, storyId, chapterNumber),
     getArcById(db, arcId),
+    getStoryTargetChapterCount(db, storyId),
   ]);
 
   const [
@@ -207,48 +218,39 @@ export async function buildContext(
   const hotHash = computeHotHash(hot);
   const warmHash = computeWarmHash(warm);
 
-  // Compute saga/arc progress percentages.
-  // Inclusive: writing chapterNumber == endChapter → 100%; first chapter → 1/span.
-  // Matches the pacing-hint formula in apps/worker/src/jobs/generate-chapter.ts so
-  // both the writer (via ctx.meta) and the packet generator (via pacingHint) see
-  // the same number for the same chapter.
-  const sagaProgressPercent =
-    saga?.startChapter != null && saga?.endChapter != null
-      ? computeProgressPercent(
-          chapterNumber,
-          saga.startChapter,
-          saga.endChapter,
-        )
-      : null;
+  const sagaProgress = computeProgressWindow({
+    chapterNumber,
+    startChapter: saga?.startChapter,
+    endChapter: saga?.endChapter,
+    fallbackEndChapter: storyTargetChapterCount,
+    fallbackSource: "story_target_fallback",
+  });
 
-  const arcProgressPercent =
-    arc?.startChapter != null && arc?.endChapter != null
-      ? computeProgressPercent(chapterNumber, arc.startChapter, arc.endChapter)
-      : null;
+  const arcProgress = computeProgressWindow({
+    chapterNumber,
+    startChapter: arc?.startChapter,
+    endChapter: arc?.endChapter,
+    fallbackEndChapter: saga?.endChapter ?? storyTargetChapterCount,
+    fallbackSource:
+      saga?.endChapter != null ? "saga_end_fallback" : "story_target_fallback",
+  });
 
-  const sagaRange =
-    saga?.startChapter != null && saga?.endChapter != null
-      ? `${chapterNumber - saga.startChapter + 1}/${saga.endChapter - saga.startChapter + 1}`
-      : null;
-
-  const arcRange =
-    arc?.startChapter != null && arc?.endChapter != null
-      ? `${chapterNumber - arc.startChapter + 1}/${arc.endChapter - arc.startChapter + 1}`
-      : null;
-
-  const sagaPhase = progressPhaseFor(sagaProgressPercent);
-  const arcPhase = progressPhaseFor(arcProgressPercent);
+  const sagaPhase = progressPhaseFor(sagaProgress?.percent ?? null);
+  const arcPhase = progressPhaseFor(arcProgress?.percent ?? null);
 
   let activeTurningPoint: string | null = null;
   if (
-    saga?.startChapter != null &&
-    saga?.endChapter != null &&
+    saga &&
+    sagaProgress &&
     Array.isArray(saga.expectedTurningPoints) &&
     (saga.expectedTurningPoints as string[]).length > 0
   ) {
     const tps = saga.expectedTurningPoints as string[];
-    const sagaSpan = Math.max(1, saga.endChapter - saga.startChapter + 1);
-    const sagaPosition = chapterNumber - saga.startChapter + 1;
+    const sagaSpan = Math.max(
+      1,
+      sagaProgress.endChapter - sagaProgress.startChapter + 1,
+    );
+    const sagaPosition = chapterNumber - sagaProgress.startChapter + 1;
     const idx = Math.min(
       tps.length - 1,
       Math.max(0, Math.floor((sagaPosition - 1) / (sagaSpan / tps.length))),
@@ -266,10 +268,12 @@ export async function buildContext(
       arcId,
       hotHash,
       warmHash,
-      sagaProgressPercent,
-      arcProgressPercent,
-      sagaRange,
-      arcRange,
+      sagaProgressPercent: sagaProgress?.percent ?? null,
+      arcProgressPercent: arcProgress?.percent ?? null,
+      sagaProgressSource: sagaProgress?.source ?? null,
+      arcProgressSource: arcProgress?.source ?? null,
+      sagaRange: sagaProgress?.range ?? null,
+      arcRange: arcProgress?.range ?? null,
       sagaPhase,
       arcPhase,
       activeTurningPoint,
@@ -311,7 +315,10 @@ function buildHotTier(
       styleFewShots: [],
       genreContract: renderGenreContract(domain.genreDef, domain.storyOptions),
       personalityContract: renderPersonalityContract(domain.personalityDef),
-      storyOptionsBlock: renderStoryOptionsBlock(domain.storyOptions),
+      storyOptionsBlock: buildStoryOptionsBlock({
+        storyOptions: domain.storyOptions,
+        target: "writer",
+      }),
     };
   }
 
@@ -336,33 +343,11 @@ function buildHotTier(
     styleFewShots: fewShots.slice(0, cfg.STYLE_FEWSHOT_COUNT),
     genreContract: renderGenreContract(domain.genreDef, domain.storyOptions),
     personalityContract: renderPersonalityContract(domain.personalityDef),
-    storyOptionsBlock: renderStoryOptionsBlock(domain.storyOptions),
+    storyOptionsBlock: buildStoryOptionsBlock({
+      storyOptions: domain.storyOptions,
+      target: "writer",
+    }),
   };
-}
-
-export function computeProgressPercent(
-  chapterNumber: number,
-  startChapter: number,
-  endChapter: number,
-): number {
-  const span = Math.max(1, endChapter - startChapter + 1);
-  const position = chapterNumber - startChapter + 1;
-  const clamped = Math.max(0, Math.min(span, position));
-  return Math.round((clamped / span) * 100);
-}
-
-export type ProgressPhase =
-  | "setup"
-  | "development"
-  | "climax_buildup"
-  | "climax";
-
-export function progressPhaseFor(percent: number | null): ProgressPhase | null {
-  if (percent == null) return null;
-  if (percent < 30) return "setup";
-  if (percent < 60) return "development";
-  if (percent < 80) return "climax_buildup";
-  return "climax";
 }
 
 function filterArcSeeds(

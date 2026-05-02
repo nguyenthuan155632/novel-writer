@@ -10,6 +10,7 @@ import {
   factions,
   timelineEvents,
   pendingCanonUpdates,
+  stories,
 } from "@novel/db/schema";
 import type { Db } from "@novel/db";
 import type { CanonFact, Saga, Arc, StoryBible } from "@novel/db/schema";
@@ -44,6 +45,18 @@ export async function getStoryBible(
     .orderBy(desc(storyBibles.version), desc(storyBibles.createdAt))
     .limit(1);
   return rows[0] ?? null;
+}
+
+export async function getStoryTargetChapterCount(
+  db: Db,
+  storyId: string,
+): Promise<number | null> {
+  const rows = await db
+    .select({ targetChapterCount: stories.targetChapterCount })
+    .from(stories)
+    .where(eq(stories.id, storyId))
+    .limit(1);
+  return rows[0]?.targetChapterCount ?? null;
 }
 
 export async function getSagaForChapter(

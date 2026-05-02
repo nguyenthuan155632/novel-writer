@@ -1,8 +1,8 @@
-'use client';
+"use client";
 
-import { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import { useChapterPolling } from '@/lib/hooks/use-chapter-polling';
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { useChapterPolling } from "@/lib/hooks/use-chapter-polling";
 
 interface ChapterStatusPollerProps {
   storyId: string;
@@ -10,18 +10,24 @@ interface ChapterStatusPollerProps {
   initialStatus: string;
 }
 
-export function ChapterStatusPoller({ storyId, chapterNumber, initialStatus }: ChapterStatusPollerProps) {
+export function ChapterStatusPoller({
+  storyId,
+  chapterNumber,
+  initialStatus,
+}: ChapterStatusPollerProps) {
   const router = useRouter();
   const isGenerating =
-    initialStatus === 'generating' ||
-    initialStatus === 'waiting' ||
-    initialStatus === 'paused_pending_updates';
+    initialStatus === "generating" || initialStatus === "waiting";
 
-  const { status, isActive } = useChapterPolling(storyId, chapterNumber, isGenerating);
+  const { status, isActive } = useChapterPolling(
+    storyId,
+    chapterNumber,
+    isGenerating,
+  );
 
   useEffect(() => {
     if (!isActive && status) {
-      const done = status.state === 'completed' || status.state === 'failed';
+      const done = status.state === "completed" || status.state === "failed";
       if (done) {
         router.refresh();
       }
@@ -34,7 +40,8 @@ export function ChapterStatusPoller({ storyId, chapterNumber, initialStatus }: C
     <div className="studio-panel" style={{ marginBottom: 16 }}>
       <p style={{ margin: 0 }}>
         <span className="loading-spinner" style={{ marginRight: 8 }}></span>
-        Generating chapter... {status ? `(${status.state})` : '(checking status)'}
+        Generating chapter...{" "}
+        {status ? `(${status.state})` : "(checking status)"}
       </p>
     </div>
   );

@@ -108,8 +108,12 @@ Assembles the 3-tier `ChapterContext` from DB + embeddings for chapter generatio
 
 ### Saga/Arc Progress Computation
 - `buildContext()` now computes `sagaProgressPercent` and `arcProgressPercent` in `ChapterContext.meta`
-- Formula: `((currentChapter - startChapter) / (endChapter - startChapter + 1)) * 100`, rounded
-- Returns `null` when saga/arc boundaries are not fully defined (startChapter or endChapter is null)
+- Exact planned-range formula: `round(clamp(currentChapter - startChapter + 1, 0, span) / span * 100)`, where `span = endChapter - startChapter + 1`
+- `sagaProgressSource` / `arcProgressSource` records the basis used in prompt text
+- Exact saga/arc ranges use `source=planned_range`
+- Missing saga end falls back to `stories.targetChapterCount` with `source=story_target_fallback`
+- Missing arc end falls back to the active saga end when available (`source=saga_end_fallback`), otherwise `stories.targetChapterCount` (`source=story_target_fallback`)
+- If no end boundary can be derived, progress remains `null` and is omitted from writer context
 
 ### powerSystemKind Default Fix
 - Default changed from `'cultivation'` to `'none'` when bible has no `powerSystemKind` set
@@ -124,3 +128,29 @@ Now includes these previously-missing sections:
 - `# KNOWN FACTIONS` (from WARM tier)
 - `# TIMELINE EVENTS` (from COLD tier)
 - Character `shortTraits` and `bloodlines` in ACTIVE CHARACTERS section
+
+### Progress Phase & Turning Point (Task 3)
+- Added `progressPhaseFor(percent)` helper: maps percent → `setup` (<30) | `development` (30–59) | `climax_buildup` (60–79) | `climax` (≥80)
+- `ChapterContext.meta` now includes:
+  - `sagaRange` / `arcRange` — e.g. `"3/20"` (current position / total span)
+  - `sagaPhase` / `arcPhase` — the `ProgressPhase` enum value (or null)
+  - `activeTurningPoint` — the saga turning point string active for the current chapter position (computed from `saga.expectedTurningPoints` evenly divided across the saga span)
+- Purpose: let the serializer emit stable, enum-tagged signals so the writer LLM doesn't have to do threshold math on raw percentages
+- Exported type: `ProgressPhase` from `packages/ai/src/context/builder.ts`
+
+### Writer STORY PROGRESS Enrichment (Task 4)
+- `serializeContextForWriter()` now renders enriched `# STORY PROGRESS` block
+- Saga/Arc lines include: range (e.g. `chapter 3/20`), phase label (e.g. `phase=development`), and progress source (e.g. `source=planned_range`)
+- `activeTurningPoint` rendered as its own line when present
+- Replaces old bare-percent format (`Saga progress: 60%` → `Saga: 60% (chapter 3/20), phase=development`)
+- Purpose: give the writer LLM stable, enum-tagged signals without requiring threshold math on raw percentages
+
+### Pending Canon Updates in COLD Tier (Task 5)
+- `buildContext()` now loads `pending_canon_updates` (resolution='pending') via `getPendingCanonUpdatesForStory()`
+- Limited to 10 most recent pending updates per story
+- Added `PendingCanonUpdateCompact` type to `types.ts` with fields: id, updateType, targetTable, conflictStatus, conflictReasons, summary
+- Added `compactPendingCanonUpdate()` helper to `compact.ts` — derives a human-readable summary from the payload's `name` or `fact` field
+- COLD tier now includes `pendingCanonUpdates: PendingCanonUpdateCompact[]`
+- `serializeContextForWriter()` renders a `# PENDING CANON UPDATES (chưa apply — KHÔNG dựa vào để viết)` section
+- Purpose: surface staged-but-unapplied canon changes to the writer so it's aware of what's pending, without treating them as established facts
+- Closes the "pending canon updates" gap identified in the LLM context audit's required-context list

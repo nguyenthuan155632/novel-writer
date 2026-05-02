@@ -92,6 +92,20 @@
       "when": 1779301200000,
       "tag": "0014_vmlx_provider",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1779388800000,
+      "tag": "0015_realm_ladder",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1779475200000,
+      "tag": "0016_arc_covered_turning_points",
+      "breakpoints": true
     }
   ]
 }
