@@ -122,3 +122,75 @@ describe("buildContext", () => {
     });
   });
 });
+
+describe("buildContext progress meta", () => {
+  it("computes 100% on the final chapter of a saga and arc", async () => {
+    const retrieval = await import("../../src/context/retrieval.js");
+    vi.mocked(retrieval.getSagaForChapter).mockResolvedValueOnce({
+      id: "saga-1",
+      storyId: "story-1",
+      premise: "",
+      startChapter: 1,
+      endChapter: 10,
+      expectedTurningPoints: ["TP1", "TP2"],
+      rollingSummary: null,
+    } as any);
+    vi.mocked(retrieval.getArcById).mockResolvedValueOnce({
+      id: "arc-1",
+      storyId: "story-1",
+      sagaId: "saga-1",
+      premise: "",
+      startChapter: 8,
+      endChapter: 10,
+      mainConflict: null,
+      expectedChanges: [],
+      expectedPowerChanges: [],
+      expectedCharacterChanges: [],
+      rollingSummary: null,
+    } as any);
+
+    const result = await buildContext({ ...baseDeps, chapterNumber: 10 });
+
+    expect(result.meta.sagaProgressPercent).toBe(100);
+    expect(result.meta.arcProgressPercent).toBe(100);
+    expect(result.meta.sagaPhase).toBe("climax");
+    expect(result.meta.arcPhase).toBe("climax");
+    expect(result.meta.sagaRange).toBe("10/10");
+    expect(result.meta.arcRange).toBe("3/3");
+    expect(result.meta.activeTurningPoint).toBe("TP2");
+  });
+
+  it("returns null progress fields for open-ended sagas/arcs", async () => {
+    const retrieval = await import("../../src/context/retrieval.js");
+    vi.mocked(retrieval.getSagaForChapter).mockResolvedValueOnce({
+      id: "saga-1",
+      storyId: "story-1",
+      premise: "",
+      startChapter: 1,
+      endChapter: null,
+      expectedTurningPoints: [],
+      rollingSummary: null,
+    } as any);
+    vi.mocked(retrieval.getArcById).mockResolvedValueOnce({
+      id: "arc-1",
+      storyId: "story-1",
+      sagaId: "saga-1",
+      premise: "",
+      startChapter: null,
+      endChapter: null,
+      mainConflict: null,
+      expectedChanges: [],
+      expectedPowerChanges: [],
+      expectedCharacterChanges: [],
+      rollingSummary: null,
+    } as any);
+
+    const result = await buildContext({ ...baseDeps, chapterNumber: 5 });
+
+    expect(result.meta.sagaProgressPercent).toBeNull();
+    expect(result.meta.arcProgressPercent).toBeNull();
+    expect(result.meta.sagaPhase).toBeNull();
+    expect(result.meta.arcPhase).toBeNull();
+    expect(result.meta.activeTurningPoint).toBeNull();
+  });
+});
