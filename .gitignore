@@ -11,3 +11,20 @@ coverage/
 # Superpowers
 *state/
 .worktrees/
+
+# Obsidian local/device state
+docs/graph/.obsidian/workspace.json
+docs/graph/.obsidian/workspace-mobile.json
+
+# Obsidian plugin settings/secrets
+docs/graph/.obsidian/plugins/*/data.json
+
+# Local REST API plugin: contains local config / API key-ish sensitive stuff
+docs/graph/.obsidian/plugins/obsidian-local-rest-api/data.json
+
+# Optional: don't commit installed plugin binaries
+docs/graph/.obsidian/plugins/
+
+# OS trash/cache
+docs/graph/.trash/
+docs/graph/.DS_Store

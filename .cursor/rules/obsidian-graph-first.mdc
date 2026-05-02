@@ -1,0 +1,33 @@
+---
+description: "Always consult Obsidian MCP graph before planning or changing code"
+alwaysApply: true
+---
+
+# Obsidian Graph First Protocol
+
+You have access to Obsidian through MCP.
+
+Before doing any non-trivial task:
+- Search Obsidian first.
+- Read relevant notes before planning.
+- Use the Obsidian graph/docs as the architecture memory for this repo.
+- Mention which Obsidian notes were consulted before proposing changes.
+
+Use Obsidian first for tasks involving:
+- architecture
+- worker flow
+- database schema
+- AI/LLM provider logic
+- validation
+- prompt logic
+- story generation domain concepts
+- retries, failures, job states
+- refactors
+- debugging
+
+After code changes:
+- Update Obsidian notes if behavior, architecture, schema, flow, or domain meaning changed.
+- If no suitable note exists, create one.
+
+Never store secret values in Obsidian.
+Only document env var names.
