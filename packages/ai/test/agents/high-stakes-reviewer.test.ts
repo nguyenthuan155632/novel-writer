@@ -1,49 +1,126 @@
-import { describe, it, expect, vi } from 'vitest';
-import { HighStakesReviewerAgent } from '../../src/agents/high-stakes-reviewer.ts';
-import { MockProvider } from '../../src/providers/mock.ts';
-import type { Logger } from '../../src/agents/packet-generator.ts';
-import '../../src/prompts/high-stakes-reviewer.v2.ts';
+import { describe, it, expect, vi } from "vitest";
+import { HighStakesReviewerAgent } from "../../src/agents/high-stakes-reviewer.ts";
+import { MockProvider } from "../../src/providers/mock.ts";
+import type { Logger } from "../../src/agents/packet-generator.ts";
+import "../../src/prompts/high-stakes-reviewer.v2.ts";
 
-const silentLogger: Logger = { child: () => silentLogger, error: () => {}, info: () => {} };
+const silentLogger: Logger = {
+  child: () => silentLogger,
+  error: () => {},
+  info: () => {},
+};
 
-vi.mock('@novel/db', () => ({
+vi.mock("@novel/db", () => ({
   getDb: () => ({
-    insert: () => ({ values: () => ({ returning: async () => [{ id: 'rev-1' }] }) }),
+    insert: () => ({
+      values: () => ({ returning: async () => [{ id: "rev-1" }] }),
+    }),
   }),
 }));
-vi.mock('@novel/db/schema', () => ({
+vi.mock("@novel/db/schema", () => ({
   highStakesReviews: {} as any,
 }));
 
-describe('HighStakesReviewerAgent.review', () => {
-  it('persists row + returns parsed output', async () => {
+describe("HighStakesReviewerAgent.review", () => {
+  it("persists row + returns parsed output", async () => {
     const provider = new MockProvider({
-      responder: { kind: 'fixed', content: JSON.stringify({ approve: true, concerns: [], recommendedActions: [] }) },
+      responder: {
+        kind: "fixed",
+        content: JSON.stringify({
+          approve: true,
+          concerns: [],
+          recommendedActions: [],
+        }),
+      },
     });
-    const agent = new HighStakesReviewerAgent({ provider, logger: silentLogger });
+    const agent = new HighStakesReviewerAgent({
+      provider,
+      logger: silentLogger,
+    });
     const r = await agent.review({
-      storyId: 's', chapterId: 'c', chapterNumber: 1, triggerReason: 'manual',
-      chapter: { title: 'Chapter 1', content: 'content' }, arcSummary: 'a', bibleCompact: 'b',
-      genreDef: { slug: 'tien_hiep', viLabel: 'Tiên hiệp', viDescription: '', family: 'cultivation', allowedTropes: [], discouragedTropes: [], toneGuidance: '', worldbuildingGuidance: '', examplePremises: [] } as any,
-      personalityDef: { slug: 'tram_on', viLabel: '', viDescription: '', voiceHints: '', decisionStyle: '', dialogueStyle: '', conflictResponse: '', driftSignals: [] } as any,
+      storyId: "s",
+      chapterId: "c",
+      chapterNumber: 1,
+      triggerReason: "manual",
+      chapter: { title: "Chapter 1", content: "content" },
+      arcSummary: "a",
+      bibleCompact: "b",
+      genreDef: {
+        slug: "tien_hiep",
+        viLabel: "Tiên hiệp",
+        viDescription: "",
+        family: "cultivation",
+        allowedTropes: [],
+        discouragedTropes: [],
+        toneGuidance: "",
+        worldbuildingGuidance: "",
+        examplePremises: [],
+      } as any,
+      personalityDef: {
+        slug: "tram_on",
+        viLabel: "",
+        viDescription: "",
+        voiceHints: "",
+        decisionStyle: "",
+        dialogueStyle: "",
+        conflictResponse: "",
+        driftSignals: [],
+      } as any,
+      storyOptions: {} as any,
     });
-    expect(r.reviewId).toBe('rev-1');
+    expect(r.reviewId).toBe("rev-1");
     expect(r.output.approve).toBe(true);
   });
 
-  it('uses the injected model route', async () => {
+  it("uses the injected model route", async () => {
     const provider = new MockProvider({
-      responder: { kind: 'fixed', content: JSON.stringify({ approve: true, concerns: [], recommendedActions: [] }) },
+      responder: {
+        kind: "fixed",
+        content: JSON.stringify({
+          approve: true,
+          concerns: [],
+          recommendedActions: [],
+        }),
+      },
     });
-    const agent = new HighStakesReviewerAgent({ provider, logger: silentLogger, model: 'gemma4:e4b' });
+    const agent = new HighStakesReviewerAgent({
+      provider,
+      logger: silentLogger,
+      model: "gemma4:e4b",
+    });
 
     await agent.review({
-      storyId: 's', chapterId: 'c', chapterNumber: 1, triggerReason: 'manual',
-      chapter: { title: 'Chapter 1', content: 'content' }, arcSummary: 'a', bibleCompact: 'b',
-      genreDef: { slug: 'tien_hiep', viLabel: 'Tiên hiệp', viDescription: '', family: 'cultivation', allowedTropes: [], discouragedTropes: [], toneGuidance: '', worldbuildingGuidance: '', examplePremises: [] } as any,
-      personalityDef: { slug: 'tram_on', viLabel: '', viDescription: '', voiceHints: '', decisionStyle: '', dialogueStyle: '', conflictResponse: '', driftSignals: [] } as any,
+      storyId: "s",
+      chapterId: "c",
+      chapterNumber: 1,
+      triggerReason: "manual",
+      chapter: { title: "Chapter 1", content: "content" },
+      arcSummary: "a",
+      bibleCompact: "b",
+      genreDef: {
+        slug: "tien_hiep",
+        viLabel: "Tiên hiệp",
+        viDescription: "",
+        family: "cultivation",
+        allowedTropes: [],
+        discouragedTropes: [],
+        toneGuidance: "",
+        worldbuildingGuidance: "",
+        examplePremises: [],
+      } as any,
+      personalityDef: {
+        slug: "tram_on",
+        viLabel: "",
+        viDescription: "",
+        voiceHints: "",
+        decisionStyle: "",
+        dialogueStyle: "",
+        conflictResponse: "",
+        driftSignals: [],
+      } as any,
+      storyOptions: {} as any,
     });
 
-    expect(provider.getCalls()[0]!.model).toBe('gemma4:e4b');
+    expect(provider.getCalls()[0]!.model).toBe("gemma4:e4b");
   });
 });

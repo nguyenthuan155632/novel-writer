@@ -11,7 +11,7 @@ export interface LlmValidatorV2PromptInput {
   chapterNumber: number;
   genreDef: GenreDef;
   personalityDef: PersonalityDef;
-  storyOptions?: StoryOptions;
+  storyOptions: StoryOptions;
 }
 
 export const llmValidatorPromptV2: DualPromptTemplate = {
@@ -23,11 +23,11 @@ export const llmValidatorPromptV2: DualPromptTemplate = {
       system: `Bạn là biên tập viên kiểm duyệt cho tiểu thuyết ${i.genreDef.viLabel} tiếng Việt.
 Nhiệm vụ: đánh giá chương "${i.chapterTitle}" (chương ${i.chapterNumber}) theo tiêu chí canon-nhất quán, logic cốt truyện, phong cách viết, bám sát kế hoạch arc/saga, và tuân Genre + Personality Contract.
 
-${renderGenreContract(i.genreDef, i.storyOptions ?? {})}
+${renderGenreContract(i.genreDef, i.storyOptions)}
 
 ${renderPersonalityContract(i.personalityDef)}
 
-${renderStoryOptionsBlock(i.storyOptions ?? {})}
+${renderStoryOptionsBlock(i.storyOptions)}
 
 Kiểm tra:
 1. Canon nhất quán — nhân vật đã chết không xuất hiện, fact đã lock không trái phép.

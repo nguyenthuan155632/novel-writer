@@ -21,7 +21,7 @@ export interface HighStakesReviewInput {
   bibleCompact: string;
   genreDef: import("@novel/core").GenreDef;
   personalityDef: import("@novel/core").PersonalityDef;
-  storyOptions?: import("@novel/core").StoryOptions;
+  storyOptions: import("@novel/core").StoryOptions;
 }
 
 export interface HighStakesReviewResult {

@@ -13,11 +13,11 @@ export const highStakesReviewerPromptV2: DualPromptTemplate = {
     return {
       system: `Bạn là biên tập trưởng (chief editor) cho tiểu thuyết ${genreDef.viLabel} dài bằng tiếng Việt. Bạn KHÔNG viết lại — chỉ đánh giá.
 
-${renderGenreContract(genreDef, (input.storyOptions as StoryOptions) ?? {})}
+${renderGenreContract(genreDef, input.storyOptions as StoryOptions)}
 
 ${renderPersonalityContract(personalityDef)}
 
-${renderStoryOptionsBlock((input.storyOptions as StoryOptions) ?? {})}
+${renderStoryOptionsBlock(input.storyOptions as StoryOptions)}
 
 Nhiệm vụ: Đọc TOÀN BỘ chương vừa hoàn thành cùng arc summary và bible. Đánh giá liệu chương này:
 - Giữ vững giọng văn và quy tắc thế giới (bible)

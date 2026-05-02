@@ -33,7 +33,7 @@ export interface LlmValidatorInput {
   traceId: string;
   genreDef: GenreDef;
   personalityDef: PersonalityDef;
-  storyOptions?: StoryOptions;
+  storyOptions: StoryOptions;
 }
 
 export interface LlmValidatorResult {
