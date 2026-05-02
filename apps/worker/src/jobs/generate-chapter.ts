@@ -98,13 +98,21 @@ function serializeContextForWriter(ctx: ChapterContext): string {
   if (ctx.hot.personalityContract) parts.push(ctx.hot.personalityContract);
   if (ctx.hot.storyOptionsBlock) parts.push(ctx.hot.storyOptionsBlock);
 
-  // Saga/Arc progress metadata
   const progressLines: string[] = [];
   if (ctx.meta.sagaProgressPercent != null) {
-    progressLines.push(`Saga progress: ${ctx.meta.sagaProgressPercent}%`);
+    const range = ctx.meta.sagaRange ? ` (chapter ${ctx.meta.sagaRange})` : "";
+    const phase = ctx.meta.sagaPhase ? `, phase=${ctx.meta.sagaPhase}` : "";
+    progressLines.push(
+      `Saga: ${ctx.meta.sagaProgressPercent}%${range}${phase}`,
+    );
   }
   if (ctx.meta.arcProgressPercent != null) {
-    progressLines.push(`Arc progress: ${ctx.meta.arcProgressPercent}%`);
+    const range = ctx.meta.arcRange ? ` (chapter ${ctx.meta.arcRange})` : "";
+    const phase = ctx.meta.arcPhase ? `, phase=${ctx.meta.arcPhase}` : "";
+    progressLines.push(`Arc: ${ctx.meta.arcProgressPercent}%${range}${phase}`);
+  }
+  if (ctx.meta.activeTurningPoint) {
+    progressLines.push(`Active turning point: ${ctx.meta.activeTurningPoint}`);
   }
   if (progressLines.length > 0) {
     parts.push(`# STORY PROGRESS\n${progressLines.join("\n")}`);
