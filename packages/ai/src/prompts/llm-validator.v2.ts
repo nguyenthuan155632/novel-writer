@@ -1,7 +1,8 @@
-import type { GenreDef, PersonalityDef } from '@novel/core';
-import { registerPrompt, type DualPromptTemplate } from './registry.ts';
-import { renderGenreContract } from './contracts/genre-contract.ts';
-import { renderPersonalityContract } from './contracts/personality-contract.ts';
+import type { GenreDef, PersonalityDef, StoryOptions } from "@novel/core";
+import { registerPrompt, type DualPromptTemplate } from "./registry.ts";
+import { renderGenreContract } from "./contracts/genre-contract.ts";
+import { renderPersonalityContract } from "./contracts/personality-contract.ts";
+import { renderStoryOptionsBlock } from "./contracts/story-options-block.ts";
 
 export interface LlmValidatorV2PromptInput {
   serializedContext: string;
@@ -10,20 +11,23 @@ export interface LlmValidatorV2PromptInput {
   chapterNumber: number;
   genreDef: GenreDef;
   personalityDef: PersonalityDef;
+  storyOptions?: StoryOptions;
 }
 
 export const llmValidatorPromptV2: DualPromptTemplate = {
-  agentRole: 'llm_validator',
-  version: 'v2',
+  agentRole: "llm_validator",
+  version: "v2",
   build: (input) => {
     const i = input as unknown as LlmValidatorV2PromptInput;
     return {
       system: `Bạn là biên tập viên kiểm duyệt cho tiểu thuyết ${i.genreDef.viLabel} tiếng Việt.
 Nhiệm vụ: đánh giá chương "${i.chapterTitle}" (chương ${i.chapterNumber}) theo tiêu chí canon-nhất quán, logic cốt truyện, phong cách viết, bám sát kế hoạch arc/saga, và tuân Genre + Personality Contract.
 
-${renderGenreContract(i.genreDef, {})}
+${renderGenreContract(i.genreDef, i.storyOptions ?? {})}
 
 ${renderPersonalityContract(i.personalityDef)}
+
+${renderStoryOptionsBlock(i.storyOptions ?? {})}
 
 Kiểm tra:
 1. Canon nhất quán — nhân vật đã chết không xuất hiện, fact đã lock không trái phép.

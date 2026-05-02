@@ -1,20 +1,23 @@
-import type { GenreDef, PersonalityDef } from '@novel/core';
-import { registerPrompt, type DualPromptTemplate } from './registry.ts';
-import { renderGenreContract } from './contracts/genre-contract.ts';
-import { renderPersonalityContract } from './contracts/personality-contract.ts';
+import type { GenreDef, PersonalityDef, StoryOptions } from "@novel/core";
+import { registerPrompt, type DualPromptTemplate } from "./registry.ts";
+import { renderGenreContract } from "./contracts/genre-contract.ts";
+import { renderPersonalityContract } from "./contracts/personality-contract.ts";
+import { renderStoryOptionsBlock } from "./contracts/story-options-block.ts";
 
 export const highStakesReviewerPromptV2: DualPromptTemplate = {
-  agentRole: 'high_stakes_reviewer',
-  version: 'v2',
+  agentRole: "high_stakes_reviewer",
+  version: "v2",
   build: (input) => {
     const genreDef = input.genreDef as GenreDef;
     const personalityDef = input.personalityDef as PersonalityDef;
     return {
       system: `Bạn là biên tập trưởng (chief editor) cho tiểu thuyết ${genreDef.viLabel} dài bằng tiếng Việt. Bạn KHÔNG viết lại — chỉ đánh giá.
 
-${renderGenreContract(genreDef, {})}
+${renderGenreContract(genreDef, (input.storyOptions as StoryOptions) ?? {})}
 
 ${renderPersonalityContract(personalityDef)}
+
+${renderStoryOptionsBlock((input.storyOptions as StoryOptions) ?? {})}
 
 Nhiệm vụ: Đọc TOÀN BỘ chương vừa hoàn thành cùng arc summary và bible. Đánh giá liệu chương này:
 - Giữ vững giọng văn và quy tắc thế giới (bible)

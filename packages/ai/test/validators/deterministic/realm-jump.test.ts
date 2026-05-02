@@ -32,6 +32,7 @@ function makeInput(
         retrievedFacts: [],
         retrievedPastChapters: [],
         seedsToPlantNow: [],
+        timelineEvents: [],
         packet: {} as any,
       },
       meta: {
@@ -40,6 +41,8 @@ function makeInput(
         arcId: "a1",
         hotHash: "",
         warmHash: "",
+        sagaProgressPercent: null,
+        arcProgressPercent: null,
         targetInputBudget: 6000,
       },
     },

@@ -1,21 +1,35 @@
-import { describe, expect, it } from 'vitest';
-import { shrinkToFit } from '../../src/context/shrink.js';
-import type { ChapterContext, HotTier, WarmTier, ColdTier, CharacterCompact } from '../../src/context/types.js';
-import { estimateTokensJson } from '@novel/core/utils/tokens';
+import { describe, expect, it } from "vitest";
+import { shrinkToFit } from "../../src/context/shrink.js";
+import type {
+  ChapterContext,
+  HotTier,
+  WarmTier,
+  ColdTier,
+  CharacterCompact,
+} from "../../src/context/types.js";
+import { estimateTokensJson } from "@novel/core/utils/tokens";
 
-function makeContext(overrides?: { hot?: Partial<HotTier>; warm?: Partial<WarmTier>; cold?: Partial<ColdTier> }): ChapterContext {
+function makeContext(overrides?: {
+  hot?: Partial<HotTier>;
+  warm?: Partial<WarmTier>;
+  cold?: Partial<ColdTier>;
+}): ChapterContext {
   return {
     hot: {
-      systemRules: 'rules',
-      bibleCompact: 'compact',
-      styleGuide: 'guide',
-      powerSystem: 'power', powerSystemKind: '', genreContract: '', personalityContract: '', storyOptionsBlock: '',
+      systemRules: "rules",
+      bibleCompact: "compact",
+      styleGuide: "guide",
+      powerSystem: "power",
+      powerSystemKind: "",
+      genreContract: "",
+      personalityContract: "",
+      storyOptionsBlock: "",
       styleFewShots: [],
       ...overrides?.hot,
     },
     warm: {
-      sagaSummary: 'saga',
-      arcSummary: 'arc',
+      sagaSummary: "saga",
+      arcSummary: "arc",
       activeCharacters: [],
       arcOpenThreads: [],
       arcPlantedSeeds: [],
@@ -26,30 +40,33 @@ function makeContext(overrides?: { hot?: Partial<HotTier>; warm?: Partial<WarmTi
       retrievedFacts: [],
       retrievedPastChapters: [],
       seedsToPlantNow: [],
+      timelineEvents: [],
       packet: {
         chapterNumber: 1,
-        goal: 'test goal',
+        goal: "test goal",
         requiredEvents: [],
         charactersPresent: [],
-        conflict: 'test conflict',
-        cliffhanger: 'test cliffhanger',
+        conflict: "test conflict",
+        cliffhanger: "test cliffhanger",
         forbiddenMoves: [],
       },
       ...overrides?.cold,
     },
     meta: {
-      storyId: 's1',
+      storyId: "s1",
       chapterNumber: 1,
-      arcId: 'a1',
-      hotHash: '',
-      warmHash: '',
+      arcId: "a1",
+      hotHash: "",
+      warmHash: "",
+      sagaProgressPercent: null,
+      arcProgressPercent: null,
       targetInputBudget: 6000,
     },
   };
 }
 
-describe('shrinkToFit', () => {
-  it('does not shrink when already within budget', () => {
+describe("shrinkToFit", () => {
+  it("does not shrink when already within budget", () => {
     const ctx = makeContext();
     const budget = 100000;
     const result = shrinkToFit(ctx, budget);
@@ -57,16 +74,30 @@ describe('shrinkToFit', () => {
     expect(result.cold.retrievedFacts).toEqual([]);
   });
 
-  it('drops retrievedPastChapters first', () => {
+  it("drops retrievedPastChapters first", () => {
     const ctx = makeContext({
       cold: {
-        recentSummaries: [{ chapterNumber: 1, summary: 'a'.repeat(1000) }],
-        retrievedFacts: [{ id: 'f1', topic: 'magic', importance: 'high', fact: 'b'.repeat(200) }],
-        retrievedPastChapters: [{ chapterNumber: 1, summary: 'c'.repeat(1000) }],
+        recentSummaries: [{ chapterNumber: 1, summary: "a".repeat(1000) }],
+        retrievedFacts: [
+          {
+            id: "f1",
+            topic: "magic",
+            importance: "high",
+            fact: "b".repeat(200),
+          },
+        ],
+        retrievedPastChapters: [
+          { chapterNumber: 1, summary: "c".repeat(1000) },
+        ],
         seedsToPlantNow: [],
         packet: {
-          chapterNumber: 1, goal: 'g', requiredEvents: [], charactersPresent: [],
-          conflict: 'c', cliffhanger: 'h', forbiddenMoves: [],
+          chapterNumber: 1,
+          goal: "g",
+          requiredEvents: [],
+          charactersPresent: [],
+          conflict: "c",
+          cliffhanger: "h",
+          forbiddenMoves: [],
         },
       },
     });
@@ -75,16 +106,23 @@ describe('shrinkToFit', () => {
     expect(result.cold.retrievedPastChapters).toEqual([]);
   });
 
-  it('drops retrievedFacts second', () => {
+  it("drops retrievedFacts second", () => {
     const ctx = makeContext({
       cold: {
         retrievedPastChapters: [],
-        retrievedFacts: [{ id: 'f1', topic: 'realm', importance: 'high', fact: 'fact' }],
+        retrievedFacts: [
+          { id: "f1", topic: "realm", importance: "high", fact: "fact" },
+        ],
         recentSummaries: [],
         seedsToPlantNow: [],
         packet: {
-          chapterNumber: 1, goal: 'g', requiredEvents: [], charactersPresent: [],
-          conflict: 'c', cliffhanger: 'h', forbiddenMoves: [],
+          chapterNumber: 1,
+          goal: "g",
+          requiredEvents: [],
+          charactersPresent: [],
+          conflict: "c",
+          cliffhanger: "h",
+          forbiddenMoves: [],
         },
       },
     });
@@ -94,15 +132,15 @@ describe('shrinkToFit', () => {
     expect(result.cold.retrievedFacts).toEqual([]);
   });
 
-  it('strips character optional fields in compact mode', () => {
+  it("strips character optional fields in compact mode", () => {
     const fullChar: CharacterCompact = {
-      id: 'c1',
-      name: 'Linh',
-      currentRealm: 'kim đan',
-      status: 'alive',
-      bloodlines: ['Hỏa Long'],
-      faction: 'Thiên Môn',
-      shortTraits: ['dũng cảm'],
+      id: "c1",
+      name: "Linh",
+      currentRealm: "kim đan",
+      status: "alive",
+      bloodlines: ["Hỏa Long"],
+      faction: "Thiên Môn",
+      shortTraits: ["dũng cảm"],
     };
     const ctx = makeContext({
       warm: { activeCharacters: [fullChar] },
@@ -110,24 +148,31 @@ describe('shrinkToFit', () => {
     const smallBudget = 10;
     const result = shrinkToFit(ctx, smallBudget);
     expect(result.warm.activeCharacters[0]).toEqual({
-      id: 'c1',
-      name: 'Linh',
-      status: 'alive',
+      id: "c1",
+      name: "Linh",
+      status: "alive",
       bloodlines: [],
       shortTraits: [],
     });
   });
 
-  it('does not mutate the original context', () => {
+  it("does not mutate the original context", () => {
     const ctx = makeContext({
       cold: {
-        retrievedPastChapters: [{ chapterNumber: 5, summary: 'test' }],
-        retrievedFacts: [{ id: 'f1', topic: 'realm', importance: 'high', fact: 'fact' }],
+        retrievedPastChapters: [{ chapterNumber: 5, summary: "test" }],
+        retrievedFacts: [
+          { id: "f1", topic: "realm", importance: "high", fact: "fact" },
+        ],
         recentSummaries: [],
         seedsToPlantNow: [],
         packet: {
-          chapterNumber: 1, goal: 'g', requiredEvents: [], charactersPresent: [],
-          conflict: 'c', cliffhanger: 'h', forbiddenMoves: [],
+          chapterNumber: 1,
+          goal: "g",
+          requiredEvents: [],
+          charactersPresent: [],
+          conflict: "c",
+          cliffhanger: "h",
+          forbiddenMoves: [],
         },
       },
     });

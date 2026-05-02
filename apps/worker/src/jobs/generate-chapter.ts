@@ -22,6 +22,7 @@ import {
   runDeterministicValidator,
   type DeterministicValidatorResult,
   buildContext,
+  computeProgressPercent,
   type ChapterContext,
   type CheckInput,
   CanonMerger,
@@ -93,15 +94,35 @@ function serializeContextForWriter(ctx: ChapterContext): string {
     parts.push(`# STYLE EXAMPLE\n${shot.excerpt}`);
   }
 
+  if (ctx.hot.genreContract) parts.push(ctx.hot.genreContract);
+  if (ctx.hot.personalityContract) parts.push(ctx.hot.personalityContract);
+  if (ctx.hot.storyOptionsBlock) parts.push(ctx.hot.storyOptionsBlock);
+
+  // Saga/Arc progress metadata
+  const progressLines: string[] = [];
+  if (ctx.meta.sagaProgressPercent != null) {
+    progressLines.push(`Saga progress: ${ctx.meta.sagaProgressPercent}%`);
+  }
+  if (ctx.meta.arcProgressPercent != null) {
+    progressLines.push(`Arc progress: ${ctx.meta.arcProgressPercent}%`);
+  }
+  if (progressLines.length > 0) {
+    parts.push(`# STORY PROGRESS\n${progressLines.join("\n")}`);
+  }
+
   if (ctx.warm.sagaSummary)
     parts.push(`# SAGA SUMMARY\n${ctx.warm.sagaSummary}`);
   if (ctx.warm.arcSummary) parts.push(`# ARC SUMMARY\n${ctx.warm.arcSummary}`);
   if (ctx.warm.activeCharacters.length > 0) {
     const chars = ctx.warm.activeCharacters
-      .map(
-        (c) =>
-          `- ${c.name} [${c.status}] realm=${c.currentRealm ?? "-"} faction=${c.faction ?? "-"}`,
-      )
+      .map((c) => {
+        let line = `- ${c.name} [${c.status}] realm=${c.currentRealm ?? "-"} faction=${c.faction ?? "-"}`;
+        if (c.shortTraits.length > 0)
+          line += ` traits=[${c.shortTraits.join(", ")}]`;
+        if (c.bloodlines.length > 0)
+          line += ` bloodlines=[${c.bloodlines.join(", ")}]`;
+        return line;
+      })
       .join("\n");
     parts.push(`# ACTIVE CHARACTERS\n${chars}`);
   }
@@ -121,6 +142,13 @@ function serializeContextForWriter(ctx: ChapterContext): string {
       .map((s) => `- "${s.seedText}" → ${s.payoffDescription} [${s.status}]`)
       .join("\n");
     parts.push(`# PLANTED SEEDS\n${seeds}`);
+  }
+
+  if (ctx.warm.knownFactions && ctx.warm.knownFactions.length > 0) {
+    const factionLines = ctx.warm.knownFactions
+      .map((f) => `- ${f.name} [${f.status}]${f.type ? ` type=${f.type}` : ""}`)
+      .join("\n");
+    parts.push(`# KNOWN FACTIONS\n${factionLines}`);
   }
 
   if (ctx.cold.recentSummaries.length > 0) {
@@ -149,6 +177,13 @@ function serializeContextForWriter(ctx: ChapterContext): string {
       )
       .join("\n");
     parts.push(`# SEEDS DUE THIS CHAPTER\n${due}`);
+  }
+
+  if (ctx.cold.timelineEvents && ctx.cold.timelineEvents.length > 0) {
+    const events = ctx.cold.timelineEvents
+      .map((e) => `- Ch${e.chapterNumber} [${e.importance}] ${e.eventText}`)
+      .join("\n");
+    parts.push(`# TIMELINE EVENTS\n${events}`);
   }
 
   if (ctx.cold.packet) {
@@ -197,7 +232,8 @@ function buildCanonSnapshotFromContext(ctx: ChapterContext): CanonSnapshot {
       status: f.status,
       type: f.type,
       // Lock status of terminal factions so canon-merger refuses accidental revives.
-      lockedFields: f.status === "destroyed" || f.status === "absorbed" ? ["status"] : [],
+      lockedFields:
+        f.status === "destroyed" || f.status === "absorbed" ? ["status"] : [],
     })),
   };
 }
@@ -580,7 +616,11 @@ export async function executeGenerateChapterPipeline(
     const arcEnd = arc?.endChapter ?? data.chapterNumber;
     const arcSpan = Math.max(1, arcEnd - arcStart + 1);
     const arcPosition = data.chapterNumber - arcStart + 1;
-    const arcProgressPct = Math.round((arcPosition / arcSpan) * 100);
+    const arcProgressPct = computeProgressPercent(
+      data.chapterNumber,
+      arcStart,
+      arcEnd,
+    );
     const chaptersRemainingInArc = Math.max(0, arcEnd - data.chapterNumber);
 
     let pacingHint = "";
@@ -602,7 +642,11 @@ export async function executeGenerateChapterPipeline(
     ) {
       const sagaSpan = Math.max(1, saga.endChapter - saga.startChapter + 1);
       const sagaPosition = data.chapterNumber - saga.startChapter + 1;
-      const sagaProgressPct = Math.round((sagaPosition / sagaSpan) * 100);
+      const sagaProgressPct = computeProgressPercent(
+        data.chapterNumber,
+        saga.startChapter,
+        saga.endChapter,
+      );
       const tps = saga.expectedTurningPoints as string[];
       const expectedTpIndex = Math.min(
         tps.length - 1,
@@ -916,6 +960,7 @@ Trạng thái hiện tại: ${currentRealms || "(chưa xác định)"}`;
         traceId,
         genreDef: domain.genreDef,
         personalityDef: domain.personalityDef,
+        storyOptions: domain.storyOptions,
       });
       accumulateUsage(llmValResult.usage, tokenAcc);
       totalCost += estimateCostUsd(llmValidatorModel, llmValResult.usage);
@@ -1086,6 +1131,7 @@ Trạng thái hiện tại: ${currentRealms || "(chưa xác định)"}`;
         chapterContent: writerResult.content,
         previousSummary: context.cold.recentSummaries[0]?.summary ?? "",
         bibleCompact: context.hot.bibleCompact,
+        genreFamily: domain.genreFamily,
       },
       { traceId, storyId: data.storyId },
     );

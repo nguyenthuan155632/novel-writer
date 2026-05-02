@@ -1,12 +1,26 @@
-import { GENERATION_CONFIG, MODEL_CONFIG, type GenreDef, type PersonalityDef } from '@novel/core';
-import type { LLMProvider } from '../providers/types.ts';
-import { llmValidatorPromptV2 } from '../prompts/llm-validator.v2.ts';
-import { withCompletionRetry } from '../parse-completion-json.ts';
-import { LlmValidatorOutputSchema, llmValidatorJsonSchema, type LlmValidatorOutput } from '../schemas/validator.ts';
+import {
+  GENERATION_CONFIG,
+  MODEL_CONFIG,
+  type GenreDef,
+  type PersonalityDef,
+  type StoryOptions,
+} from "@novel/core";
+import type { LLMProvider } from "../providers/types.ts";
+import { llmValidatorPromptV2 } from "../prompts/llm-validator.v2.ts";
+import { withCompletionRetry } from "../parse-completion-json.ts";
+import {
+  LlmValidatorOutputSchema,
+  llmValidatorJsonSchema,
+  type LlmValidatorOutput,
+} from "../schemas/validator.ts";
 
 export interface LlmValidatorDeps {
   provider: LLMProvider;
-  logger?: { info: (...args: any[]) => void; warn: (...args: any[]) => void; error: (...args: any[]) => void };
+  logger?: {
+    info: (...args: any[]) => void;
+    warn: (...args: any[]) => void;
+    error: (...args: any[]) => void;
+  };
   model?: string;
 }
 
@@ -19,11 +33,16 @@ export interface LlmValidatorInput {
   traceId: string;
   genreDef: GenreDef;
   personalityDef: PersonalityDef;
+  storyOptions?: StoryOptions;
 }
 
 export interface LlmValidatorResult {
   output: LlmValidatorOutput;
-  usage: { inputTokens: number; outputTokens: number; cachedInputTokens: number };
+  usage: {
+    inputTokens: number;
+    outputTokens: number;
+    cachedInputTokens: number;
+  };
   cost: number;
 }
 
@@ -38,18 +57,19 @@ export class LlmValidatorAgent {
       chapterNumber: input.chapterNumber,
       genreDef: input.genreDef,
       personalityDef: input.personalityDef,
+      storyOptions: input.storyOptions,
     } as unknown as Record<string, unknown>);
 
     let lastUsage = { inputTokens: 0, outputTokens: 0, cachedInputTokens: 0 };
     const parsed = LlmValidatorOutputSchema.parse(
       await withCompletionRetry(
-        'llm_validator',
+        "llm_validator",
         async () => {
           const res = await this.deps.provider.complete({
             model: this.deps.model ?? MODEL_CONFIG.routes.llm_validator,
             messages: [
-              { role: 'system', content: built.system },
-              { role: 'user', content: built.user },
+              { role: "system", content: built.system },
+              { role: "user", content: built.user },
             ],
             temperature: GENERATION_CONFIG.LLM_VALIDATOR_TEMPERATURE,
             responseSchema: llmValidatorJsonSchema,

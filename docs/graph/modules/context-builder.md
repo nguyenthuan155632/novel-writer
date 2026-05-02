@@ -97,3 +97,30 @@ Assembles the 3-tier `ChapterContext` from DB + embeddings for chapter generatio
 
 ## Related Flows
 - [[flows/chapter-generation-flow]]
+
+
+## Recent Changes (Context Pipeline Improvement)
+
+### Timeline Events Loading
+- `buildContext()` now loads `timeline_events` from the database via `getTimelineEventsForChapter()`
+- Timeline events are placed in the **COLD tier** as `timelineEvents: TimelineEventCompact[]`
+- Limited to the 20 most recent events up to the current chapter
+
+### Saga/Arc Progress Computation
+- `buildContext()` now computes `sagaProgressPercent` and `arcProgressPercent` in `ChapterContext.meta`
+- Formula: `((currentChapter - startChapter) / (endChapter - startChapter + 1)) * 100`, rounded
+- Returns `null` when saga/arc boundaries are not fully defined (startChapter or endChapter is null)
+
+### powerSystemKind Default Fix
+- Default changed from `'cultivation'` to `'none'` when bible has no `powerSystemKind` set
+- Prevents non-cultivation stories from inheriting cultivation-specific behavior
+
+### serializeContextForWriter() Improvements
+Now includes these previously-missing sections:
+- `# GENRE CONTRACT` (from HOT tier)
+- `# PROTAGONIST PERSONALITY CONTRACT` (from HOT tier)
+- `# STORY OPTIONS` (from HOT tier)
+- `# STORY PROGRESS` (saga/arc progress percentages)
+- `# KNOWN FACTIONS` (from WARM tier)
+- `# TIMELINE EVENTS` (from COLD tier)
+- Character `shortTraits` and `bloodlines` in ACTIVE CHARACTERS section

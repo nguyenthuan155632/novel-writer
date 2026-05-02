@@ -1,20 +1,42 @@
-import { CONTEXT_CONFIG, type ContextConfig } from '@novel/core';
-import type { GenreDef, PersonalityDef, StoryOptions, GenreFamily } from '@novel/core';
-import type { Db } from '@novel/db';
-import type { EmbeddingService } from '../embeddings/types.js';
-import type { ChapterPacket } from '../schemas/packet.js';
-import type { ChapterContext, HotTier, WarmTier, ColdTier, StyleFewShot, SeedCompact, CanonFactCompact } from './types.js';
-import { computeHotHash, computeWarmHash } from './cache-keys.js';
+import { CONTEXT_CONFIG, type ContextConfig } from "@novel/core";
+import type {
+  GenreDef,
+  PersonalityDef,
+  StoryOptions,
+  GenreFamily,
+} from "@novel/core";
+import type { Db } from "@novel/db";
+import type { EmbeddingService } from "../embeddings/types.js";
+import type { ChapterPacket } from "../schemas/packet.js";
+import type {
+  ChapterContext,
+  HotTier,
+  WarmTier,
+  ColdTier,
+  StyleFewShot,
+  SeedCompact,
+  CanonFactCompact,
+  TimelineEventCompact,
+} from "./types.js";
+import { computeHotHash, computeWarmHash } from "./cache-keys.js";
 import {
-  getStoryBible, getSagaForChapter, getArcById, getActiveCharacters,
-  getOpenThreadsForStory, getSeedsDueForChapter, getRecentSummaries,
-  getTopKCanonFacts, getPastChapterSummaries, getPlantedSeedsForStory,
+  getStoryBible,
+  getSagaForChapter,
+  getArcById,
+  getActiveCharacters,
+  getOpenThreadsForStory,
+  getSeedsDueForChapter,
+  getRecentSummaries,
+  getTopKCanonFacts,
+  getPastChapterSummaries,
+  getPlantedSeedsForStory,
   getFactionsForStory,
-} from './retrieval.js';
-import { shrinkToFit } from './shrink.js';
-import { renderGenreContract } from '../prompts/contracts/genre-contract.js';
-import { renderPersonalityContract } from '../prompts/contracts/personality-contract.js';
-import { renderStoryOptionsBlock } from '../prompts/contracts/story-options-block.js';
+  getTimelineEventsForChapter,
+} from "./retrieval.js";
+import { shrinkToFit } from "./shrink.js";
+import { renderGenreContract } from "../prompts/contracts/genre-contract.js";
+import { renderPersonalityContract } from "../prompts/contracts/personality-contract.js";
+import { renderStoryOptionsBlock } from "../prompts/contracts/story-options-block.js";
 
 interface BuilderLogger {
   child(bindings: Record<string, unknown>): BuilderLogger;
@@ -32,14 +54,30 @@ export type BuildContextDeps = {
   packet: ChapterPacket;
   embeddingService: EmbeddingService;
   traceId: string;
-  domain: { genreDef: GenreDef; personalityDef: PersonalityDef; storyOptions: StoryOptions; genreFamily: GenreFamily };
+  domain: {
+    genreDef: GenreDef;
+    personalityDef: PersonalityDef;
+    storyOptions: StoryOptions;
+    genreFamily: GenreFamily;
+  };
   config?: Partial<ContextConfig>;
   logger?: BuilderLogger;
 };
 
-export async function buildContext(deps: BuildContextDeps): Promise<ChapterContext> {
+export async function buildContext(
+  deps: BuildContextDeps,
+): Promise<ChapterContext> {
   const cfg = { ...CONTEXT_CONFIG, ...deps.config };
-  const { db, storyId, chapterNumber, arcId, packet, embeddingService, traceId, logger: log } = deps;
+  const {
+    db,
+    storyId,
+    chapterNumber,
+    arcId,
+    packet,
+    embeddingService,
+    traceId,
+    logger: log,
+  } = deps;
 
   const bible = await getStoryBible(db, storyId);
 
@@ -50,41 +88,70 @@ export async function buildContext(deps: BuildContextDeps): Promise<ChapterConte
     getArcById(db, arcId),
   ]);
 
-  const [characters, threads, allSeeds, dueSeeds, recentSummaries, knownFactions] = await Promise.all([
+  const [
+    characters,
+    threads,
+    allSeeds,
+    dueSeeds,
+    recentSummaries,
+    knownFactions,
+    timelineEventsRows,
+  ] = await Promise.all([
     getActiveCharacters(db, storyId, chapterNumber),
     getOpenThreadsForStory(db, storyId),
     getPlantedSeedsForStory(db, storyId),
     getSeedsDueForChapter(db, storyId, chapterNumber),
-    getRecentSummaries(db, storyId, chapterNumber, cfg.RECENT_CHAPTER_SUMMARIES_COUNT),
+    getRecentSummaries(
+      db,
+      storyId,
+      chapterNumber,
+      cfg.RECENT_CHAPTER_SUMMARIES_COUNT,
+    ),
     getFactionsForStory(db, storyId),
+    getTimelineEventsForChapter(db, storyId, chapterNumber),
   ]);
 
   const arcSeeds = filterArcSeeds(allSeeds, chapterNumber);
 
   const sagaPlanText = [
-    saga?.premise ? `Premise saga: ${saga.premise}` : '',
-    Array.isArray(saga?.expectedTurningPoints) && (saga.expectedTurningPoints as string[]).length > 0
-      ? `Turning points (nên theo thứ tự):\n${(saga.expectedTurningPoints as string[]).map((tp, i) => `  ${i + 1}. ${tp}`).join('\n')}`
-      : '',
-    saga?.rollingSummary ? `Đã xảy ra (rolling):\n${saga.rollingSummary}` : '',
-  ].filter(Boolean).join('\n\n');
+    saga?.premise ? `Premise saga: ${saga.premise}` : "",
+    Array.isArray(saga?.expectedTurningPoints) &&
+    (saga.expectedTurningPoints as string[]).length > 0
+      ? `Turning points (nên theo thứ tự):\n${(saga.expectedTurningPoints as string[]).map((tp, i) => `  ${i + 1}. ${tp}`).join("\n")}`
+      : "",
+    saga?.rollingSummary ? `Đã xảy ra (rolling):\n${saga.rollingSummary}` : "",
+  ]
+    .filter(Boolean)
+    .join("\n\n");
 
-  const arcExpectedChanges = Array.isArray(arc?.expectedChanges) ? (arc.expectedChanges as string[]) : [];
-  const arcExpectedPower = Array.isArray(arc?.expectedPowerChanges) ? (arc.expectedPowerChanges as string[]) : [];
-  const arcExpectedChar = Array.isArray(arc?.expectedCharacterChanges) ? (arc.expectedCharacterChanges as string[]) : [];
+  const arcExpectedChanges = Array.isArray(arc?.expectedChanges)
+    ? (arc.expectedChanges as string[])
+    : [];
+  const arcExpectedPower = Array.isArray(arc?.expectedPowerChanges)
+    ? (arc.expectedPowerChanges as string[])
+    : [];
+  const arcExpectedChar = Array.isArray(arc?.expectedCharacterChanges)
+    ? (arc.expectedCharacterChanges as string[])
+    : [];
   const arcPlanText = [
-    arc?.premise ? `Premise arc (kế hoạch gốc, KHÔNG đổi):\n${arc.premise}` : '',
+    arc?.premise
+      ? `Premise arc (kế hoạch gốc, KHÔNG đổi):\n${arc.premise}`
+      : "",
     arcExpectedChanges.length > 0
-      ? `Expected changes (nên xảy ra trong arc):\n${arcExpectedChanges.map((c, i) => `  ${i + 1}. ${c}`).join('\n')}`
-      : '',
+      ? `Expected changes (nên xảy ra trong arc):\n${arcExpectedChanges.map((c, i) => `  ${i + 1}. ${c}`).join("\n")}`
+      : "",
     arcExpectedPower.length > 0
-      ? `Thay đổi cảnh giới/sức mạnh dự kiến:\n${arcExpectedPower.map(c => `  - ${c}`).join('\n')}`
-      : '',
+      ? `Thay đổi cảnh giới/sức mạnh dự kiến:\n${arcExpectedPower.map((c) => `  - ${c}`).join("\n")}`
+      : "",
     arcExpectedChar.length > 0
-      ? `Thay đổi nhân vật dự kiến:\n${arcExpectedChar.map(c => `  - ${c}`).join('\n')}`
-      : '',
-    arc?.rollingSummary ? `Đã xảy ra (rolling — chỉ tránh lặp):\n${arc.rollingSummary}` : '',
-  ].filter(Boolean).join('\n\n');
+      ? `Thay đổi nhân vật dự kiến:\n${arcExpectedChar.map((c) => `  - ${c}`).join("\n")}`
+      : "",
+    arc?.rollingSummary
+      ? `Đã xảy ra (rolling — chỉ tránh lặp):\n${arc.rollingSummary}`
+      : "",
+  ]
+    .filter(Boolean)
+    .join("\n\n");
 
   const warm: WarmTier = {
     sagaSummary: sagaPlanText,
@@ -103,16 +170,23 @@ export async function buildContext(deps: BuildContextDeps): Promise<ChapterConte
       traceId,
     });
     retrievedFacts = await getTopKCanonFacts(
-      db, storyId, embResp.vector,
+      db,
+      storyId,
+      embResp.vector,
       cfg.RETRIEVED_CANON_FACTS_TOP_K,
       [...cfg.RETRIEVAL_MIN_IMPORTANCE],
     );
   } catch (err) {
-    log?.warn({ err, storyId, chapterNumber }, 'embedding lookup failed, skipping canon facts');
+    log?.warn(
+      { err, storyId, chapterNumber },
+      "embedding lookup failed, skipping canon facts",
+    );
   }
 
   const pastChapterSummaries = await getPastChapterSummaries(
-    db, storyId, chapterNumber,
+    db,
+    storyId,
+    chapterNumber,
     cfg.RETRIEVED_PAST_CHAPTERS_MIN_GAP,
     cfg.RETRIEVED_PAST_CHAPTERS_TOP_K,
   );
@@ -122,11 +196,31 @@ export async function buildContext(deps: BuildContextDeps): Promise<ChapterConte
     retrievedFacts,
     retrievedPastChapters: pastChapterSummaries,
     seedsToPlantNow: dueSeeds,
+    timelineEvents: timelineEventsRows,
     packet,
   };
 
   const hotHash = computeHotHash(hot);
   const warmHash = computeWarmHash(warm);
+
+  // Compute saga/arc progress percentages.
+  // Inclusive: writing chapterNumber == endChapter → 100%; first chapter → 1/span.
+  // Matches the pacing-hint formula in apps/worker/src/jobs/generate-chapter.ts so
+  // both the writer (via ctx.meta) and the packet generator (via pacingHint) see
+  // the same number for the same chapter.
+  const sagaProgressPercent =
+    saga?.startChapter != null && saga?.endChapter != null
+      ? computeProgressPercent(
+          chapterNumber,
+          saga.startChapter,
+          saga.endChapter,
+        )
+      : null;
+
+  const arcProgressPercent =
+    arc?.startChapter != null && arc?.endChapter != null
+      ? computeProgressPercent(chapterNumber, arc.startChapter, arc.endChapter)
+      : null;
 
   let ctx: ChapterContext = {
     hot,
@@ -138,6 +232,8 @@ export async function buildContext(deps: BuildContextDeps): Promise<ChapterConte
       arcId,
       hotHash,
       warmHash,
+      sagaProgressPercent,
+      arcProgressPercent,
       targetInputBudget: cfg.TOKEN_BUDGET_NORMAL,
     },
   };
@@ -149,22 +245,30 @@ export async function buildContext(deps: BuildContextDeps): Promise<ChapterConte
 
 function buildHotTier(
   bible: {
-    worldRules: string; forbiddenRules: string; styleGuide: string;
-    powerSystem?: string | null; powerSystemKind?: string | null;
-    cultivationSystem?: string | null; bloodlineSystem?: string | null;
+    worldRules: string;
+    forbiddenRules: string;
+    styleGuide: string;
+    powerSystem?: string | null;
+    powerSystemKind?: string | null;
+    cultivationSystem?: string | null;
+    bloodlineSystem?: string | null;
     compactSummary: string | null;
     styleFewShots: StyleFewShot[] | string[];
   } | null,
-  domain: { genreDef: GenreDef; personalityDef: PersonalityDef; storyOptions: StoryOptions },
+  domain: {
+    genreDef: GenreDef;
+    personalityDef: PersonalityDef;
+    storyOptions: StoryOptions;
+  },
   cfg: ContextConfig,
 ): HotTier {
   if (!bible) {
     return {
-      systemRules: '',
-      bibleCompact: '',
-      styleGuide: '',
-      powerSystem: '',
-      powerSystemKind: 'none',
+      systemRules: "",
+      bibleCompact: "",
+      styleGuide: "",
+      powerSystem: "",
+      powerSystemKind: "none",
       styleFewShots: [],
       genreContract: renderGenreContract(domain.genreDef, domain.storyOptions),
       personalityContract: renderPersonalityContract(domain.personalityDef),
@@ -173,18 +277,23 @@ function buildHotTier(
   }
 
   const fewShots: StyleFewShot[] = Array.isArray(bible.styleFewShots)
-    ? bible.styleFewShots.map(s => typeof s === 'string' ? { excerpt: s } : s)
+    ? bible.styleFewShots.map((s) =>
+        typeof s === "string" ? { excerpt: s } : s,
+      )
     : [];
 
-  const powerSystemText = bible.powerSystem
-    ?? [bible.cultivationSystem, bible.bloodlineSystem].filter(Boolean).join('\n\n');
+  const powerSystemText =
+    bible.powerSystem ??
+    [bible.cultivationSystem, bible.bloodlineSystem]
+      .filter(Boolean)
+      .join("\n\n");
 
   return {
     systemRules: `${bible.worldRules}\n\n# QUY TẮC CẤM\n${bible.forbiddenRules}`,
-    bibleCompact: bible.compactSummary ?? '',
+    bibleCompact: bible.compactSummary ?? "",
     styleGuide: bible.styleGuide,
     powerSystem: powerSystemText,
-    powerSystemKind: bible.powerSystemKind ?? 'cultivation',
+    powerSystemKind: bible.powerSystemKind ?? "none",
     styleFewShots: fewShots.slice(0, cfg.STYLE_FEWSHOT_COUNT),
     genreContract: renderGenreContract(domain.genreDef, domain.storyOptions),
     personalityContract: renderPersonalityContract(domain.personalityDef),
@@ -192,9 +301,25 @@ function buildHotTier(
   };
 }
 
-function filterArcSeeds(seeds: SeedCompact[], chapterNumber: number): SeedCompact[] {
-  return seeds.filter(s =>
-    s.status !== 'abandoned' && s.status !== 'paid_off' &&
-    s.plantWindowStart <= chapterNumber
+export function computeProgressPercent(
+  chapterNumber: number,
+  startChapter: number,
+  endChapter: number,
+): number {
+  const span = Math.max(1, endChapter - startChapter + 1);
+  const position = chapterNumber - startChapter + 1;
+  const clamped = Math.max(0, Math.min(span, position));
+  return Math.round((clamped / span) * 100);
+}
+
+function filterArcSeeds(
+  seeds: SeedCompact[],
+  chapterNumber: number,
+): SeedCompact[] {
+  return seeds.filter(
+    (s) =>
+      s.status !== "abandoned" &&
+      s.status !== "paid_off" &&
+      s.plantWindowStart <= chapterNumber,
   );
 }

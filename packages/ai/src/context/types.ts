@@ -1,4 +1,4 @@
-import type { ChapterPacket } from '../schemas/packet.js';
+import type { ChapterPacket } from "../schemas/packet.js";
 
 export type StyleFewShot = { excerpt: string; sourceChapter?: number };
 
@@ -18,7 +18,7 @@ export type CharacterCompact = {
   id: string;
   name: string;
   currentRealm?: string;
-  status: 'alive' | 'dead' | 'missing' | 'unknown';
+  status: "alive" | "dead" | "missing" | "unknown";
   bloodlines: string[];
   faction?: string;
   shortTraits: string[];
@@ -27,7 +27,7 @@ export type CharacterCompact = {
 export type ThreadCompact = {
   id: string;
   title: string;
-  state: 'open' | 'partial' | 'resolved';
+  state: "open" | "partial" | "resolved";
   introducedChapter: number;
   plannedResolutionChapter?: number;
 };
@@ -39,15 +39,22 @@ export type SeedCompact = {
   plantWindowStart: number;
   plantWindowEnd: number;
   payoffChapter?: number;
-  status: 'pending' | 'planted' | 'paid_off' | 'abandoned';
+  status: "pending" | "planted" | "paid_off" | "abandoned";
 };
 
 export type FactionCompact = {
   id: string;
   name: string;
-  status: 'active' | 'destroyed' | 'hidden' | 'absorbed' | 'unknown';
+  status: "active" | "destroyed" | "hidden" | "absorbed" | "unknown";
   type?: string;
   powerLevel?: string;
+};
+
+export type TimelineEventCompact = {
+  chapterNumber: number;
+  eventType: string;
+  eventText: string;
+  importance: string;
 };
 
 export type WarmTier = {
@@ -85,6 +92,7 @@ export type ColdTier = {
   retrievedFacts: CanonFactCompact[];
   retrievedPastChapters: ChapterSummaryCompact[];
   seedsToPlantNow: SeedCompact[];
+  timelineEvents: TimelineEventCompact[];
   packet: ChapterPacket;
 };
 
@@ -98,6 +106,8 @@ export type ChapterContext = {
     arcId: string;
     hotHash: string;
     warmHash: string;
+    sagaProgressPercent: number | null;
+    arcProgressPercent: number | null;
     targetInputBudget: number;
   };
 };

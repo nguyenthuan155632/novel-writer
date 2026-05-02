@@ -71,3 +71,17 @@ Writes chapter prose from serialized ChapterContext. Parses TITLE: header to spl
 
 ## Related Tables
 - [[database/tables/chapters]] (written after this stage)
+
+
+## Recent Changes (Context Pipeline Improvement)
+
+### Writer now receives full context
+- `serializeContextForWriter()` now includes Genre Contract, Personality Contract, and Story Options blocks
+- Writer prompt's system message expanded with:
+  - DO NOT ASSUME rules (prevents genre/POV/tone assumptions)
+  - CONTEXT PRIORITY ordering (genre > canon > arc > packet > summaries)
+  - PACING RULES based on arc progress percentage
+- Character serialization now includes `shortTraits` and `bloodlines`
+- Timeline events section added
+- Known factions section added
+- Saga/Arc progress percentages injected
