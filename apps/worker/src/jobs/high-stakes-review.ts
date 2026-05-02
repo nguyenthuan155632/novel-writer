@@ -2,7 +2,11 @@ import { getDb } from "@novel/db";
 import { chapters, chapterSummaries } from "@novel/db/schema";
 import { eq, and, desc, or } from "drizzle-orm";
 import type { Logger } from "pino";
-import { HighStakesReviewerAgent, loadStoryDomainContext } from "@novel/ai";
+import {
+  HighStakesReviewerAgent,
+  loadStoryDomainContext,
+  getStoryBible,
+} from "@novel/ai";
 import type { LlmProviderId, ModelRoutes } from "@novel/core";
 import { buildLoggedWorkerProvider } from "./provider.js";
 
@@ -35,7 +39,10 @@ export async function runHighStakesReviewJob(
   }
 
   const summaries = await db
-    .select({ rollingSummary: chapterSummaries.summary })
+    .select({
+      chapterNumber: chapterSummaries.chapterNumber,
+      rollingSummary: chapterSummaries.summary,
+    })
     .from(chapterSummaries)
     .innerJoin(chapters, eq(chapterSummaries.chapterId, chapters.id))
     .where(
@@ -52,10 +59,12 @@ export async function runHighStakesReviewJob(
 
   const arcSummary = summaries
     .map(
-      (s, i) =>
-        `Chapter ${chapterNumber - i}: ${s.rollingSummary ?? "(no summary)"}`,
+      (s) =>
+        `Chapter ${s.chapterNumber}: ${s.rollingSummary ?? "(no summary)"}`,
     )
     .join("\n");
+
+  const bible = await getStoryBible(db, storyId);
 
   const domain = await loadStoryDomainContext(db, storyId);
   const { provider, modelRoutes } = await buildLoggedWorkerProvider(db, data);
@@ -75,7 +84,7 @@ export async function runHighStakesReviewJob(
       content: chapter.content ?? "",
     },
     arcSummary,
-    bibleCompact: "",
+    bibleCompact: bible?.compactSummary ?? "",
     genreDef: domain.genreDef,
     personalityDef: domain.personalityDef,
     storyOptions: domain.storyOptions,
