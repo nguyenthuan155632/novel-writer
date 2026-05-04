@@ -29,3 +29,6 @@ docs/graph/.obsidian/plugins/
 # OS trash/cache
 docs/graph/.trash/
 docs/graph/.DS_Store
+
+# Local venv for NotebookLM / Obsidian export script
+.venv-notebooklm/

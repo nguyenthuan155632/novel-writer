@@ -1,0 +1,1 @@
+llama-index-readers-obsidian>=0.7.0,<0.8
