@@ -241,6 +241,104 @@ export async function getTopKCanonFacts(
   return rows.map((f) => compactFact(f));
 }
 
+/**
+ * Hybrid keyword + vector + location-boost retrieval with TTL and visibility filters.
+ *
+ * Falls back to pure-vector when:
+ * - characterNames.length === 0 AND activeLocationKey is null, OR
+ * - hybrid yields < 3 rows.
+ *
+ * Uses three separate parameterized queries merged in JS to avoid sql.raw injection.
+ */
+export async function getTopKCanonFactsHybrid(
+  db: Db,
+  storyId: string,
+  queryEmbedding: number[],
+  characterNames: string[],
+  chapterNumber: number,
+  povId: string | null,
+  activeLocationKey: string | null,
+  topK: number,
+): Promise<CanonFactCompact[]> {
+  const vectorResults = await getTopKCanonFacts(
+    db,
+    storyId,
+    queryEmbedding,
+    topK,
+    ["high", "locked"],
+    chapterNumber,
+    povId ?? "",
+    activeLocationKey,
+  );
+
+  if (characterNames.length === 0 && activeLocationKey === null) {
+    return vectorResults;
+  }
+
+  const scoreMap = new Map<string, number>();
+  const factMap = new Map<string, CanonFactCompact>();
+
+  for (const fact of vectorResults) {
+    scoreMap.set(fact.id, 0.5);
+    factMap.set(fact.id, fact);
+  }
+
+  if (characterNames.length > 0) {
+    const namePatterns = characterNames.map((n) => `%${n}%`);
+    const visibilityFilter = povId
+      ? sql`(visibility = 'public' OR (visibility = 'restricted' AND known_by @> jsonb_build_array(${povId}::text)))`
+      : sql`visibility = 'public'`;
+
+    const kwResults = await db.execute(sql`
+      SELECT id, story_id, topic, fact, source_chapter, importance, locked, tags, embedding, created_at
+      FROM canon_facts
+      WHERE story_id = ${storyId}
+        AND topic ILIKE ANY(ARRAY[${sql.join(namePatterns.map((p) => sql`${p}`), sql`, `)}])
+        AND (valid_until_chapter IS NULL OR ${chapterNumber} <= valid_until_chapter)
+        AND ${visibilityFilter}
+      LIMIT ${topK}
+    `);
+
+    for (const fact of Array.from(kwResults) as CanonFact[]) {
+      scoreMap.set(fact.id, (scoreMap.get(fact.id) ?? 0) + 0.5);
+      factMap.set(fact.id, compactFact(fact));
+    }
+  }
+
+  if (activeLocationKey !== null) {
+    const visibilityFilter = povId
+      ? sql`(visibility = 'public' OR (visibility = 'restricted' AND known_by @> jsonb_build_array(${povId}::text)))`
+      : sql`visibility = 'public'`;
+
+    const locResults = await db.execute(sql`
+      SELECT id, story_id, topic, fact, source_chapter, importance, locked, tags, embedding, created_at
+      FROM canon_facts
+      WHERE story_id = ${storyId}
+        AND (valid_until_chapter IS NULL OR ${chapterNumber} <= valid_until_chapter)
+        AND ${visibilityFilter}
+        AND tags @> jsonb_build_array(${activeLocationKey}::text)
+      LIMIT ${topK}
+    `);
+
+    for (const fact of Array.from(locResults) as CanonFact[]) {
+      scoreMap.set(fact.id, (scoreMap.get(fact.id) ?? 0) + 0.2);
+      factMap.set(fact.id, compactFact(fact));
+    }
+  }
+
+  const ranked = [...scoreMap.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, topK)
+    .map(([id]) => factMap.get(id))
+    .filter((fact): fact is CanonFactCompact => fact !== undefined);
+
+  if (ranked.length < 3) {
+    return vectorResults;
+  }
+
+  return ranked;
+}
+
 export async function getPastChapterSummaries(
   db: Db,
   storyId: string,

@@ -13,6 +13,7 @@ export const pendingCanonUpdates = pgTable('pending_canon_updates', {
   payload: jsonb('payload').$type<Record<string, unknown>>().notNull(),
   conflictStatus: text('conflict_status').default('none').notNull(),
   conflictReasons: jsonb('conflict_reasons').$type<CanonConflictType[]>().default([]).notNull(),
+  suggestedResolution: jsonb('suggested_resolution').$type<Record<string, unknown>>(),
   resolution: text('resolution').default('pending').notNull(),
   reviewedBy: text('reviewed_by'),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),

@@ -47,6 +47,7 @@ export class ConflictResolverAgent {
           { role: 'user', content: prompt.user },
         ],
         temperature: 0.2,
+        maxOutputTokens: 256,
         metadata: {
           agentRole: 'conflict_resolver',
           promptVersion: 'v1',

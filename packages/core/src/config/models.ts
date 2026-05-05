@@ -1,4 +1,5 @@
 const DEFAULT_MODEL_ID = "google/gemini-2.5-flash";
+const FLASH_MODEL_ID = "google/gemini-2.5-flash";
 
 const DEFAULT_MODEL_ROUTES = {
   bible_generator: DEFAULT_MODEL_ID,
@@ -13,7 +14,7 @@ const DEFAULT_MODEL_ROUTES = {
   arc_summary_compactor: DEFAULT_MODEL_ID,
   high_stakes_reviewer: DEFAULT_MODEL_ID,
   deterministic_verifier: DEFAULT_MODEL_ID,
-  conflict_resolver: DEFAULT_MODEL_ID,
+  conflict_resolver: FLASH_MODEL_ID,
 };
 
 export const MODEL_CONFIG = {

@@ -1,7 +1,7 @@
-let encoderRef: { encode: (s: string) => unknown[] } | null = null;
+let encoderRef: { encode: (s: string) => unknown[] } | null | undefined = undefined;
 
 function getEncoder(): { encode: (s: string) => unknown[] } | null {
-  if (encoderRef !== undefined && encoderRef !== null) return encoderRef;
+  if (encoderRef !== undefined) return encoderRef;
   try {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     encoderRef = require('gpt-tokenizer') as { encode: (s: string) => unknown[] };
