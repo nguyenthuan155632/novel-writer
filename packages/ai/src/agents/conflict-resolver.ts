@@ -4,7 +4,7 @@ import type { CanonMergerRow } from '../reconciliation/canon-merger.ts';
 import type { CanonSnapshot } from '../reconciliation/conflict-detector.ts';
 
 /** Conflict types that must always go to human review — no suggestion generated. */
-const LOCKED_SKIP_TYPES = new Set(['locked_field', 'locked_fact']);
+const LOCKED_SKIP_TYPES = new Set(['locked_field']);
 
 export interface ConflictResolverDeps {
   provider: LLMProvider;

@@ -271,7 +271,7 @@ describe('CanonMerger', () => {
       traceId: 'trace-faction-dup',
     }, snapshot);
 
-    expect(result.conflicts.some(c => c.type === 'duplicate_faction')).toBe(true);
+    expect(result.conflicts.some(c => c.type === 'duplicate_fact')).toBe(true);
     expect(result.pendingCount).toBe(1);
     expect(result.autoAppliedCount).toBe(0);
   });

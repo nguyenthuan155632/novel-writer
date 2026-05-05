@@ -117,7 +117,7 @@ export class CanonMerger {
         }
         // Create rows have no id yet, so any same-table conflict that flags a
         // payload key actually present on this row should route to pending
-        // (e.g. `duplicate_fact`, `duplicate_faction`).
+        // (e.g. `duplicate_fact`).
         return row.payload[c.payloadKey] !== undefined || payloadFields[c.payloadKey] !== undefined;
       });
 
