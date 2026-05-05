@@ -1,0 +1,72 @@
+--- packages/ai/src/reconciliation/canon-merger.ts
++++ packages/ai/src/reconciliation/canon-merger.ts
+@@ -1,4 +1,4 @@
+-import { eq, and } from 'drizzle-orm';
++import { eq, and, sql } from 'drizzle-orm';
+ import { characters, canonFacts, openThreads, timelineEvents, pendingCanonUpdates, plantedSeeds, factions } from '@novel/db/schema';
+ import type { CanonSnapshot } from './conflict-detector.ts';
+ import type { EmbeddingService } from '../embeddings/types.ts';
+@@ -37,6 +37,9 @@
+           topic: (r.payload.topic as string) ?? '',
+           fact: r.payload.fact as string,
+           importance: r.payload.importance as 'low' | 'medium' | 'high' | 'locked',
++          visibility: r.payload.visibility as 'public' | 'restricted' | 'secret',
++          knownBy: r.payload.knownBy as string[],
++          validUntilChapter: r.payload.validUntilChapter as number | undefined,
+         })),
+       threadUpdates: params.rows
+         .filter(r => r.targetTable === 'open_threads')
+@@ -107,6 +110,16 @@
+       }
+       for (const seedId of params.seedsResolvedIds) {
++        const existingSeedRows = await this.deps.db.select({
++          id: plantedSeeds.id,
++          status: plantedSeeds.status,
++        }).from(plantedSeeds).where(and(eq(plantedSeeds.id, seedId), eq(plantedSeeds.storyId, params.storyId)));
++        
++        const existingSeed = existingSeedRows[0];
++        if (!existingSeed || existingSeed.status === 'pending') {
++            throw new Error(`Seed ${seedId} cannot be marked paid_off before it is planted`);
++        }
+         await this.applyRow({
+           updateType: 'update',
+           targetTable: 'planted_seeds',
+           targetId: seedId,
+           payload: { status: 'paid_off', paidOffAtChapter: params.chapterNumber },
+@@ -165,14 +178,34 @@
+           input: factText,
+           traceId,
+         });
+-        await this.deps.db.insert(canonFacts).values({
++        const [insertedFact] = await this.deps.db.insert(canonFacts).values({
+           storyId,
+           topic: topicText,
+           fact: factText,
+           sourceChapter: chapterNumber,
+           importance,
+           locked: importance === 'locked',
++          visibility: (row.payload.visibility as string | undefined) ?? 'restricted',
++          knownBy: (row.payload.knownBy as string[] | undefined) ?? [],
++          validUntilChapter: row.payload.validUntilChapter as number | null | undefined,
+           embedding: embResp.vector,
+-        });
++        }).returning({ id: canonFacts.id });
++        
++        if (insertedFact && row.payload.knownBy && Array.isArray(row.payload.knownBy) && row.payload.knownBy.length > 0) {
++          for (const charName of row.payload.knownBy) {
++            if (typeof charName !== 'string') continue;
++            // Update character knowledge state
++            await this.deps.db.execute(sql`
++              UPDATE characters
++              SET knowledge_state = jsonb_set(
++                COALESCE(knowledge_state, '{}'::jsonb),
++                ARRAY[${insertedFact.id}],
++                ${String(chapterNumber)}::jsonb,
++                true
++              )
++              WHERE story_id = ${storyId} AND name = ${charName}
++            `);
++          }
++        }
+         break;
+       }

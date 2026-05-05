@@ -1,3 +1,4 @@
+import { EntryStateSchema } from "@novel/core";
 import { z } from 'zod';
 import type { JsonSchema } from '../providers/types.ts';
 
@@ -28,6 +29,7 @@ export const ChapterPacketSchema = z.object({
   forbiddenMoves: z.array(z.string()).max(PACKET_LIMITS.forbiddenMoves),
   toneHints: z.array(z.string()).max(PACKET_LIMITS.toneHints).optional(),
   notes: z.string().max(PACKET_LIMITS.notes).optional(),
+  entryState: EntryStateSchema.optional(),
   /**
    * §1.9 — IDs of must-include seeds that were actually incorporated.
    * Computed server-side by scanning requiredEvents seedIds after parse;

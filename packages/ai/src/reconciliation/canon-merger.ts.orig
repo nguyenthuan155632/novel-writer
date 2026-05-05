@@ -54,9 +54,6 @@ export class CanonMerger {
         .filter(r => r.targetTable === 'canon_facts')
         .map(r => ({
           topic: (r.payload.topic as string) ?? '',
-          visibility: (r.payload.visibility as 'public' | 'restricted' | 'secret') ?? 'restricted',
-          knownBy: (r.payload.knownBy as string[]) ?? [],
-          validUntilChapter: r.payload.validUntilChapter as number | undefined,
           fact: r.payload.fact as string,
           importance: r.payload.importance as 'low' | 'medium' | 'high' | 'locked',
         })),

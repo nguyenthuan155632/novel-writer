@@ -34,6 +34,7 @@ vi.mock("../../src/context/retrieval.js", () => ({
     .mockResolvedValue([] as TimelineEventCompact[]),
   getPendingCanonUpdatesForStory: vi.fn().mockResolvedValue([]),
   getStoryTargetChapterCount: vi.fn().mockResolvedValue(100),
+  getPrevChapterTailContent: vi.fn(),
 }));
 
 const mockEmbeddingService: EmbeddingService = {

@@ -34,7 +34,6 @@ import {
   getTimelineEventsForChapter,
   getPendingCanonUpdatesForStory,
   getStoryTargetChapterCount,
-  getPrevChapterTailContent,
 } from "./retrieval.js";
 import { shrinkToFit } from "./shrink.js";
 import { renderGenreContract } from "../prompts/contracts/genre-contract.js";
@@ -110,7 +109,6 @@ export async function buildContext(
     knownFactions,
     timelineEventsRows,
     pendingCanonUpdatesRows,
-    tailContentPrev,
   ] = await Promise.all([
     getActiveCharacters(db, storyId, chapterNumber),
     getOpenThreadsForStory(db, storyId),
@@ -125,7 +123,6 @@ export async function buildContext(
     getFactionsForStory(db, storyId),
     getTimelineEventsForChapter(db, storyId, chapterNumber),
     getPendingCanonUpdatesForStory(db, storyId),
-    getPrevChapterTailContent(db, storyId, chapterNumber),
   ]);
 
   const arcSeeds = filterArcSeeds(allSeeds, chapterNumber);
@@ -177,14 +174,9 @@ export async function buildContext(
     arcOpenThreads: threads,
     arcPlantedSeeds: arcSeeds,
     knownFactions,
-    tailContentPrev: tailContentPrev ?? undefined,
-    entryState: packet.entryState,
   };
 
   const goalText = packet.goal;
-  const povId = packet.entryState?.povCharacter.name ?? packet.charactersPresent[0] ?? 'unknown';
-  const activeLocationKey = packet.entryState?.locationId ?? null;
-
   let retrievedFacts: CanonFactCompact[] = [];
   try {
     const embResp = await embeddingService.embed({
@@ -197,9 +189,6 @@ export async function buildContext(
       embResp.vector,
       cfg.RETRIEVED_CANON_FACTS_TOP_K,
       [...cfg.RETRIEVAL_MIN_IMPORTANCE],
-      chapterNumber,
-      povId,
-      activeLocationKey
     );
   } catch (err) {
     log?.warn(

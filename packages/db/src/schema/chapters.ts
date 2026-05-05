@@ -17,6 +17,7 @@ export const chapters = pgTable('chapters', {
   deterministicValidation: jsonb('deterministic_validation'),
   llmValidationId: uuid('llm_validation_id'),
   contextCacheKey: text('context_cache_key'),
+tailContent: text('tail_content'),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
 }, (t) => ({

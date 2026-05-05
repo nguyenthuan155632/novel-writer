@@ -132,3 +132,17 @@ export class SummaryCompactor {
     };
   }
 }
+
+export function extractTailContent(content: string, target = 250): string {
+  const paragraphs = content.split('\n\n').filter((p) => p.trim().length > 0);
+  let tail = '';
+  let words = 0;
+  for (let i = paragraphs.length - 1; i >= 0; i--) {
+    const p = paragraphs[i];
+    if (!p) continue;
+    tail = p + '\n\n' + tail;
+    words += p.split(/\s+/).length;
+    if (words >= target) break;
+  }
+  return tail.trim();
+}

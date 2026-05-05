@@ -158,6 +158,8 @@ describe("detectConflicts", () => {
           topic: "Huyết mạch",
           fact: "Hỏa Long huyết mạch chỉ truyền nam",
           importance: "medium",
+          visibility: "restricted",
+          knownBy: [],
         },
       ],
       threadUpdates: [],

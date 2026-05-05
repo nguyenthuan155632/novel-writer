@@ -37,6 +37,8 @@ vi.mock('@novel/ai', () => ({
   buildChecks: vi.fn(),
   runDeterministicValidator: vi.fn(),
   buildContext: vi.fn(),
+  getSeedsApproachingPlantDeadline: vi.fn().mockResolvedValue([]),
+  extractTailContent: vi.fn().mockReturnValue(""),
   detectConflicts: vi.fn(),
   formatValidationReport: vi.fn().mockReturnValue(''),
   loadStoryDomainContext: mockLoadStoryDomainContext,

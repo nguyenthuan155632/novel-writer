@@ -1,5 +1,6 @@
 import { eq, and, gte, lte, desc, lt, sql } from "drizzle-orm";
 import {
+  chapters,
   storyBibles,
   sagas,
   arcs,
@@ -114,10 +115,10 @@ export async function getActiveCharacters(
     .where(
       and(
         eq(characters.storyId, storyId),
-        lte(characters.lastSeenChapter, chapterNumber + 10),
+        lte(characters.lastActiveChapter, chapterNumber + 5),
       ),
     )
-    .orderBy(desc(characters.lastSeenChapter));
+    .orderBy(desc(characters.lastActiveChapter));
   return rows.map((c) => compactCharacter(c));
 }
 
@@ -213,6 +214,9 @@ export async function getTopKCanonFacts(
   embedding: number[],
   topK: number,
   minImportance: string[] = ["high", "locked"],
+  chapterNumber: number,
+  povId: string,
+  activeLocationKey: string | null = null,
 ): Promise<CanonFactCompact[]> {
   const vectorLiteral = `[${embedding.map((n) => Number(n)).join(",")}]`;
   const results = await db.execute(sql`
@@ -224,6 +228,11 @@ export async function getTopKCanonFacts(
       sql`, `,
     )})
     AND embedding IS NOT NULL
+    AND (valid_until_chapter IS NULL OR ${chapterNumber} <= valid_until_chapter)
+    AND (
+      visibility = 'public'
+      OR (visibility = 'restricted' AND known_by @> jsonb_build_array(${povId}::text))
+    )
     ORDER BY embedding <=> ${sql.raw(`'${vectorLiteral}'::vector`)}
     LIMIT ${topK}
   `);
@@ -405,3 +414,21 @@ export type RetrievalResult = {
   pastChapterSummaries: ChapterSummaryCompact[];
   canonFacts: CanonFactCompact[];
 };
+
+export async function getPrevChapterTailContent(
+  db: Db,
+  storyId: string,
+  chapterNumber: number,
+): Promise<string | null> {
+  const rows = await db
+    .select({ tailContent: chapters.tailContent })
+    .from(chapters)
+    .where(
+      and(
+        eq(chapters.storyId, storyId),
+        eq(chapters.chapterNumber, chapterNumber - 1)
+      )
+    )
+    .limit(1);
+  return rows[0]?.tailContent ?? null;
+}

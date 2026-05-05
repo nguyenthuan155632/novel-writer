@@ -39,6 +39,9 @@ export const CanonFactProposalSchema = z.object({
   fact: z.string().min(1).max(800),
   // 'critical' included: extractor may propose critical-importance facts for operator review.
   importance: z.enum(IMPORTANCE_LEVELS),
+  visibility: z.enum(['public', 'restricted', 'secret']).default('restricted'),
+  knownBy: z.array(z.string()).default([]),
+  validUntilChapter: optionalPositiveChapter,
 });
 
 export const ThreadUpdateSchema = z.object({
@@ -136,6 +139,9 @@ export const EXTRACTOR_JSON_SCHEMA: JsonSchema = {
           topic: { type: 'string' },
           fact: { type: 'string' },
           importance: { type: 'string', enum: [...IMPORTANCE_LEVELS] },
+          visibility: { type: 'string', enum: ['public', 'restricted', 'secret'] },
+          knownBy: { type: 'array', items: { type: 'string' } },
+          validUntilChapter: { type: 'integer' },
         },
         required: ['topic', 'fact', 'importance'],
       },

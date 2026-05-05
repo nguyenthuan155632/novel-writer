@@ -25,6 +25,7 @@ export { checkAgainstCaps } from './policy/budget-guardrails.ts';
 export { shouldRunReviewer, type TriggerContext } from './policy/high-stakes-triggers.ts';
 export { mergeOverrides, getEffectiveConfig, type EffectiveConfig, type ConfigOverrides, type StoryOverridesProvider } from './config/effective.ts';
 export * from './types/canon.ts';
+export * from './types/entry-state.ts';
 export * from './utils/tokens.ts';
 export * from './utils/hash.ts';
 export { EXPORT_CONFIG, type ExportFormat } from './config/export-config.ts';

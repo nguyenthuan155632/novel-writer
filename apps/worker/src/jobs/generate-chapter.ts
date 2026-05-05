@@ -17,6 +17,7 @@ import {
   CanonExtractor,
   type CanonExtractionResult,
   SummaryCompactor,
+  extractTailContent,
   auditPacket,
   buildChecks,
   runDeterministicValidator,
@@ -1159,6 +1160,7 @@ Trạng thái hiện tại: ${currentRealms || "(chưa xác định)"}`;
                 status: "paused_pending_updates",
                 wordCount: pausedWordCount,
                 contextCacheKey: context.meta.hotHash,
+        tailContent: extractTailContent(writerResult.content),
                 updatedAt: new Date(),
               })
               .where(eq(chapters.id, chapterId));
@@ -1328,6 +1330,7 @@ Trạng thái hiện tại: ${currentRealms || "(chưa xác định)"}`;
             : "completed",
         wordCount,
         contextCacheKey: context.meta.hotHash,
+        tailContent: extractTailContent(writerResult.content),
         updatedAt: new Date(),
       })
       .where(eq(chapters.id, chapterId));

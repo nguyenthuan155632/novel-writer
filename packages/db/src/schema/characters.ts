@@ -18,6 +18,8 @@ export const characters = pgTable('characters', {
   inventory: jsonb('inventory').$type<string[]>().default([]).notNull(),
   status: text('status').default('alive').notNull(),
   lastSeenChapter: integer('last_seen_chapter').default(0).notNull(),
+  knowledgeState: jsonb('knowledge_state').$type<Record<string, number>>().default({}).notNull(),
+  lastActiveChapter: integer('last_active_chapter').default(0).notNull(),
   canonNotes: text('canon_notes'),
   lockedFields: jsonb('locked_fields').$type<string[]>().default([]).notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),

@@ -21,6 +21,7 @@ export {
   SummaryCompactor,
   type SummaryCompactionResult,
   type SummaryCompactorDeps,
+  extractTailContent,
 } from "./agents/summary-compactor.js";
 export {
   SagaPlannerAgent,
