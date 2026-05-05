@@ -1,6 +1,7 @@
 import { GENERATION_CONFIG, type GenreFamily } from "@novel/core";
 import type { ChapterPacket } from "../schemas/packet.ts";
 import { realmRank as getRealmRank } from "../utils/realm-order.ts";
+import { parseForbiddenRules, MUTATION_VERBS } from "./utils.ts";
 
 /** Codes that force immediate regeneration regardless of severity. */
 export const MANDATORY_REGEN_CODES = new Set([
@@ -48,10 +49,7 @@ export type AuditResult = {
 
 /** Tokenise forbiddenRulesText into individual rule lines. */
 function tokenizeForbiddenRules(rulesText: string): string[] {
-  return rulesText
-    .split("\n")
-    .map((l) => l.trim())
-    .filter((l) => l.length > 2);
+  return parseForbiddenRules(rulesText);
 }
 
 export function auditPacket(input: AuditInput, ctx: AuditCtx): AuditResult {
@@ -111,18 +109,19 @@ export function auditPacket(input: AuditInput, ctx: AuditCtx): AuditResult {
   // --- Realm jump excess check ---
   const ladder = ctx.realmLadder ?? [];
   if (ladder.length > 0) {
-    for (const c of input.packet.charactersPresent) {
-      const canonChar = charByName.get(c.toLowerCase());
-      if (!canonChar) continue;
-      const startRank = getRealmRank(canonChar.currentRealm, ladder);
-      const breakCount = input.packet.requiredEvents.filter((e) =>
-        /đột phá|breakthrough|thăng cấp/i.test(e.description),
-      ).length;
-      if (
-        breakCount > 0 &&
-        startRank >= 0 &&
-        breakCount >= GENERATION_CONFIG.MAX_REALM_JUMP_PER_CHAPTER
-      ) {
+    // Count breakthroughs once per packet (not per character — avoids duplicate issues)
+    const breakCount = input.packet.requiredEvents.filter((e) =>
+      /đột phá|breakthrough|thăng cấp/i.test(e.description),
+    ).length;
+
+    if (breakCount >= GENERATION_CONFIG.MAX_REALM_JUMP_PER_CHAPTER) {
+      // Verify at least one present character has a known realm rank (gate on canon data)
+      const anyKnownCharInLadder = input.packet.charactersPresent.some((c) => {
+        const canonChar = charByName.get(c.toLowerCase());
+        return canonChar && getRealmRank(canonChar.currentRealm, ladder) >= 0;
+      });
+
+      if (anyKnownCharInLadder) {
         issues.push({
           code: "realm_jump_excess",
           severity: "critical",
@@ -197,15 +196,17 @@ export function auditPacket(input: AuditInput, ctx: AuditCtx): AuditResult {
       if (!candidate.topic) continue;
       const topicLower = candidate.topic.toLowerCase();
 
-      // Deterministic contradiction: locked field explicitly mutated in a required event
+      // Explicit contradiction: locked field name appears AND a mutation verb appears nearby.
+      // We can't reliably detect contradiction from planning text alone, so we require both
+      // signals before escalating to `locked_fact` (high, regen-blocking).
+      // Absent-fact-sentence test is dropped — DB fact sentences never appear verbatim in packets.
       const hasExplicitContradiction =
         candidate.lockedFields &&
         candidate.lockedFields.length > 0 &&
-        candidate.lockedFields.some(
-          (field) =>
-            packetAllText.includes(field.toLowerCase()) &&
-            !packetAllText.includes(candidate.fact.toLowerCase()),
-        );
+        candidate.lockedFields.some((field) => {
+          if (!packetAllText.includes(field.toLowerCase())) return false;
+          return MUTATION_VERBS.some((verb) => packetAllText.includes(verb));
+        });
 
       if (hasExplicitContradiction) {
         issues.push({
