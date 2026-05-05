@@ -32,3 +32,4 @@ docs/graph/.DS_Store
 
 # Local venv for NotebookLM / Obsidian export script
 .venv-notebooklm/
+.claude/worktrees/
