@@ -3,7 +3,7 @@ import type { CheckInput, CheckResult, DeterministicCheck } from './types.ts';
 
 export const wordCountCheck: DeterministicCheck = {
   id: 'word_count',
-  severity: 'medium',
+  severity: 'low',
   run(input: CheckInput): CheckResult {
     const words = input.content.split(/\s+/).filter(Boolean).length;
     const issues: string[] = [];

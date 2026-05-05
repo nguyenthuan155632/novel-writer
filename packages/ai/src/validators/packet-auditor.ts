@@ -2,12 +2,26 @@ import { GENERATION_CONFIG, type GenreFamily } from "@novel/core";
 import type { ChapterPacket } from "../schemas/packet.ts";
 import { realmRank as getRealmRank } from "../utils/realm-order.ts";
 
+/** Codes that force immediate regeneration regardless of severity. */
+export const MANDATORY_REGEN_CODES = new Set([
+  "locked_fact",
+  "dead_character",
+  "realm_jump_excess",
+]);
+
 export type AuditInput = {
   packet: ChapterPacket;
   characters: { name: string; status: string; currentRealm?: string }[];
   forbiddenRules: string;
   duePlantedSeeds: { id: string; seedText: string; plantWindowEnd: number }[];
   overdueTurningPoints?: string[];
+  /** Locked canon fact candidates near this packet (from retrieval, not hard embedding). */
+  lockedFactCandidates?: {
+    id: string;
+    fact: string;
+    topic: string;
+    lockedFields?: string[];
+  }[];
 };
 
 export type AuditCtx = {
@@ -32,12 +46,21 @@ export type AuditResult = {
   requiresRegenerate: boolean;
 };
 
+/** Tokenise forbiddenRulesText into individual rule lines. */
+function tokenizeForbiddenRules(rulesText: string): string[] {
+  return rulesText
+    .split("\n")
+    .map((l) => l.trim())
+    .filter((l) => l.length > 2);
+}
+
 export function auditPacket(input: AuditInput, ctx: AuditCtx): AuditResult {
   const issues: AuditIssue[] = [];
   const charByName = new Map(
     input.characters.map((c) => [c.name.toLowerCase(), c]),
   );
 
+  // --- Dead character check ---
   for (const name of input.packet.charactersPresent) {
     const c = charByName.get(name.toLowerCase());
     if (c && c.status === "dead") {
@@ -49,6 +72,7 @@ export function auditPacket(input: AuditInput, ctx: AuditCtx): AuditResult {
     }
   }
 
+  // --- Unresolved due seed check ---
   const eventIds = new Set(
     input.packet.requiredEvents.map((e) => e.seedId).filter(Boolean),
   );
@@ -68,6 +92,7 @@ export function auditPacket(input: AuditInput, ctx: AuditCtx): AuditResult {
     }
   }
 
+  // --- Missing conflict / cliffhanger (structural, not cosmetic) ---
   if (!input.packet.conflict || input.packet.conflict.trim().length < 8) {
     issues.push({
       code: "missing_conflict",
@@ -83,6 +108,7 @@ export function auditPacket(input: AuditInput, ctx: AuditCtx): AuditResult {
     });
   }
 
+  // --- Realm jump excess check ---
   const ladder = ctx.realmLadder ?? [];
   if (ladder.length > 0) {
     for (const c of input.packet.charactersPresent) {
@@ -95,17 +121,18 @@ export function auditPacket(input: AuditInput, ctx: AuditCtx): AuditResult {
       if (
         breakCount > 0 &&
         startRank >= 0 &&
-        breakCount > GENERATION_CONFIG.MAX_REALM_JUMP_PER_CHAPTER
+        breakCount >= GENERATION_CONFIG.MAX_REALM_JUMP_PER_CHAPTER
       ) {
         issues.push({
           code: "realm_jump_excess",
           severity: "critical",
-          message: `Packet đề xuất ${breakCount} đột phá trong cùng 1 chương (max ${GENERATION_CONFIG.MAX_REALM_JUMP_PER_CHAPTER}).`,
+          message: `Packet đề xuất ${breakCount} đột phá trong cùng 1 chương (max ${GENERATION_CONFIG.MAX_REALM_JUMP_PER_CHAPTER - 1}).`,
         });
       }
     }
   }
 
+  // --- Overdue turning point check ---
   if (input.overdueTurningPoints && input.overdueTurningPoints.length > 0) {
     const packetText = [
       input.packet.goal,
@@ -132,11 +159,79 @@ export function auditPacket(input: AuditInput, ctx: AuditCtx): AuditResult {
     }
   }
 
+  // --- §1.4 Forbidden move check (packet-time, scanning packet text fields) ---
+  if (input.forbiddenRules.trim().length > 0) {
+    const rules = tokenizeForbiddenRules(input.forbiddenRules);
+    const packetSearchText = [
+      input.packet.goal,
+      input.packet.conflict,
+      input.packet.cliffhanger ?? "",
+      ...input.packet.requiredEvents.map((e) => e.description),
+      ...(input.packet.forbiddenMoves ?? []),
+    ]
+      .join(" ")
+      .toLowerCase();
+
+    for (const rule of rules) {
+      if (packetSearchText.includes(rule.toLowerCase())) {
+        issues.push({
+          code: "forbidden_move",
+          severity: "high",
+          message: `Packet vi phạm forbidden rule: "${rule}".`,
+        });
+      }
+    }
+  }
+
+  // --- §1.5 Locked fact candidate hints (non-blocking) ---
+  if (input.lockedFactCandidates && input.lockedFactCandidates.length > 0) {
+    const packetAllText = [
+      input.packet.goal,
+      input.packet.conflict,
+      ...input.packet.requiredEvents.map((e) => e.description),
+    ]
+      .join(" ")
+      .toLowerCase();
+
+    for (const candidate of input.lockedFactCandidates) {
+      if (!candidate.topic) continue;
+      const topicLower = candidate.topic.toLowerCase();
+
+      // Deterministic contradiction: locked field explicitly mutated in a required event
+      const hasExplicitContradiction =
+        candidate.lockedFields &&
+        candidate.lockedFields.length > 0 &&
+        candidate.lockedFields.some(
+          (field) =>
+            packetAllText.includes(field.toLowerCase()) &&
+            !packetAllText.includes(candidate.fact.toLowerCase()),
+        );
+
+      if (hasExplicitContradiction) {
+        issues.push({
+          code: "locked_fact",
+          severity: "high",
+          message: `Packet có thể trái với locked fact (topic: "${candidate.topic}"): "${candidate.fact}".`,
+        });
+      } else if (packetAllText.includes(topicLower)) {
+        // Topic mentioned but no proven contradiction — hint only
+        issues.push({
+          code: "locked_fact_candidate",
+          severity: "medium",
+          message: `Packet đề cập topic có locked fact (topic: "${candidate.topic}") — cần LLM validator kiểm tra kỹ: "${candidate.fact}".`,
+        });
+      }
+    }
+  }
+
+  const requiresRegenerate = issues.some((i) =>
+    MANDATORY_REGEN_CODES.has(i.code),
+  );
   const hasCritical = issues.some((i) => i.severity === "critical");
   const hasHigh = issues.some((i) => i.severity === "high");
   return {
     pass: !hasCritical && !hasHigh,
     issues,
-    requiresRegenerate: hasCritical || hasHigh,
+    requiresRegenerate,
   };
 }

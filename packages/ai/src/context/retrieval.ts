@@ -11,6 +11,7 @@ import {
   timelineEvents,
   pendingCanonUpdates,
   stories,
+  canonFacts,
 } from "@novel/db/schema";
 import type { Db } from "@novel/db";
 import type { CanonFact, Saga, Arc, StoryBible } from "@novel/db/schema";
@@ -302,6 +303,94 @@ export async function getPendingCanonUpdatesForStory(
     .orderBy(desc(pendingCanonUpdates.createdAt))
     .limit(limit);
   return rows.map((r) => compactPendingCanonUpdate(r));
+}
+
+export type LockedCanonFactCandidate = {
+  id: string;
+  fact: string;
+  topic: string;
+  lockedFields?: string[];
+};
+
+/**
+ * §1.5 — Retrieve locked canon facts that are textually relevant to the packet text.
+ * Returns candidates only (no cosine hard-blocks). Caller passes to auditPacket for hint-only checks.
+ */
+export async function getLockedCanonFactCandidates(
+  db: Db,
+  storyId: string,
+  packetText: string,
+  topK = 10,
+): Promise<LockedCanonFactCandidate[]> {
+  const rows = await db
+    .select({
+      id: canonFacts.id,
+      topic: canonFacts.topic,
+      fact: canonFacts.fact,
+      tags: canonFacts.tags,
+    })
+    .from(canonFacts)
+    .where(
+      and(
+        eq(canonFacts.storyId, storyId),
+        eq(canonFacts.locked, true),
+      ),
+    )
+    .limit(topK * 3); // over-fetch, then filter textually
+
+  const packetLower = packetText.toLowerCase();
+  const candidates: LockedCanonFactCandidate[] = [];
+  for (const row of rows) {
+    const topicLower = (row.topic ?? "").toLowerCase();
+    if (topicLower.length < 2) continue;
+    if (packetLower.includes(topicLower)) {
+      candidates.push({
+        id: row.id,
+        fact: row.fact,
+        topic: row.topic ?? "",
+        lockedFields: Array.isArray(row.tags) ? (row.tags as string[]) : [],
+      });
+      if (candidates.length >= topK) break;
+    }
+  }
+  return candidates;
+}
+
+/**
+ * BACKLOG §1.6: open_thread_high_priority_overdue audit deferred.
+ * Requires open_threads.priority + lastReferencedChapter schema columns before deterministic check possible.
+ * Add to plan backlog once those columns land in DB migration.
+ */
+
+/**
+ * §1.9 — Seeds approaching their plant deadline (within 2 chapters of plantWindowEnd).
+ */
+export async function getSeedsApproachingPlantDeadline(
+  db: Db,
+  storyId: string,
+  chapterNumber: number,
+  lookahead = 2,
+): Promise<{ id: string; seedText: string; plantWindowEnd: number }[]> {
+  const rows = await db
+    .select({
+      id: plantedSeeds.id,
+      seedText: plantedSeeds.seedText,
+      plantWindowEnd: plantedSeeds.plantWindowEnd,
+    })
+    .from(plantedSeeds)
+    .where(
+      and(
+        eq(plantedSeeds.storyId, storyId),
+        lte(plantedSeeds.plantWindowEnd, chapterNumber + lookahead),
+        gte(plantedSeeds.plantWindowEnd, chapterNumber),
+        sql`${plantedSeeds.status} NOT IN ('paid_off', 'abandoned')`,
+      ),
+    );
+  return rows.map((r) => ({
+    id: r.id,
+    seedText: r.seedText,
+    plantWindowEnd: r.plantWindowEnd,
+  }));
 }
 
 export type RetrievalResult = {

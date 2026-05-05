@@ -69,6 +69,9 @@ importers:
 
   apps/web:
     dependencies:
+      '@novel/core':
+        specifier: workspace:*
+        version: link:../../packages/core
       diff:
         specifier: ^9.0.0
         version: 9.0.0

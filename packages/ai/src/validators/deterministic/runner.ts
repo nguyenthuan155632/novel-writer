@@ -15,10 +15,8 @@ import { unknownCharacterCheck } from "./unknown-character.ts";
 import { unknownLocationCheck } from "./unknown-location.ts";
 import { unknownFactionCheck } from "./unknown-faction.ts";
 import { newBloodlineSourceCheck } from "./new-bloodline-source.ts";
-import { cliffhangerCheck } from "./cliffhanger.ts";
-import { conflictPresenceCheck } from "./conflict-presence.ts";
-import { styleRedFlagsCheck } from "./style-red-flags.ts";
-import { repetitionCheck } from "./repetition.ts";
+// cliffhanger, conflict-presence, style-red-flags, repetition checks retired from deterministic runner.
+// Coverage migrated to llm-validator.v2.ts (criteria 8–12). Source files kept for one phase.
 
 const SEVERITY_ORDER: Severity[] = ["critical", "high", "medium", "low"];
 
@@ -37,10 +35,6 @@ export function buildChecks(
     unknownCharacterCheck,
     unknownLocationCheck,
     unknownFactionCheck,
-    cliffhangerCheck,
-    conflictPresenceCheck,
-    styleRedFlagsCheck,
-    repetitionCheck,
   ];
 
   return allChecks.sort(

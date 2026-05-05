@@ -813,23 +813,9 @@ Trạng thái hiện tại: ${currentRealms || "(chưa xác định)"}`;
       logger: log,
       model: packetModel,
     });
-    let packetResult: PacketGenerationResult;
-    let attemptCount = 1;
-
-    packetResult = await packetGen.generate(
-      {
-        ...packetInput,
-        genreDef: domain.genreDef,
-        personalityDef: domain.personalityDef,
-        storyOptions: domain.storyOptions,
-      },
-      {
-        traceId,
-        storyId: data.storyId,
-      },
-    );
-    accumulateUsage(packetResult.usage, tokenAcc);
-    totalCost += estimateCostUsd(packetModel, packetResult.usage);
+    // §1.8 — initialized inside while loop; guaranteed assigned on first iteration
+    let packetResult: PacketGenerationResult = undefined!;
+    let attemptCount = 0;
 
     const overdueTurningPoints: string[] =
       saga?.startChapter != null &&
@@ -850,33 +836,9 @@ Trạng thái hiện tại: ${currentRealms || "(chưa xác định)"}`;
           })()
         : [];
 
-    const auditInput = {
-      packet: packetResult.packet,
-      characters: activeCharacters.map((c) => ({
-        name: c.name,
-        status: c.status,
-        currentRealm: c.currentRealm,
-      })),
-      forbiddenRules: bible.forbiddenRules,
-      duePlantedSeeds: dueSeeds.map((s) => ({
-        id: s.id,
-        seedText: s.seedText,
-        plantWindowEnd: s.plantWindowEnd,
-      })),
-      overdueTurningPoints,
-    };
-
-    const auditResult = auditPacket(auditInput, {
-      genreFamily: domain.genreFamily,
-      realmLadder: resolveRealmLadder(bible, domain.genreFamily),
-    });
-
-    if (auditResult.requiresRegenerate && attemptCount < 2) {
-      log.warn(
-        { issues: auditResult.issues },
-        "packet audit failed, regenerating with hints",
-      );
-      const hints = auditResult.issues.map((i) => i.message);
+    // §1.8 — two-attempt regenerate loop
+    let auditResult: ReturnType<typeof auditPacket> = undefined!;
+    while (attemptCount < 2) {
       packetResult = await packetGen.generate(
         {
           ...packetInput,
@@ -887,12 +849,49 @@ Trạng thái hiện tại: ${currentRealms || "(chưa xác định)"}`;
         {
           traceId,
           storyId: data.storyId,
-          auditHints: hints,
+          auditHints: auditResult?.issues.map((i) => i.message),
         },
       );
-      attemptCount++;
       accumulateUsage(packetResult.usage, tokenAcc);
       totalCost += estimateCostUsd(packetModel, packetResult.usage);
+
+      const auditInput = {
+        packet: packetResult.packet,
+        characters: activeCharacters.map((c) => ({
+          name: c.name,
+          status: c.status,
+          currentRealm: c.currentRealm,
+        })),
+        forbiddenRules: bible.forbiddenRules,
+        duePlantedSeeds: dueSeeds.map((s) => ({
+          id: s.id,
+          seedText: s.seedText,
+          plantWindowEnd: s.plantWindowEnd,
+        })),
+        overdueTurningPoints,
+      };
+
+      auditResult = auditPacket(auditInput, {
+        genreFamily: domain.genreFamily,
+        realmLadder: resolveRealmLadder(bible, domain.genreFamily),
+      });
+
+      attemptCount++;
+      if (!auditResult.requiresRegenerate) break;
+      if (attemptCount < 2) {
+        log.warn(
+          { issues: auditResult.issues, attempt: attemptCount },
+          "packet audit failed, regenerating with hints",
+        );
+      }
+    }
+
+    if (auditResult.requiresRegenerate) {
+      log.error(
+        { issues: auditResult.issues, attemptCount },
+        "packet audit failed after all retries — operator review required (safe-mode escalation)",
+      );
+      // TODO: enqueue safe-mode re-queue when mode escalation API is available
     }
 
     await db.insert(chapterPackets).values({
