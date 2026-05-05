@@ -22,6 +22,7 @@ export interface LlmValidatorDeps {
     error: (...args: any[]) => void;
   };
   model?: string;
+  onParseRecovery?: (event: { strategy: 'strip_fences' | 'extract_object' | 're_prompt'; detail: string }) => void;
 }
 
 export interface LlmValidatorInput {
@@ -84,6 +85,24 @@ export class LlmValidatorAgent {
           return res;
         },
         3,
+        {
+          request: {
+            model: this.deps.model ?? MODEL_CONFIG.routes.llm_validator,
+            messages: [
+              { role: "system", content: built.system },
+              { role: "user", content: built.user },
+            ],
+            temperature: GENERATION_CONFIG.LLM_VALIDATOR_TEMPERATURE,
+            responseSchema: llmValidatorJsonSchema,
+            metadata: {
+              agentRole: llmValidatorPromptV2.agentRole,
+              promptVersion: llmValidatorPromptV2.version,
+              traceId: input.traceId,
+              storyId: input.storyId,
+            },
+          },
+          onParseRecovery: this.deps.onParseRecovery,
+        },
       ),
     );
     return { output: parsed, usage: lastUsage, cost: 0 };

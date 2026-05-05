@@ -9,6 +9,7 @@ export interface WriterV2PromptInput {
   entryState?: EntryState;
   chapterTailBridge?: string;
   emotionalArc?: string[];
+  parallelThreads?: string[];
 }
 
 export const WRITER_SYSTEM_PROMPT_TEMPLATE = `Bạn là tác giả tiểu thuyết __GENRE_LABEL__ tiếng Việt.
@@ -60,6 +61,7 @@ export const writerPromptV2: DualPromptTemplate = {
       entryState,
       chapterTailBridge,
       emotionalArc,
+      parallelThreads,
     } = input as unknown as WriterV2PromptInput;
     return {
       system: `Bạn là tác giả tiểu thuyết ${genreDef.viLabel} tiếng Việt.
@@ -105,6 +107,7 @@ QUY TẮC BẮT BUỘC:
         entryState,
         chapterTailBridge,
         emotionalArc,
+        parallelThreads,
       }),
     };
   },
@@ -116,8 +119,9 @@ function buildWriterUserMessage(input: {
   entryState?: EntryState;
   chapterTailBridge?: string;
   emotionalArc?: string[];
+  parallelThreads?: string[];
 }): string {
-  const blocks = [input.serializedContext, CREATOR_FRAME];
+  const blocks = [input.serializedContext];
 
   const chronologyBlock = buildListXmlBlock(
     "consistent_chronology",
@@ -136,6 +140,9 @@ function buildWriterUserMessage(input: {
 
   const emotionalArcBlock = buildListXmlBlock("emotional_arc", input.emotionalArc);
   if (emotionalArcBlock) blocks.push(emotionalArcBlock);
+
+  const parallelThreadsBlock = buildListXmlBlock("parallel_threads", input.parallelThreads);
+  if (parallelThreadsBlock) blocks.push(parallelThreadsBlock);
 
   return blocks.join("\n\n");
 }

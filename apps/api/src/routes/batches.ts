@@ -130,6 +130,51 @@ const batchesRoute: FastifyPluginCallback = (app, _opts, done) => {
     },
   );
 
+  app.post(
+    "/api/admin/batches/:batchId/resume",
+    async (req, reply) => {
+      const db = getDb();
+      const { batchId } = z.object({ batchId: z.string().uuid() }).parse(req.params);
+      const [batch] = await db
+        .select()
+        .from(batches)
+        .where(eq(batches.id, batchId))
+        .limit(1);
+
+      if (!batch) return reply.code(404).send({ error: "batch_not_found" });
+      if (batch.status !== "failed" && batch.status !== "paused") {
+        return reply.code(409).send({ error: "batch_not_resumable", status: batch.status });
+      }
+
+      const [updated] = await db
+        .update(batches)
+        .set({ status: "running", finishedAt: null, pausedReason: null })
+        .where(eq(batches.id, batchId))
+        .returning();
+
+      const queue = getGenerateBatchQueue();
+      const traceId = newTraceId();
+      const llmSnapshot = await getQueueLlmSnapshot();
+      const resumeFromChapter = (batch.checkpointChapter ?? (batch.startChapter + (batch.completedChapters ?? 0) - 1)) + 1;
+      const job = await queue.add(
+        "generate-batch",
+        {
+          batchId,
+          storyId: batch.storyId,
+          startChapter: batch.startChapter,
+          endChapter: batch.endChapter,
+          mode: batch.mode,
+          traceId,
+          llmProvider: llmSnapshot.llmProvider,
+          modelRoutes: llmSnapshot.modelRoutes,
+        },
+        { jobId: `batch-${batchId}-resume-${resumeFromChapter}` },
+      );
+
+      return reply.code(202).send({ batch: updated, jobId: job.id, resumeFromChapter });
+    },
+  );
+
   done();
 };
 

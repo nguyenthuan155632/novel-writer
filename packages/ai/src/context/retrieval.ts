@@ -34,6 +34,7 @@ import type {
   FactionCompact,
   TimelineEventCompact,
   PendingCanonUpdateCompact,
+  ParallelThreadCompact,
 } from "./types.js";
 
 export async function getStoryBible(
@@ -370,12 +371,26 @@ export async function getTimelineEventsForChapter(
   chapterNumber: number,
   limit = 20,
 ): Promise<TimelineEventCompact[]> {
+  const saga = await getSagaForChapter(db, storyId, chapterNumber);
+  const parallelThreads = normalizeParallelThreads(saga?.parallelThreads);
+  const activeThreadIds = parallelThreads
+    .filter((thread) => thread.startChapter <= chapterNumber && thread.endChapter >= chapterNumber)
+    .map((thread) => thread.id);
+  const convergenceThreadIds = new Set(
+    normalizeConvergenceThreadIds(saga?.convergencePoints, chapterNumber),
+  );
+  const threadIdsToInclude = Array.from(
+    new Set([...activeThreadIds, ...convergenceThreadIds]),
+  );
+
   const rows = await db
     .select({
       chapterNumber: timelineEvents.chapterNumber,
       eventType: timelineEvents.eventType,
       eventText: timelineEvents.eventText,
       importance: timelineEvents.importance,
+      threadId: timelineEvents.threadId,
+      relatedThreadIds: timelineEvents.relatedThreadIds,
     })
     .from(timelineEvents)
     .where(
@@ -385,13 +400,58 @@ export async function getTimelineEventsForChapter(
       ),
     )
     .orderBy(desc(timelineEvents.chapterNumber))
-    .limit(limit);
-  return rows.map((r) => ({
+    .limit(limit * 3);
+
+  const filtered = rows.filter((row) => {
+    if (!row.threadId && (!row.relatedThreadIds || row.relatedThreadIds.length === 0)) {
+      return true;
+    }
+    if (row.threadId && threadIdsToInclude.includes(row.threadId)) {
+      return true;
+    }
+    return (row.relatedThreadIds ?? []).some((id) => threadIdsToInclude.includes(id));
+  });
+
+  return filtered.slice(0, limit).map((r) => ({
     chapterNumber: r.chapterNumber,
     eventType: r.eventType ?? "event",
     eventText: r.eventText,
     importance: r.importance ?? "medium",
+    threadId: r.threadId,
+    relatedThreadIds: r.relatedThreadIds ?? [],
   }));
+}
+
+function normalizeParallelThreads(value: unknown): ParallelThreadCompact[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .filter((item): item is ParallelThreadCompact => {
+      if (!item || typeof item !== "object") return false;
+      const candidate = item as Record<string, unknown>;
+      return typeof candidate.id === "string"
+        && typeof candidate.premise === "string"
+        && typeof candidate.startChapter === "number"
+        && typeof candidate.endChapter === "number"
+        && (typeof candidate.parentTimelineId === "string" || candidate.parentTimelineId === null);
+    })
+    .map((item) => ({
+      id: item.id,
+      premise: item.premise,
+      startChapter: item.startChapter,
+      endChapter: item.endChapter,
+      parentTimelineId: item.parentTimelineId,
+    }));
+}
+
+function normalizeConvergenceThreadIds(value: unknown, chapterNumber: number): string[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((item) => {
+    if (!item || typeof item !== "object") return [];
+    const candidate = item as Record<string, unknown>;
+    if (candidate.atChapter !== chapterNumber) return [];
+    if (!Array.isArray(candidate.threadIds)) return [];
+    return candidate.threadIds.filter((id): id is string => typeof id === "string");
+  });
 }
 
 export async function getPendingCanonUpdatesForStory(

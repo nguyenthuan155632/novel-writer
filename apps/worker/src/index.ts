@@ -80,12 +80,15 @@ log.info('worker started');
 
 // Stale job detector: periodically reset chapters stuck in 'generating' to 'failed'
 const STALE_DETECTOR_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
+const POST_FLIGHT_AUDIT_INTERVAL_MS = 24 * 60 * 60 * 1000; // daily
 const staleDetectorInterval = setInterval(async () => {
   try {
     const { getDb } = await import('@novel/db');
     const { resetStaleGeneratingChapters } = await import('./services/stale-job-detector.js');
+    const { recordStaleJobResets } = await import('./services/metrics.js');
     const resetCount = await resetStaleGeneratingChapters({ db: getDb(), logger: log });
     if (resetCount > 0) {
+      recordStaleJobResets(resetCount, log);
       log.info({ resetCount }, 'stale job detector completed');
     }
   } catch (err) {
@@ -93,9 +96,23 @@ const staleDetectorInterval = setInterval(async () => {
   }
 }, STALE_DETECTOR_INTERVAL_MS);
 
+const postFlightAuditInterval = setInterval(async () => {
+  const hour = new Date().getUTCHours();
+  if (hour !== 4) return;
+  try {
+    const { getDb } = await import('@novel/db');
+    const { runPostFlightAudit } = await import('./services/post-flight-audit.js');
+    const result = await runPostFlightAudit({ db: getDb(), logger: log });
+    log.info({ result }, 'post-flight audit completed');
+  } catch (err) {
+    log.error({ err }, 'post-flight audit error');
+  }
+}, POST_FLIGHT_AUDIT_INTERVAL_MS);
+
 const shutdown = async () => {
   log.info('worker shutting down');
   clearInterval(staleDetectorInterval);
+  clearInterval(postFlightAuditInterval);
   await Promise.all([generateChapterWorker.close(), refreshArcSummaryWorker.close(), refreshSagaSummaryWorker.close(), generateBatchWorker.close(), highStakesReviewWorker.close(), generateExportWorker.close()]);
   await connection.quit();
   process.exit(0);

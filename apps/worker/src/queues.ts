@@ -45,7 +45,13 @@ export type HighStakesReviewJob = {
   storyId: string;
   chapterId: string;
   chapterNumber: number;
-  triggerReason: 'arc_end' | 'critical_severity' | 'manual';
+  triggerReason:
+    | 'arc_boundary'
+    | 'arc_climax'
+    | 'critical_severity'
+    | 'breakthrough_or_death'
+    | 'packet_high_stakes'
+    | 'manual';
   traceId: string;
   llmProvider?: LlmProviderId;
   modelRoutes?: Partial<ModelRoutes>;

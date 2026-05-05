@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { getStoryBible, getSagaForChapter, getArcForChapter, getArcById, getActiveCharacters, getOpenThreadsForStory, getPlantedSeedsForStory, getSeedsDueForChapter, getRecentSummaries, getPastChapterSummaries, getTopKCanonFactsHybrid } from '../../src/context/retrieval.js';
+import { getStoryBible, getSagaForChapter, getArcForChapter, getArcById, getActiveCharacters, getOpenThreadsForStory, getPlantedSeedsForStory, getSeedsDueForChapter, getRecentSummaries, getPastChapterSummaries, getTopKCanonFactsHybrid, getTimelineEventsForChapter } from '../../src/context/retrieval.js';
 
 describe('getStoryBible (unit)', () => {
   it('exports getStoryBible as a function', () => {
@@ -58,6 +58,58 @@ describe('getRecentSummaries (unit)', () => {
 describe('getPastChapterSummaries (unit)', () => {
   it('exports getPastChapterSummaries as a function', () => {
     expect(typeof getPastChapterSummaries).toBe('function');
+  });
+});
+
+describe('getTimelineEventsForChapter (unit)', () => {
+  it('exports getTimelineEventsForChapter as a function', () => {
+    expect(typeof getTimelineEventsForChapter).toBe('function');
+  });
+
+  it('keeps base events plus active and converging parallel-thread events', async () => {
+    let limitCall = 0;
+    const db = {
+      select: vi.fn(() => ({
+        from: vi.fn(() => ({
+          where: vi.fn(() => ({
+            orderBy: vi.fn(() => ({
+              limit: vi.fn(async () => {
+                limitCall += 1;
+                if (limitCall === 1) {
+                  return [{
+                    id: 'saga-1',
+                    storyId: 'story-1',
+                    startChapter: 1,
+                    endChapter: 20,
+                    parallelThreads: [
+                      { id: 'thread-a', premise: 'Active thread', startChapter: 8, endChapter: 14, parentTimelineId: null },
+                      { id: 'thread-b', premise: 'Converging thread', startChapter: 5, endChapter: 11, parentTimelineId: null },
+                    ],
+                    convergencePoints: [
+                      { atChapter: 12, threadIds: ['thread-b'], synopsis: 'Converges into main line' },
+                    ],
+                  }];
+                }
+                return [
+                  { chapterNumber: 12, eventType: 'event', eventText: 'Mainline checkpoint', importance: 'high', threadId: null, relatedThreadIds: [] },
+                  { chapterNumber: 11, eventType: 'event', eventText: 'Active side thread beat', importance: 'medium', threadId: 'thread-a', relatedThreadIds: [] },
+                  { chapterNumber: 12, eventType: 'event', eventText: 'Convergence signal', importance: 'high', threadId: 'thread-b', relatedThreadIds: ['thread-b'] },
+                  { chapterNumber: 10, eventType: 'event', eventText: 'Irrelevant thread beat', importance: 'low', threadId: 'thread-z', relatedThreadIds: [] },
+                ];
+              }),
+            })),
+          })),
+        })),
+      })),
+    } as unknown as import('@novel/db').Db;
+
+    const result = await getTimelineEventsForChapter(db, 'story-1', 12, 20);
+
+    expect(result.map((row) => row.eventText)).toEqual([
+      'Mainline checkpoint',
+      'Active side thread beat',
+      'Convergence signal',
+    ]);
   });
 });
 

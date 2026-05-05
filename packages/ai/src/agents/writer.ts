@@ -1,4 +1,4 @@
-import { GENERATION_CONFIG, MODEL_CONFIG, type EntryState, type GenreDef } from '@novel/core';
+import { GENERATION_CONFIG, modelFor, type EntryState, type GenreDef } from '@novel/core';
 import type { LLMProvider } from '../providers/types.ts';
 import { writerPromptV2 } from '../prompts/writer.v2.ts';
 
@@ -7,6 +7,8 @@ export interface WriterDeps {
   logger?: { info: (...args: any[]) => void; warn: (...args: any[]) => void; error: (...args: any[]) => void };
   model?: string;
 }
+
+export type ChapterGenerationMode = "single_pass" | "slot_based";
 
 export interface WriterInput {
   serializedContext: string;
@@ -19,6 +21,20 @@ export interface WriterInput {
   entryState?: EntryState;
   chapterTailBridge?: string;
   emotionalArc?: string[];
+  parallelThreads?: string[];
+}
+
+export function decideChapterGenerationMode(input: {
+  packetHighStakes: boolean;
+  isFirstChapterOfArc: boolean;
+  isLastChapterOfArc: boolean;
+  override?: string | null;
+}): ChapterGenerationMode {
+  if (input.override === "slot_based") return "slot_based";
+  if (input.override === "single_pass") return "single_pass";
+  return input.packetHighStakes || input.isFirstChapterOfArc || input.isLastChapterOfArc
+    ? "slot_based"
+    : "single_pass";
 }
 
 export interface WriterResult {
@@ -39,10 +55,11 @@ export class WriterAgent {
       entryState: input.entryState,
       chapterTailBridge: input.chapterTailBridge,
       emotionalArc: input.emotionalArc,
+      parallelThreads: input.parallelThreads,
     } as unknown as Record<string, unknown>);
 
     const res = await this.deps.provider.complete({
-      model: this.deps.model ?? MODEL_CONFIG.routes.writer,
+      model: this.deps.model ?? modelFor('writer'),
       messages: [
         { role: 'system', content: built.system },
         { role: 'user', content: built.user },

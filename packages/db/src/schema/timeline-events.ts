@@ -9,6 +9,8 @@ export const timelineEvents = pgTable('timeline_events', {
   eventType: text('event_type'),
   eventText: text('event_text').notNull(),
   importance: text('importance').$type<ImportanceLevel>().default('medium').notNull(),
+  threadId: text('thread_id'),
+  parallelSagaId: uuid('parallel_saga_id'),
   relatedCharacterIds: jsonb('related_character_ids').$type<string[]>().default([]).notNull(),
   relatedThreadIds: jsonb('related_thread_ids').$type<string[]>().default([]).notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),

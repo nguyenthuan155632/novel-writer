@@ -33,7 +33,7 @@ export class SagaPlannerAgent {
         model: this.deps.model ?? MODEL_CONFIG.routes.saga_planner,
         messages: [
           { role: 'system', content: built.system },
-          { role: 'user', content: `${built.user}\n\nReturn ONLY valid JSON matching this shape:\n{\n  "sagas": [{ "index": 0, "title": "...", "premise": "...", "startChapter": 1, "endChapter": 100, "expectedTurningPoints": ["...", "..."] }],\n  "plantedSeeds": [{ "seedKey": "...", "description": "...", "plantWindowStart": 1, "plantWindowEnd": 20, "payoffChapter": 60, "importance": "minor" }]\n}` },
+          { role: 'user', content: `${built.user}\n\nReturn ONLY valid JSON matching this shape:\n{\n  "sagas": [{ "index": 0, "title": "...", "premise": "...", "startChapter": 1, "endChapter": 100, "expectedTurningPoints": ["...", "..."], "parallelThreads": [{ "id": "thread-1", "premise": "...", "startChapter": 10, "endChapter": 30, "parentTimelineId": null }], "convergencePoints": [{ "atChapter": 30, "threadIds": ["thread-1"], "synopsis": "..." }] }],\n  "plantedSeeds": [{ "seedKey": "...", "description": "...", "plantWindowStart": 1, "plantWindowEnd": 20, "payoffChapter": 60, "importance": "minor" }]\n}` },
         ],
         temperature: 0.7,
         metadata: {
@@ -86,6 +86,8 @@ export class SagaPlannerAgent {
               startChapter: s.startChapter,
               endChapter: s.endChapter,
               expectedTurningPoints: s.expectedTurningPoints,
+              parallelThreads: s.parallelThreads,
+              convergencePoints: s.convergencePoints,
               summaryVersion: 0,
             })
             .where(eq(sagas.id, existing[0]!.id));

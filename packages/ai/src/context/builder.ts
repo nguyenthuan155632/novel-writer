@@ -176,6 +176,18 @@ export async function buildContext(
     activeCharacters: characters,
     arcOpenThreads: threads,
     arcPlantedSeeds: arcSeeds,
+    parallelThreads: Array.isArray(saga?.parallelThreads)
+      ? saga.parallelThreads.filter(
+          (thread): thread is { id: string; premise: string; startChapter: number; endChapter: number; parentTimelineId: string | null } =>
+            !!thread &&
+            typeof thread === "object" &&
+            typeof (thread as any).id === "string" &&
+            typeof (thread as any).premise === "string" &&
+            typeof (thread as any).startChapter === "number" &&
+            typeof (thread as any).endChapter === "number" &&
+            (typeof (thread as any).parentTimelineId === "string" || (thread as any).parentTimelineId === null),
+        )
+      : [],
     knownFactions,
     tailContentPrev: tailContentPrev ?? undefined,
     entryState: packet.entryState,
@@ -231,7 +243,6 @@ export async function buildContext(
   };
 
   const hotHash = computeHotHash(hot);
-  const warmHash = computeWarmHash(warm);
 
   const sagaProgress = computeProgressWindow({
     chapterNumber,
@@ -282,7 +293,7 @@ export async function buildContext(
       chapterNumber,
       arcId,
       hotHash,
-      warmHash,
+      warmHash: "",
       sagaProgressPercent: sagaProgress?.percent ?? null,
       arcProgressPercent: arcProgress?.percent ?? null,
       sagaProgressSource: sagaProgress?.source ?? null,
@@ -296,7 +307,11 @@ export async function buildContext(
     },
   };
 
-  ctx = shrinkToFit(ctx, cfg.TOKEN_BUDGET_NORMAL);
+  ctx = shrinkToFit(ctx, cfg.TOKEN_BUDGET_NORMAL, {
+    order: cfg.SHRINK_ORDER,
+    retrievedPastChaptersMinGap: cfg.RETRIEVED_PAST_CHAPTERS_MIN_GAP,
+  });
+  ctx.meta.warmHash = computeWarmHash(ctx.warm);
 
   return ctx;
 }

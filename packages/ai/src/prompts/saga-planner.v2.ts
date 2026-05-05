@@ -1,4 +1,5 @@
 import type { GenreDef, StoryOptions } from "@novel/core";
+import { PLANNER_FRAME } from "./role-frames.ts";
 import { registerPrompt, type DualPromptTemplate } from "./registry.ts";
 import { renderGenreContract } from "./contracts/genre-contract.ts";
 import { buildStoryOptionsBlock } from "./contracts/story-options-block.ts";
@@ -38,7 +39,9 @@ export const sagaPlannerPromptV2: DualPromptTemplate = {
     }
 
     return {
-      system: `Bạn là kiến trúc sư cốt truyện cho một bộ tiểu thuyết ${genreDef.viLabel} dài khoảng ${targetChapters} chương bằng tiếng Việt.
+      system: `${PLANNER_FRAME}
+
+Bạn là kiến trúc sư cốt truyện cho một bộ tiểu thuyết ${genreDef.viLabel} dài khoảng ${targetChapters} chương bằng tiếng Việt.
 
 ${renderGenreContract(genreDef, storyOptions)}
 
