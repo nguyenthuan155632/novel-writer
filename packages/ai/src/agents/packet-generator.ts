@@ -4,6 +4,18 @@ import type { CompletionUsage, LLMProvider } from '../providers/types.ts';
 import { withCompletionRetryRaw } from '../parse-completion-json.ts';
 import { ChapterPacketSchema, CHAPTER_PACKET_JSON_SCHEMA, PACKET_LIMITS, type ChapterPacket } from '../schemas/packet.ts';
 import { packetGeneratorPromptV2, type PacketGeneratorV2PromptInput } from '../prompts/packet-generator.v2.ts';
+import type { AuditIssue } from '../validators/packet-auditor.ts';
+
+/** §1.9 — deterministically compute seedsAutoEnforced from packet + mustIncludeSeeds. */
+function computeSeedsAutoEnforced(
+  packet: ChapterPacket,
+  mustIncludeSeeds: { id: string }[],
+): string[] {
+  const linkedSeedIds = new Set(
+    packet.requiredEvents.map((e) => e.seedId).filter((id): id is string => Boolean(id)),
+  );
+  return mustIncludeSeeds.map((s) => s.id).filter((id) => linkedSeedIds.has(id));
+}
 
 export interface Logger {
   child(bindings: Record<string, unknown>): Logger;
@@ -152,11 +164,11 @@ export class PacketGenerator {
     return { content: repaired.content, usage: repaired.usage };
   }
 
-  async generate(input: PacketGeneratorV2PromptInput, ctx: { traceId: string; storyId: string; auditHints?: string[] }): Promise<PacketGenerationResult> {
+  async generate(input: PacketGeneratorV2PromptInput, ctx: { traceId: string; storyId: string; previousIssues?: AuditIssue[]; mustIncludeSeeds?: { id: string }[] }): Promise<PacketGenerationResult> {
     const log = this.deps.logger.child({ traceId: ctx.traceId, agent: 'packet_generator' });
     const built = packetGeneratorPromptV2.build(input as unknown as Record<string, unknown>);
-    const userWithHints = ctx.auditHints && ctx.auditHints.length > 0
-      ? `${built.user}\n\n# REGENERATION HINTS (sửa lỗi audit)\n${ctx.auditHints.map(h => `- ${h}`).join('\n')}`
+    const userWithHints = ctx.previousIssues && ctx.previousIssues.length > 0
+      ? `${built.user}\n\n<previous_issues>\n${ctx.previousIssues.map(i => `<issue code="${i.code}" severity="${i.severity}">${i.message}</issue>`).join('\n')}\n</previous_issues>`
       : built.user;
 
     const res = await withCompletionRetryRaw(
@@ -210,6 +222,9 @@ export class PacketGenerator {
         }
       }
     }
+
+    // §1.9 — compute seedsAutoEnforced server-side (LLMs don't reliably echo IDs)
+    parsed.seedsAutoEnforced = computeSeedsAutoEnforced(parsed, ctx.mustIncludeSeeds ?? []);
 
     return {
       packet: parsed,

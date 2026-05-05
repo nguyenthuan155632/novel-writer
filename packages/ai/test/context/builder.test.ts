@@ -55,6 +55,7 @@ const samplePacket: ChapterPacket = {
   conflict: "Internal struggle",
   cliffhanger: "Unexpected revelation",
   forbiddenMoves: [],
+  seedsAutoEnforced: [],
 };
 
 const baseDeps = {

@@ -50,6 +50,7 @@ function makeContext(overrides?: {
         conflict: "test conflict",
         cliffhanger: "test cliffhanger",
         forbiddenMoves: [],
+        seedsAutoEnforced: [],
       },
       ...overrides?.cold,
     },
@@ -106,6 +107,7 @@ describe("shrinkToFit", () => {
           conflict: "c",
           cliffhanger: "h",
           forbiddenMoves: [],
+          seedsAutoEnforced: [],
         },
       },
     });
@@ -131,6 +133,7 @@ describe("shrinkToFit", () => {
           conflict: "c",
           cliffhanger: "h",
           forbiddenMoves: [],
+          seedsAutoEnforced: [],
         },
       },
     });
@@ -181,6 +184,7 @@ describe("shrinkToFit", () => {
           conflict: "c",
           cliffhanger: "h",
           forbiddenMoves: [],
+          seedsAutoEnforced: [],
         },
       },
     });

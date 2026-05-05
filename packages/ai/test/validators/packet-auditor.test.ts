@@ -128,6 +128,24 @@ describe("auditPacket forbidden_move", () => {
     );
     expect(r.issues.some((i) => i.code === "forbidden_move")).toBe(false);
   });
+
+  it("no false positive when forbiddenRules present but no phrase matched in packet", () => {
+    // Rules are non-empty but the packet contains none of the forbidden phrases
+    const r = auditPacket(
+      {
+        packet: {
+          ...basePacket,
+          goal: "Lam Trach tìm kiếm báu vật trong rừng",
+          requiredEvents: [{ description: "Phát hiện dấu vết kỳ lạ trên vách núi" }],
+        } as any,
+        characters: [aliveChar],
+        forbiddenRules: "giết sư phụ\nphản bội tông môn",
+        duePlantedSeeds: [],
+      },
+      { genreFamily: "cultivation" },
+    );
+    expect(r.issues.some((i) => i.code === "forbidden_move")).toBe(false);
+  });
 });
 
 // §1.5 — locked_fact_candidate and locked_fact
@@ -235,6 +253,7 @@ const baseRealmPacket: ChapterPacket = {
   charactersPresent: ["Lý Phong"],
   forbiddenMoves: [],
   toneHints: [],
+  seedsAutoEnforced: [],
   requiredEvents: [
     { description: "Đột phá cảnh giới mới", seedId: "" },
     { description: "Đột phá lần thứ hai", seedId: "" },

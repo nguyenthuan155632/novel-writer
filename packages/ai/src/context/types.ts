@@ -1,5 +1,6 @@
 import type { ChapterPacket } from "../schemas/packet.js";
 import type { ProgressWindowSource } from "./progress.js";
+import type { CanonConflictType } from "@novel/core";
 
 export type StyleFewShot = { excerpt: string; sourceChapter?: number };
 
@@ -63,7 +64,7 @@ export type PendingCanonUpdateCompact = {
   updateType: string;
   targetTable: string;
   conflictStatus: string;
-  conflictReasons: string[];
+  conflictReasons: CanonConflictType[];
   summary: string;
 };
 

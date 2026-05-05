@@ -4,6 +4,7 @@ import type { CanonSnapshot } from './conflict-detector.ts';
 import type { EmbeddingService } from '../embeddings/types.ts';
 import type { ExtractorOutput } from '../schemas/extractor.ts';
 import { detectConflicts, type ConflictEntry } from './conflict-detector.ts';
+import type { ImportanceLevel, CanonConflictType } from '@novel/core';
 
 export type CanonMergerDeps = {
   db: import('drizzle-orm/node-postgres').NodePgDatabase<Record<string, never>>;
@@ -104,7 +105,7 @@ export class CanonMerger {
       if (hasConflict) {
         const conflictReasons = conflicts
           .filter(c => c.targetTable === row.targetTable && c.targetId === row.targetId)
-          .map(c => c.reason);
+          .map(c => c.reason) as CanonConflictType[];
 
         pendingRows.push({
           storyId: params.storyId,
@@ -193,7 +194,7 @@ export class CanonMerger {
       case 'canon_facts': {
         const factText = row.payload.fact as string;
         const topicText = (row.payload.topic as string) ?? '';
-        const importance = (row.payload.importance as string) ?? 'medium';
+        const importance = ((row.payload.importance as string) ?? 'medium') as ImportanceLevel;
         const embResp = await this.deps.embeddingService.embed({
           input: factText,
           traceId,
@@ -240,7 +241,7 @@ export class CanonMerger {
           storyId,
           chapterNumber,
           eventText: row.payload.description as string,
-          importance: (row.payload.significance as string) ?? 'minor',
+          importance: ((row.payload.significance as string) ?? 'minor') as ImportanceLevel,
           relatedCharacterIds: (row.payload.charactersInvolved as string[]) ?? [],
         });
         break;

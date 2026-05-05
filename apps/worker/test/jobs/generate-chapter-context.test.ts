@@ -94,7 +94,7 @@ function makeContext(): ChapterContext {
           updateType: "update",
           targetTable: "characters",
           conflictStatus: "conflict",
-          conflictReasons: ["status mismatch"],
+          conflictReasons: ["realm_regression" as const],
           summary: "Witness status disputed",
         },
       ],
@@ -106,6 +106,7 @@ function makeContext(): ChapterContext {
         conflict: "The bureau blocks access.",
         cliffhanger: "The witness calls from inside the bureau.",
         forbiddenMoves: ["resolve betrayal"],
+        seedsAutoEnforced: [],
       },
     },
     meta: {

@@ -24,4 +24,21 @@ describe('ChapterPacketSchema', () => {
       charactersPresent: [], conflict: 'c', cliffhanger: 'h', forbiddenMoves: [],
     })).toThrow();
   });
+
+  it('§1.9 seedsAutoEnforced defaults to [] and round-trips', () => {
+    // LLM output without seedsAutoEnforced → defaults to []
+    const out = ChapterPacketSchema.parse({
+      chapterNumber: 3, goal: 'find artifact', requiredEvents: [], charactersPresent: [],
+      conflict: 'bandits attack', cliffhanger: 'mysterious figure', forbiddenMoves: [],
+    });
+    expect(out.seedsAutoEnforced).toEqual([]);
+
+    // Explicit value round-trips
+    const out2 = ChapterPacketSchema.parse({
+      chapterNumber: 3, goal: 'find artifact', requiredEvents: [], charactersPresent: [],
+      conflict: 'bandits attack', cliffhanger: 'mysterious figure', forbiddenMoves: [],
+      seedsAutoEnforced: ['seed-id-1', 'seed-id-2'],
+    });
+    expect(out2.seedsAutoEnforced).toEqual(['seed-id-1', 'seed-id-2']);
+  });
 });

@@ -28,6 +28,12 @@ export const ChapterPacketSchema = z.object({
   forbiddenMoves: z.array(z.string()).max(PACKET_LIMITS.forbiddenMoves),
   toneHints: z.array(z.string()).max(PACKET_LIMITS.toneHints).optional(),
   notes: z.string().max(PACKET_LIMITS.notes).optional(),
+  /**
+   * §1.9 — IDs of must-include seeds that were actually incorporated.
+   * Computed server-side by scanning requiredEvents seedIds after parse;
+   * not emitted by the LLM (LLMs don't reliably echo arbitrary IDs).
+   */
+  seedsAutoEnforced: z.array(z.string()).default([]),
 });
 
 export type ChapterPacket = z.infer<typeof ChapterPacketSchema>;

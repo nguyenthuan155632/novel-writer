@@ -38,6 +38,8 @@ import {
   getSeedsDueForChapter,
   getRecentSummaries,
   getStoryTargetChapterCount,
+  getLockedCanonFactCandidates,
+  getSeedsApproachingPlantDeadline,
   type EmbeddingService,
   OpenRouterEmbeddingService,
   formatValidationReport,
@@ -665,6 +667,11 @@ export async function executeGenerateChapterPipeline(
       data.storyId,
       data.chapterNumber,
     );
+    const mustIncludeSeeds = await getSeedsApproachingPlantDeadline(
+      db,
+      data.storyId,
+      data.chapterNumber,
+    );
     const recentSummaries = await getRecentSummaries(
       db,
       data.storyId,
@@ -797,6 +804,11 @@ Trạng thái hiện tại: ${currentRealms || "(chưa xác định)"}`;
         payoffDescription: s.payoffDescription,
         plantWindowEnd: s.plantWindowEnd,
       })),
+      mustIncludeSeeds: mustIncludeSeeds.map((s) => ({
+        id: s.id,
+        seedText: s.seedText,
+        plantWindowEnd: s.plantWindowEnd,
+      })),
       overdueThreads: overdueThreads.map((t) => ({
         title: t.title,
         introducedChapter: t.introducedChapter,
@@ -849,11 +861,25 @@ Trạng thái hiện tại: ${currentRealms || "(chưa xác định)"}`;
         {
           traceId,
           storyId: data.storyId,
-          auditHints: auditResult?.issues.map((i) => i.message),
+          previousIssues: auditResult?.issues,
+          mustIncludeSeeds,
         },
       );
       accumulateUsage(packetResult.usage, tokenAcc);
       totalCost += estimateCostUsd(packetModel, packetResult.usage);
+
+      // §1.5 — locked fact candidates retrieved from DB using packet text
+      const packetSearchText = [
+        packetResult.packet.goal,
+        packetResult.packet.conflict,
+        ...packetResult.packet.requiredEvents.map((e) => e.description),
+      ].join(" ");
+      const lockedFactCandidates = await getLockedCanonFactCandidates(
+        db,
+        data.storyId,
+        packetSearchText,
+        5,
+      );
 
       const auditInput = {
         packet: packetResult.packet,
@@ -869,6 +895,7 @@ Trạng thái hiện tại: ${currentRealms || "(chưa xác định)"}`;
           plantWindowEnd: s.plantWindowEnd,
         })),
         overdueTurningPoints,
+        lockedFactCandidates,
       };
 
       auditResult = auditPacket(auditInput, {
