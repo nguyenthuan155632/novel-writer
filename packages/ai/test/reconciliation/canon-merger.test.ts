@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { CanonMerger, type CanonMergerRow } from '../../src/reconciliation/canon-merger.ts';
 import type { CanonSnapshot } from '../../src/reconciliation/conflict-detector.ts';
 import { MockEmbeddingService } from '../../src/embeddings/mock.ts';
@@ -333,5 +333,93 @@ describe('CanonMerger', () => {
     expect(updates).toContainEqual(expect.objectContaining({
       vals: expect.objectContaining({ status: 'paid_off', paidOffAtChapter: 12 }),
     }));
+  });
+
+  // §3.2 — auto-approve low-importance clean rows even in review mode.
+  it('auto-applies low-importance clean rows in review mode', async () => {
+    const { db } = mockDb();
+    const merger = new CanonMerger({ db, embeddingService: new MockEmbeddingService() });
+
+    const rows: CanonMergerRow[] = [
+      {
+        updateType: 'create',
+        targetTable: 'canon_facts',
+        targetId: null,
+        payload: { fact: 'Thông tin nhỏ nhặt', importance: 'low', topic: 'Misc' },
+      },
+      {
+        updateType: 'create',
+        targetTable: 'canon_facts',
+        targetId: null,
+        payload: { fact: 'Thông tin quan trọng', importance: 'medium', topic: 'Main' },
+      },
+    ];
+
+    const result = await merger.submit({
+      storyId: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+      chapterId: 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb',
+      chapterNumber: 6,
+      rows,
+      seedsResolvedIds: [],
+      mode: 'review',
+      traceId: 'trace-low',
+    }, CLEAN_SNAPSHOT);
+
+    // Low-importance row auto-approved; medium-importance goes to pending.
+    expect(result.autoApprovedLowImportanceCount).toBe(1);
+    expect(result.pendingCount).toBe(1);
+    expect(result.autoAppliedCount).toBe(0);
+  });
+
+  // §3.3 — conflict rows get suggestedResolution when provider present.
+  it('attaches suggestedResolution to conflict rows when provider present', async () => {
+    const { db, inserts } = mockDb();
+    const mockProvider = {
+      complete: vi.fn(async () => ({
+        content: '{"defer_to_chapter": 20}',
+        usage: { inputTokens: 10, outputTokens: 5, cachedInputTokens: 0 },
+      })),
+    } as unknown as import('../../src/providers/types.ts').LLMProvider;
+
+    const merger = new CanonMerger({ db, embeddingService: new MockEmbeddingService(), provider: mockProvider });
+
+    // dead_character_action is easy to trigger: update a dead character's non-status field.
+    const deadCharSnapshot: CanonSnapshot = {
+      characters: [{
+        id: '11111111-1111-1111-1111-111111111111',
+        name: 'Lam Trach',
+        currentRealm: 'kim đan',
+        status: 'dead',
+        currentBloodlines: [],
+        lockedFields: [],
+      }],
+      canonFacts: [],
+      threads: [],
+    };
+
+    const rows: CanonMergerRow[] = [{
+      updateType: 'update',
+      targetTable: 'characters',
+      targetId: '11111111-1111-1111-1111-111111111111',
+      payload: { name: 'Lam Trach', fields: { currentRealm: 'kim đan sơ kỳ' }, importance: 'medium' },
+    }];
+
+    const result = await merger.submit({
+      storyId: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+      chapterId: 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb',
+      chapterNumber: 5,
+      rows,
+      seedsResolvedIds: [],
+      mode: 'auto',
+      traceId: 'trace-resolver',
+    }, deadCharSnapshot);
+
+    // dead_character_action conflict → row queued to pending with suggestedResolution.
+    expect(result.conflicts.some(c => c.type === 'dead_character_action')).toBe(true);
+    expect(result.pendingCount).toBe(1);
+    // inserts[0].vals is the array passed to .values(); pending rows array.
+    const insertedRows = (inserts[0] as { vals: Record<string, unknown>[] })?.vals;
+    const firstRow = Array.isArray(insertedRows) ? insertedRows[0] : insertedRows;
+    expect(firstRow?.suggestedResolution).toEqual({ defer_to_chapter: 20 });
   });
 });

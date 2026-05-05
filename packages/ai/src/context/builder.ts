@@ -27,7 +27,7 @@ import {
   getOpenThreadsForStory,
   getSeedsDueForChapter,
   getRecentSummaries,
-  getTopKCanonFacts,
+  getTopKCanonFactsHybrid,
   getPastChapterSummaries,
   getPlantedSeedsForStory,
   getFactionsForStory,
@@ -182,8 +182,12 @@ export async function buildContext(
   };
 
   const goalText = packet.goal;
-  const povId = packet.entryState?.povCharacter.name ?? packet.charactersPresent[0] ?? 'unknown';
+  const povName = packet.entryState?.povCharacter.name;
+  const povId = povName
+    ? (characters.find((c) => c.name === povName)?.id ?? null)
+    : null;
   const activeLocationKey = packet.entryState?.locationId ?? null;
+  const characterNames = packet.charactersPresent ?? [];
 
   let retrievedFacts: CanonFactCompact[] = [];
   try {
@@ -191,15 +195,15 @@ export async function buildContext(
       input: goalText,
       traceId,
     });
-    retrievedFacts = await getTopKCanonFacts(
+    retrievedFacts = await getTopKCanonFactsHybrid(
       db,
       storyId,
       embResp.vector,
-      cfg.RETRIEVED_CANON_FACTS_TOP_K,
-      [...cfg.RETRIEVAL_MIN_IMPORTANCE],
+      characterNames,
       chapterNumber,
       povId,
-      activeLocationKey
+      activeLocationKey,
+      cfg.RETRIEVED_CANON_FACTS_TOP_K,
     );
   } catch (err) {
     log?.warn(

@@ -1313,8 +1313,19 @@ Trạng thái hiện tại: ${currentRealms || "(chưa xác định)"}`;
     }
 
     const wordCount = writerResult.content.split(/\s+/).length;
+
+    // §3.4 — critical conflict types always pause the chapter regardless of mode.
+    const CRITICAL_CONFLICT_TYPES = new Set([
+      "realm_regression",
+      "dead_character_action",
+      "locked_field",
+    ]);
+    const hasCriticalConflict = mergerResult.conflicts.some((c) =>
+      CRITICAL_CONFLICT_TYPES.has(c.type),
+    );
     const finalStatus: GenerateChapterJobResult["status"] =
-      mergerMode === "review" && mergerResult.pendingCount > 0
+      hasCriticalConflict ||
+      (mergerMode === "review" && mergerResult.pendingCount > 0)
         ? "paused_pending_updates"
         : "completed";
 

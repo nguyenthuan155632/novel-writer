@@ -18,9 +18,11 @@ const VALID_SUMMARY_OUTPUT = JSON.stringify({
   moodShift: 'lighter',
 });
 
-// Generates a summary that exceeds 500 tokens (~1600+ chars at 3.2 chars/token)
+// Generates a summary that exceeds 500 tokens (uses natural text to avoid BPE compression of repetitive chars)
 function makeOversizedSummary(): string {
-  const longSummary = 'x'.repeat(1700);
+  // ~500+ tokens: natural prose at ~1.3 tokens/word, repeated to ensure > 500 tokens regardless of tokenizer.
+  const sentence = 'Lam Trach tu luyện không biết mệt mỏi trong hang sâu, ngày qua ngày đêm qua đêm, ';
+  const longSummary = sentence.repeat(50); // ~3500 chars, ~500+ tokens on any tokenizer
   return JSON.stringify({
     summary: longSummary,
     keyEvents: ['event'],

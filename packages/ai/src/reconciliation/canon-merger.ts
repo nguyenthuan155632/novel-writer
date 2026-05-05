@@ -5,10 +5,15 @@ import type { EmbeddingService } from '../embeddings/types.ts';
 import type { ExtractorOutput } from '../schemas/extractor.ts';
 import { detectConflicts, type ConflictEntry } from './conflict-detector.ts';
 import type { ImportanceLevel, CanonConflictType } from '@novel/core';
+import { ConflictResolverAgent } from '../agents/conflict-resolver.ts';
+import type { LLMProvider } from '../providers/types.ts';
 
 export type CanonMergerDeps = {
   db: import('drizzle-orm/node-postgres').NodePgDatabase<Record<string, never>>;
   embeddingService: EmbeddingService;
+  /** Optional LLM provider for conflict-resolver suggestions. Omit in tests or when not needed. */
+  provider?: LLMProvider;
+  logger?: { info: (...args: any[]) => void; warn: (...args: any[]) => void };
 };
 
 export type CanonMergerMode = 'auto' | 'review';
@@ -33,6 +38,8 @@ export type CanonMergerSubmitParams = {
 export type CanonMergerResult = {
   pendingCount: number;
   autoAppliedCount: number;
+  /** How many rows were auto-approved because conflictStatus=none AND importance=low in review mode. */
+  autoApprovedLowImportanceCount: number;
   conflicts: ConflictEntry[];
 };
 
@@ -90,25 +97,47 @@ export class CanonMerger {
     const conflicts = detectConflicts(extracted, snapshot);
     const pendingRows: (typeof pendingCanonUpdates.$inferInsert)[] = [];
     const autoApplyRows: CanonMergerRow[] = [];
+    const autoApprovedLowRows: CanonMergerRow[] = [];
+
+    // §3.3 — conflict resolver for suggestion generation (only when provider available).
+    const resolver = this.deps.provider
+      ? new ConflictResolverAgent({ provider: this.deps.provider, logger: this.deps.logger })
+      : null;
 
     for (const row of params.rows) {
+      const payloadFields = (row.payload.fields as Record<string, unknown> | undefined) ?? {};
       const hasConflict = conflicts.some(c => {
         if (c.targetTable !== row.targetTable) return false;
         // Update rows carry a concrete targetId; require an exact id match plus
         // the conflicting payload key to be set on this specific row.
+        // The key may be at top-level payload OR inside nested `fields` (for character/faction updates).
         if (row.targetId != null) {
-          return c.targetId === row.targetId && row.payload[c.payloadKey] !== undefined;
+          return c.targetId === row.targetId &&
+            (row.payload[c.payloadKey] !== undefined || payloadFields[c.payloadKey] !== undefined);
         }
         // Create rows have no id yet, so any same-table conflict that flags a
         // payload key actually present on this row should route to pending
         // (e.g. `duplicate_fact`, `duplicate_faction`).
-        return row.payload[c.payloadKey] !== undefined;
+        return row.payload[c.payloadKey] !== undefined || payloadFields[c.payloadKey] !== undefined;
       });
 
       if (hasConflict) {
         const conflictReasons = conflicts
           .filter(c => c.targetTable === row.targetTable && c.targetId === row.targetId)
           .map(c => c.reason) as CanonConflictType[];
+
+        // §3.3 — attempt to generate a suggested resolution before writing to pending.
+        let suggestedResolution: Record<string, unknown> | undefined;
+        if (resolver) {
+          const suggestion = await resolver.suggest({
+            updateRow: row,
+            snapshot,
+            conflictReasons,
+            traceId: params.traceId,
+            storyId: params.storyId,
+          });
+          if (suggestion) suggestedResolution = suggestion;
+        }
 
         pendingRows.push({
           storyId: params.storyId,
@@ -119,20 +148,27 @@ export class CanonMerger {
           payload: row.payload,
           conflictStatus: 'conflict',
           conflictReasons,
+          suggestedResolution,
           resolution: 'pending',
         });
       } else if (params.mode === 'review') {
-        pendingRows.push({
-          storyId: params.storyId,
-          chapterId: params.chapterId,
-          updateType: row.updateType,
-          targetTable: row.targetTable,
-          targetId: row.targetId,
-          payload: row.payload,
-          conflictStatus: 'none',
-          conflictReasons: [],
-          resolution: 'pending',
-        });
+        // §3.2 — auto-approve low-importance clean rows even in review mode.
+        const importance = row.payload.importance as string | undefined;
+        if (importance === 'low') {
+          autoApprovedLowRows.push(row);
+        } else {
+          pendingRows.push({
+            storyId: params.storyId,
+            chapterId: params.chapterId,
+            updateType: row.updateType,
+            targetTable: row.targetTable,
+            targetId: row.targetId,
+            payload: row.payload,
+            conflictStatus: 'none',
+            conflictReasons: [],
+            resolution: 'pending',
+          });
+        }
       } else {
         autoApplyRows.push(row);
       }
@@ -143,6 +179,21 @@ export class CanonMerger {
     }
 
     let autoAppliedCount = 0;
+    let autoApprovedLowImportanceCount = 0;
+
+    // §3.2 — apply low-importance clean rows regardless of mode.
+    for (const row of autoApprovedLowRows) {
+      await this.applyRow(row, params.storyId, params.chapterNumber, params.traceId);
+      autoApprovedLowImportanceCount++;
+      this.deps.logger?.info({
+        traceId: params.traceId,
+        storyId: params.storyId,
+        targetTable: row.targetTable,
+        targetId: row.targetId,
+        metadata: { canon_merger_auto_apply: true, reason: 'low_importance_clean' },
+      }, 'canon merger auto-applied low-importance clean row');
+    }
+
     if (params.mode === 'auto') {
       for (const row of autoApplyRows) {
         await this.applyRow(row, params.storyId, params.chapterNumber, params.traceId);
@@ -162,6 +213,7 @@ export class CanonMerger {
     return {
       pendingCount: pendingRows.length,
       autoAppliedCount,
+      autoApprovedLowImportanceCount,
       conflicts,
     };
   }

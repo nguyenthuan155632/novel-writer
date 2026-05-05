@@ -13,6 +13,7 @@ const DEFAULT_MODEL_ROUTES = {
   arc_summary_compactor: DEFAULT_MODEL_ID,
   high_stakes_reviewer: DEFAULT_MODEL_ID,
   deterministic_verifier: DEFAULT_MODEL_ID,
+  conflict_resolver: DEFAULT_MODEL_ID,
 };
 
 export const MODEL_CONFIG = {
