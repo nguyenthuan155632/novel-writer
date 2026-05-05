@@ -17,6 +17,7 @@ const DEFAULT_MODEL_ROUTES = {
   arc_summary_compactor: DEFAULT_MODEL_ID,
   high_stakes_reviewer: PRO_MODEL_ID,
   deterministic_verifier: DEFAULT_MODEL_ID,
+  polish_pass: DEFAULT_MODEL_ID,
   conflict_resolver: FLASH_MODEL_ID,
 };
 
@@ -175,6 +176,12 @@ export const MODEL_OPTIONS: ModelOption[] = [
     envVar: "DETERMINISTIC_VERIFIER_MODEL",
     description:
       "Confirms or dismisses regex-flagged issues (unknown characters, locations, realm jumps).",
+  },
+  {
+    role: "polish_pass",
+    label: "Polish pass",
+    envVar: "POLISH_PASS_MODEL",
+    description: "Polishes validated chapter prose without changing story beats.",
   },
 ];
 

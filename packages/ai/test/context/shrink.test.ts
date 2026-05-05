@@ -82,7 +82,7 @@ describe("shrinkToFit", () => {
     expect(result).toEqual(ctx);
   });
 
-  it("drops retrievedPastChapters first", () => {
+  it("keeps retrievedPastChapters unchanged", () => {
     const ctx = makeContext({
       cold: {
         recentSummaries: [{ chapterNumber: 1, summary: "a".repeat(1000) }],
@@ -100,7 +100,9 @@ describe("shrinkToFit", () => {
       },
     });
     const result = shrinkToFit(ctx, 50);
-    expect(result.cold.retrievedPastChapters).toEqual([]);
+    expect(result.cold.retrievedPastChapters).toEqual([
+      { chapterNumber: 1, summary: "c".repeat(1000) },
+    ]);
   });
 
   it("raises retrievedFacts threshold before other cold drops", () => {
@@ -160,19 +162,72 @@ describe("shrinkToFit", () => {
     expect(result.cold.timelineEvents).toEqual([{ chapterNumber: 1, eventType: 'battle', eventText: 'older event', importance: 'high' }]);
   });
 
-  it("trims activeCharacters by oldest lastActiveChapter and keeps at least three", () => {
+  it("trims activeCharacters by lastActiveChapter and keeps at least three", () => {
     const chars: CharacterCompact[] = [
-      { id: 'c1', name: 'A', currentRealm: 'realm-1', status: 'alive', bloodlines: ['x'], shortTraits: ['t'] },
-      { id: 'c2', name: 'B', currentRealm: 'realm-2', status: 'alive', bloodlines: ['x'], shortTraits: ['t'] },
-      { id: 'c10', name: 'C', currentRealm: 'realm-10', status: 'alive', bloodlines: ['x'], shortTraits: ['t'] },
-      { id: 'c20', name: 'D', currentRealm: 'realm-20', status: 'alive', bloodlines: ['x'], shortTraits: ['t'] },
+      {
+        id: 'c1',
+        name: 'A',
+        currentRealm: 'realm-1',
+        status: 'alive',
+        bloodlines: ['x'],
+        shortTraits: ['t'],
+        lastActiveChapter: 1,
+      },
+      {
+        id: 'c2',
+        name: 'B',
+        currentRealm: 'realm-2',
+        status: 'alive',
+        bloodlines: ['x'],
+        shortTraits: ['t'],
+        lastActiveChapter: 20,
+      },
+      {
+        id: 'c3',
+        name: 'C',
+        currentRealm: 'realm-3',
+        status: 'alive',
+        bloodlines: ['x'],
+        shortTraits: ['t'],
+        lastActiveChapter: 10,
+      },
+      {
+        id: 'c4',
+        name: 'D',
+        currentRealm: 'realm-4',
+        status: 'alive',
+        bloodlines: ['x'],
+        shortTraits: ['t'],
+        lastActiveChapter: 30,
+      },
     ];
     const ctx = makeContext({ warm: { activeCharacters: chars } });
     const result = shrinkToFit(ctx, 10);
     expect(result.warm.activeCharacters).toEqual([
-      { id: 'c20', name: 'D', status: 'alive', bloodlines: [], shortTraits: [] },
-      { id: 'c10', name: 'C', status: 'alive', bloodlines: [], shortTraits: [] },
-      { id: 'c2', name: 'B', status: 'alive', bloodlines: [], shortTraits: [] },
+      {
+        id: 'c4',
+        name: 'D',
+        status: 'alive',
+        bloodlines: [],
+        shortTraits: [],
+        lastActiveChapter: 30,
+      },
+      {
+        id: 'c2',
+        name: 'B',
+        status: 'alive',
+        bloodlines: [],
+        shortTraits: [],
+        lastActiveChapter: 20,
+      },
+      {
+        id: 'c3',
+        name: 'C',
+        status: 'alive',
+        bloodlines: [],
+        shortTraits: [],
+        lastActiveChapter: 10,
+      },
     ]);
   });
 

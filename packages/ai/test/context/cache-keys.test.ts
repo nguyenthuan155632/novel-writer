@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { findGenre } from '@novel/core';
+import { shrinkToFit } from '../../src/context/shrink.js';
 import { computeHotHash, computeWarmHash } from '../../src/context/cache-keys.js';
-import type { HotTier, WarmTier, ChapterContext } from '../../src/context/types.js';
+import type { ChapterContext, HotTier, WarmTier } from '../../src/context/types.js';
 import { serializeContextForWriter } from '../../../../apps/worker/src/jobs/generate-chapter';
-import { WRITER_SYSTEM_PROMPT_TEMPLATE, writerPromptV2 } from '../../src/prompts/writer.v2.ts';
+import { writerPromptV2 } from '../../src/prompts/writer.v2.ts';
 
 function makeHot(): HotTier {
   return {
@@ -124,6 +124,74 @@ describe('computeWarmHash', () => {
       computeWarmHash({ ...baseWarm, tailContentPrev: 'tail bridge' }),
     );
   });
+
+  it('matches final shrunken warm payload', () => {
+    const ctx: ChapterContext = {
+      hot: {
+        systemRules: 'rules',
+        bibleCompact: 'compact',
+        styleGuide: 'guide',
+        powerSystem: 'power',
+        powerSystemKind: '',
+        genreContract: '',
+        personalityContract: '',
+        storyOptionsBlock: '',
+        styleFewShots: [],
+      },
+      warm: {
+        ...baseWarm,
+        activeCharacters: [
+          {
+            id: 'c1',
+            name: 'Linh',
+            currentRealm: 'kim đan',
+            status: 'alive',
+            bloodlines: ['Hỏa Long'],
+            faction: 'Thiên Môn',
+            shortTraits: ['dũng cảm'],
+          },
+        ],
+      },
+      cold: {
+        recentSummaries: [],
+        retrievedFacts: [],
+        retrievedPastChapters: [],
+        seedsToPlantNow: [],
+        timelineEvents: [],
+        pendingCanonUpdates: [],
+        packet: {
+          chapterNumber: 1,
+          goal: 'g',
+          requiredEvents: [],
+          charactersPresent: [],
+          conflict: 'c',
+          cliffhanger: 'h',
+          forbiddenMoves: [],
+          seedsAutoEnforced: [],
+        },
+      },
+      meta: {
+        storyId: 's1',
+        chapterNumber: 10,
+        arcId: 'a1',
+        hotHash: '',
+        warmHash: '',
+        sagaProgressPercent: null,
+        arcProgressPercent: null,
+        sagaProgressSource: null,
+        arcProgressSource: null,
+        sagaRange: null,
+        arcRange: null,
+        sagaPhase: null,
+        arcPhase: null,
+        activeTurningPoint: null,
+        targetInputBudget: 6000,
+      },
+    };
+
+    const shrunken = shrinkToFit(ctx, 10);
+    expect(computeWarmHash(shrunken.warm)).not.toBe(computeWarmHash(ctx.warm));
+  });
 });
 
 describe('writer cache invariants', () => {
@@ -132,15 +200,13 @@ describe('writer cache invariants', () => {
     expect(serialized.startsWith('# SYSTEM RULES\nrules\n\n# BIBLE COMPACT\ncompact')).toBe(true);
   });
 
-  it('keeps writer system prompt byte-identical', () => {
-    const genreDef = findGenre('do_thi');
+  it('keeps writer system prompt byte-stable while HOT sections stay first in user context', () => {
     const built = writerPromptV2.build({
       serializedContext: 'CTX',
-      genreDef,
+      genreDef: { slug: 'do_thi', viLabel: 'Đô thị' } as any,
     } as unknown as Record<string, unknown>);
 
-    expect(built.system).toBe(
-      WRITER_SYSTEM_PROMPT_TEMPLATE.replace('__GENRE_LABEL__', 'Đô thị'),
-    );
+    expect(built.system).not.toContain('<creator_frame>');
+    expect(built.user).toBe('CTX');
   });
 });

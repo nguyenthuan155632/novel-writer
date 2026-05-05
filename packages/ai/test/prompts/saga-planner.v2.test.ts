@@ -13,4 +13,15 @@ describe('sagaPlannerPromptV2', () => {
     expect(built.system.toLowerCase()).not.toContain('tiên hiệp');
     expect(built.system).toContain('Đô thị');
   });
+
+  it('adds planner frame on system side', () => {
+    const built = sagaPlannerPromptV2.build({
+      targetChapters: 200,
+      bibleCompact: 'Bible compact text',
+      genreDef: findGenre('do_thi'),
+      storyOptions: {},
+    });
+    expect(built.system).toContain('<planner_frame>');
+    expect(built.system).toContain('Suy nghĩ nội bộ trước, sau đó mới xuất JSON cuối cùng');
+  });
 });

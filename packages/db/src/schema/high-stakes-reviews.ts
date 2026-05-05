@@ -6,7 +6,7 @@ export const highStakesReviews = pgTable('high_stakes_reviews', {
   id: uuid('id').primaryKey().defaultRandom(),
   storyId: uuid('story_id').notNull().references(() => stories.id, { onDelete: 'cascade' }),
   chapterId: uuid('chapter_id').notNull().references(() => chapters.id, { onDelete: 'cascade' }),
-  triggerReason: text('trigger_reason', { enum: ['arc_end', 'critical_severity', 'manual'] }).notNull(),
+  triggerReason: text('trigger_reason', { enum: ['arc_boundary', 'arc_climax', 'critical_severity', 'breakthrough_or_death', 'packet_high_stakes', 'manual'] }).notNull(),
   approve: text('approve').notNull(),
   concerns: jsonb('concerns').$type<{ category: string; severity: string; description: string; quote?: string }[]>().notNull().default([]),
   recommendedActions: jsonb('recommended_actions').$type<{ action: string; rationale: string }[]>().notNull().default([]),

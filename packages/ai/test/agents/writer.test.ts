@@ -1,7 +1,12 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, afterEach } from 'vitest';
+import { modelFor, resetModelRoutesForTests, setModelRoutes } from '@novel/core';
 import { WriterAgent, parseTitleAndContent } from '../../src/agents/writer.ts';
 import { MockProvider } from '../../src/providers/mock.ts';
 import '../../src/prompts/writer.v2.ts';
+
+afterEach(() => {
+  resetModelRoutesForTests();
+});
 
 describe('parseTitleAndContent', () => {
   it('parses TITLE: prefix format', () => {
@@ -77,5 +82,24 @@ describe('WriterAgent', () => {
     expect(call.messages).toHaveLength(2);
     expect(call.messages[0]!.role).toBe('system');
     expect(call.messages[1]!.role).toBe('user');
+  });
+
+  it('uses modelFor writer route when deps model missing', async () => {
+    setModelRoutes({ writer: 'google/gemini-2.5-pro' });
+    const provider = new MockProvider({
+      responder: { kind: 'fixed', content: 'TITLE: Test\n\nBody' },
+    });
+    const agent = new WriterAgent({ provider });
+
+    await agent.write({
+      serializedContext: 'my-context',
+      cacheKey: 'k',
+      chapterNumber: 1,
+      storyId: 's1',
+      traceId: 't1',
+      genreDef: { slug: 'tien_hiep', viLabel: 'Tiên hiệp', viDescription: '', family: 'cultivation', allowedTropes: [], discouragedTropes: [], toneGuidance: '', worldbuildingGuidance: '', examplePremises: [] } as any,
+    });
+
+    expect(provider.getCalls()[0]!.model).toBe(modelFor('writer'));
   });
 });
