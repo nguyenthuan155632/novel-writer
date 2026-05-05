@@ -198,11 +198,14 @@ export class CanonMerger {
         const factText = row.payload.fact as string;
         const topicText = (row.payload.topic as string) ?? '';
         const importance = ((row.payload.importance as string) ?? 'medium') as ImportanceLevel;
+        const visibility = (row.payload.visibility as 'public' | 'restricted' | 'secret') ?? 'restricted';
+        const knownBy = (row.payload.knownBy as string[]) ?? [];
+        const validUntilChapter = row.payload.validUntilChapter as number | undefined;
         const embResp = await this.deps.embeddingService.embed({
           input: factText,
           traceId,
         });
-        await this.deps.db.insert(canonFacts).values({
+        const [insertedFact] = await this.deps.db.insert(canonFacts).values({
           storyId,
           topic: topicText,
           fact: factText,
@@ -210,7 +213,28 @@ export class CanonMerger {
           importance,
           locked: importance === 'locked',
           embedding: embResp.vector,
-        });
+          visibility,
+          knownBy,
+          validUntilChapter,
+        }).returning({ id: canonFacts.id });
+
+        if (knownBy.length > 0) {
+          // Update knowledgeState for each character in knownBy
+          for (const characterId of knownBy) {
+            const charRows = await this.deps.db.select({ knowledgeState: characters.knowledgeState })
+              .from(characters)
+              .where(and(eq(characters.id, characterId), eq(characters.storyId, storyId)))
+              .limit(1);
+
+            if (charRows.length > 0 && charRows[0]) {
+              const currentState = (charRows[0].knowledgeState as Record<string, number>) ?? {};
+              const newState = { ...currentState, [insertedFact!.id]: chapterNumber };
+              await this.deps.db.update(characters)
+                .set({ knowledgeState: newState, updatedAt: new Date() })
+                .where(and(eq(characters.id, characterId), eq(characters.storyId, storyId)));
+            }
+          }
+        }
         break;
       }
       case 'open_threads': {
@@ -251,10 +275,29 @@ export class CanonMerger {
       }
       case 'planted_seeds': {
         if (row.targetId) {
+          const status = (row.payload.status as string | undefined) ?? 'paid_off';
+          const paidOffAtChapter = (row.payload.paidOffAtChapter as number | undefined) ?? chapterNumber;
+
+          if (status === 'paid_off') {
+            const seedRows = await this.deps.db.select({ plantedInChapter: plantedSeeds.plantedInChapter })
+              .from(plantedSeeds)
+              .where(and(eq(plantedSeeds.id, row.targetId), eq(plantedSeeds.storyId, storyId)))
+              .limit(1);
+
+            if (seedRows.length === 0) {
+              throw new Error(`Planted seed ${row.targetId} not found`);
+            }
+
+            const plantedInChapter = seedRows[0]!.plantedInChapter!;
+            if (paidOffAtChapter < plantedInChapter) {
+              throw new Error(`Invalid state transition: paidOffAtChapter (${paidOffAtChapter}) cannot be before plantedInChapter (${plantedInChapter})`);
+            }
+          }
+
           await this.deps.db.update(plantedSeeds)
             .set({
-              status: (row.payload.status as string | undefined) ?? 'paid_off',
-              paidOffAtChapter: (row.payload.paidOffAtChapter as number | undefined) ?? chapterNumber,
+              status,
+              paidOffAtChapter,
             })
             .where(and(eq(plantedSeeds.id, row.targetId), eq(plantedSeeds.storyId, storyId)));
         }

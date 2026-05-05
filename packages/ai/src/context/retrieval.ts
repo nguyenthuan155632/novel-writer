@@ -115,7 +115,7 @@ export async function getActiveCharacters(
     .where(
       and(
         eq(characters.storyId, storyId),
-        lte(characters.lastActiveChapter, chapterNumber + 5),
+        sql`${characters.lastActiveChapter} >= ${chapterNumber - 5} OR ${characters.lastSeenChapter} >= ${chapterNumber - 5}`,
       ),
     )
     .orderBy(desc(characters.lastActiveChapter));
@@ -233,6 +233,7 @@ export async function getTopKCanonFacts(
       visibility = 'public'
       OR (visibility = 'restricted' AND known_by @> jsonb_build_array(${povId}::text))
     )
+    AND (${activeLocationKey}::text IS NULL OR tags @> jsonb_build_array(${activeLocationKey}::text))
     ORDER BY embedding <=> ${sql.raw(`'${vectorLiteral}'::vector`)}
     LIMIT ${topK}
   `);

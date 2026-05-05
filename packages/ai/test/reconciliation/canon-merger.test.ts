@@ -10,7 +10,7 @@ function mockDb() {
     insert: (table: unknown) => ({
       values: (vals: unknown) => {
         inserts.push({ table, vals });
-        return { returning: async () => [], onConflictDoNothing: async () => undefined };
+        return { returning: async () => [{ id: 'mock-fact-id' }], onConflictDoNothing: async () => undefined };
       },
     }),
     update: (table: unknown) => ({
@@ -21,6 +21,13 @@ function mockDb() {
         },
       }),
     }),
+    select: () => ({
+      from: () => ({
+        where: () => ({
+          limit: async () => [{ knowledgeState: {}, plantedInChapter: 1 }],
+        })
+      })
+    })
   } as unknown as import('drizzle-orm/node-postgres').NodePgDatabase<Record<string, never>>;
   return { db, inserts, updates };
 }
