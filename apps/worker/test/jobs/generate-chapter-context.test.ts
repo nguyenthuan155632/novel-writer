@@ -48,6 +48,15 @@ function makeContext(): ChapterContext {
           status: "pending",
         },
       ],
+      parallelThreads: [
+        {
+          id: "thread-a",
+          premise: "Shadow investigation inside rival bureau",
+          startChapter: 4,
+          endChapter: 7,
+          parentTimelineId: null,
+        },
+      ],
       knownFactions: [
         {
           id: "faction-1",
@@ -94,7 +103,7 @@ function makeContext(): ChapterContext {
           updateType: "update",
           targetTable: "characters",
           conflictStatus: "conflict",
-          conflictReasons: ["status mismatch"],
+          conflictReasons: ["realm_regression" as const],
           summary: "Witness status disputed",
         },
       ],
@@ -106,6 +115,7 @@ function makeContext(): ChapterContext {
         conflict: "The bureau blocks access.",
         cliffhanger: "The witness calls from inside the bureau.",
         forbiddenMoves: ["resolve betrayal"],
+        seedsAutoEnforced: [],
       },
     },
     meta: {
@@ -142,6 +152,8 @@ describe("serializeContextForWriter", () => {
     expect(out).toContain("bloodlines=[Moonline]");
     expect(out).toContain("# OPEN THREADS");
     expect(out).toContain("# PLANTED SEEDS");
+    expect(out).toContain("# PARALLEL THREADS");
+    expect(out).toContain("thread-a [active] ch4-ch7: Shadow investigation inside rival bureau");
     expect(out).toContain("# KNOWN FACTIONS");
     expect(out).toContain("# RECENT SUMMARIES");
     expect(out).toContain("# CANON FACTS");

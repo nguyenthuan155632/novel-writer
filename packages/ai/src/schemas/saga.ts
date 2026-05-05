@@ -12,6 +12,22 @@ export const PlantedSeedSchema = z.object({
   message: 'plantWindowEnd must be >= plantWindowStart',
 });
 
+export const ParallelThreadSchema = z.object({
+  id: z.string().min(1).max(120),
+  premise: z.string().min(20).max(600),
+  startChapter: z.number().int().positive(),
+  endChapter: z.number().int().positive(),
+  parentTimelineId: z.string().min(1).max(120).nullable(),
+}).refine((thread) => thread.endChapter >= thread.startChapter, {
+  message: 'thread endChapter must be >= startChapter',
+});
+
+export const ConvergencePointSchema = z.object({
+  atChapter: z.number().int().positive(),
+  threadIds: z.array(z.string().min(1).max(120)).min(1).max(8),
+  synopsis: z.string().min(10).max(400),
+});
+
 export const SagaSchema = z.object({
   index: z.number().int().nonnegative(),
   title: z.string().min(3).max(120),
@@ -19,6 +35,8 @@ export const SagaSchema = z.object({
   startChapter: z.number().int().positive(),
   endChapter: z.number().int().positive(),
   expectedTurningPoints: z.array(z.string().min(10).max(300)).min(2).max(8),
+  parallelThreads: z.array(ParallelThreadSchema).max(8).default([]),
+  convergencePoints: z.array(ConvergencePointSchema).max(12).default([]),
 }).refine((s) => s.endChapter > s.startChapter, {
   message: 'endChapter must be > startChapter',
 });

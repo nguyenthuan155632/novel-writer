@@ -1,18 +1,24 @@
 const DEFAULT_MODEL_ID = "google/gemini-2.5-flash";
+const FLASH_MODEL_ID = "google/gemini-2.5-flash";
+const PRO_MODEL_ID = "google/gemini-2.5-pro";
+
+const ANTI_LLM_PATTERN_CHECK_MODEL_ID = FLASH_MODEL_ID;
 
 const DEFAULT_MODEL_ROUTES = {
   bible_generator: DEFAULT_MODEL_ID,
   saga_planner: DEFAULT_MODEL_ID,
   arc_planner: DEFAULT_MODEL_ID,
   packet_generator: DEFAULT_MODEL_ID,
-  writer: DEFAULT_MODEL_ID,
+  writer: PRO_MODEL_ID,
   auto_fixer: DEFAULT_MODEL_ID,
   llm_validator: DEFAULT_MODEL_ID,
   canon_extractor: DEFAULT_MODEL_ID,
   summary_compactor: DEFAULT_MODEL_ID,
   arc_summary_compactor: DEFAULT_MODEL_ID,
-  high_stakes_reviewer: DEFAULT_MODEL_ID,
+  high_stakes_reviewer: PRO_MODEL_ID,
   deterministic_verifier: DEFAULT_MODEL_ID,
+  polish_pass: DEFAULT_MODEL_ID,
+  conflict_resolver: FLASH_MODEL_ID,
 };
 
 export const MODEL_CONFIG = {
@@ -170,6 +176,12 @@ export const MODEL_OPTIONS: ModelOption[] = [
     envVar: "DETERMINISTIC_VERIFIER_MODEL",
     description:
       "Confirms or dismisses regex-flagged issues (unknown characters, locations, realm jumps).",
+  },
+  {
+    role: "polish_pass",
+    label: "Polish pass",
+    envVar: "POLISH_PASS_MODEL",
+    description: "Polishes validated chapter prose without changing story beats.",
   },
 ];
 

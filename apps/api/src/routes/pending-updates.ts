@@ -11,6 +11,7 @@ import {
   timelineEvents,
 } from '@novel/db/schema';
 import { eq, and, asc } from 'drizzle-orm';
+import type { ImportanceLevel, CanonConflictType } from '@novel/core';
 
 const StoryParams = z.object({
   storyId: z.string().uuid(),
@@ -85,7 +86,7 @@ async function applyPendingUpdate(db: Db, update: typeof pendingCanonUpdates.$in
     }
     case 'canon_facts': {
       if (update.updateType === 'create') {
-        const importance = (payload.importance as string | undefined) ?? 'medium';
+        const importance = ((payload.importance as string | undefined) ?? 'medium') as ImportanceLevel;
         await db.insert(canonFacts).values({
           storyId: update.storyId,
           fact: payload.fact as string,
@@ -126,7 +127,7 @@ async function applyPendingUpdate(db: Db, update: typeof pendingCanonUpdates.$in
           storyId: update.storyId,
           chapterNumber: (payload.chapterNumber as number | undefined) ?? 0,
           eventText: payload.description as string,
-          importance: (payload.significance as string | undefined) ?? 'minor',
+          importance: ((payload.significance as string | undefined) ?? 'minor') as ImportanceLevel,
           relatedCharacterIds: (payload.charactersInvolved as string[] | undefined) ?? [],
         });
       }
@@ -192,7 +193,7 @@ const plugin: FastifyPluginCallback = (app, _opts, done) => {
       .set({
         resolution: 'rejected',
         conflictStatus: 'resolved',
-        conflictReasons: [body.reason],
+        conflictReasons: [body.reason as CanonConflictType],
         reviewedBy: 'human',
         resolvedAt: new Date(),
       })

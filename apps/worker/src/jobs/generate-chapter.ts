@@ -12,11 +12,20 @@ import {
   PacketGenerator,
   type PacketGenerationResult,
   WriterAgent,
+  type WriterResult,
+  decideChapterGenerationMode,
   LlmValidatorAgent,
   AutoFixerAgent,
+  PolishPassAgent,
+  SlotStructureAgent,
+  SlotCharacterAgent,
+  SlotSceneAgent,
+  SlotSynthesisAgent,
+  findAntiLlmPatternHits,
   CanonExtractor,
   type CanonExtractionResult,
   SummaryCompactor,
+  extractTailContent,
   auditPacket,
   buildChecks,
   runDeterministicValidator,
@@ -38,6 +47,8 @@ import {
   getSeedsDueForChapter,
   getRecentSummaries,
   getStoryTargetChapterCount,
+  getLockedCanonFactCandidates,
+  getSeedsApproachingPlantDeadline,
   type EmbeddingService,
   OpenRouterEmbeddingService,
   formatValidationReport,
@@ -67,8 +78,10 @@ import {
   estimateTokensJson,
   modelFor,
   parseLlmProvider,
+  shouldRunReviewer,
   type AgentRole,
   type EffectiveConfig,
+  type EntryState,
 } from "@novel/core";
 import type { GenerateChapterJob } from "../queues.js";
 import type { GenerateChapterJobResult } from "./generate-chapter.types.js";
@@ -77,6 +90,7 @@ import {
   enqueueRefreshArcSummary,
   enqueueHighStakesReview,
 } from "../services/queue-publisher.js";
+import { incrementMetric, METRIC_NAMES } from "../services/metrics.js";
 
 export interface GenerateChapterDeps {
   db: Db;
@@ -176,6 +190,17 @@ export function serializeContextForWriter(
     parts.push(`# PLANTED SEEDS\n${seeds}`);
   }
 
+  if (ctx.warm.parallelThreads && ctx.warm.parallelThreads.length > 0) {
+    const parallelThreads = ctx.warm.parallelThreads
+      .filter((thread) => thread.startChapter <= ctx.meta.chapterNumber)
+      .map((thread) => {
+        const closed = thread.endChapter < ctx.meta.chapterNumber ? "closed" : "active";
+        return `- ${thread.id} [${closed}] ch${thread.startChapter}-ch${thread.endChapter}: ${thread.premise}`;
+      })
+      .join("\n");
+    if (parallelThreads) parts.push(`# PARALLEL THREADS\n${parallelThreads}`);
+  }
+
   if (ctx.warm.knownFactions && ctx.warm.knownFactions.length > 0) {
     const factionLines = ctx.warm.knownFactions
       .map((f) => `- ${f.name} [${f.status}]${f.type ? ` type=${f.type}` : ""}`)
@@ -268,6 +293,48 @@ function resolveRealmLadder(
   // Only use the hardcoded default for cultivation stories (backward-compat)
   if (genreFamily === "cultivation") return [...DEFAULT_REALM_LADDER];
   return [];
+}
+
+function buildConsistentChronology(ctx: ChapterContext): string[] {
+  const lines: string[] = [];
+
+  if (ctx.meta.sagaProgressPercent != null) {
+    lines.push(`Saga progress ${ctx.meta.sagaProgressPercent}%`);
+  }
+  if (ctx.meta.arcProgressPercent != null) {
+    lines.push(`Arc progress ${ctx.meta.arcProgressPercent}%`);
+  }
+  if (ctx.meta.activeTurningPoint) {
+    lines.push(`Active turning point: ${ctx.meta.activeTurningPoint}`);
+  }
+  if (ctx.cold.recentSummaries[0]) {
+    lines.push(
+      `Most recent prior chapter summary: Ch${ctx.cold.recentSummaries[0].chapterNumber} ${ctx.cold.recentSummaries[0].summary}`,
+    );
+  }
+  if (ctx.cold.timelineEvents[0]) {
+    lines.push(
+      `Latest timeline event anchor: Ch${ctx.cold.timelineEvents[0].chapterNumber} ${ctx.cold.timelineEvents[0].eventText}`,
+    );
+  }
+
+  return lines;
+}
+
+function buildEmotionalArc(entryState?: EntryState): string[] {
+  if (!entryState) return [];
+
+  const lines: string[] = [];
+  if (entryState.povCharacter.emotionalState) {
+    lines.push(`Start from emotional state: ${entryState.povCharacter.emotionalState}`);
+  }
+  if (entryState.povCharacter.immediateGoal) {
+    lines.push(`Tie emotion to immediate goal: ${entryState.povCharacter.immediateGoal}`);
+  }
+  if (entryState.povCharacter.physicalCondition) {
+    lines.push(`Reflect physical condition in emotion: ${entryState.povCharacter.physicalCondition}`);
+  }
+  return lines;
 }
 
 function buildCanonSnapshotFromContext(
@@ -467,6 +534,32 @@ function modelForRole(
   return config?.model.routes[role] ?? modelFor(role);
 }
 
+function isFirstChapterOfArc(
+  arc: { startChapter?: number | null } | null | undefined,
+  chapterNumber: number,
+): boolean {
+  return arc?.startChapter != null && arc.startChapter === chapterNumber;
+}
+
+function isLastChapterOfArc(
+  arc: { endChapter?: number | null } | null | undefined,
+  chapterNumber: number,
+): boolean {
+  return arc?.endChapter != null && arc.endChapter === chapterNumber;
+}
+
+function buildPolishHints(content: string): string[] {
+  return findAntiLlmPatternHits(content).map((hit) => hit.message);
+}
+
+function buildSlotSerializedContext(
+  serializedContext: string,
+  packet: PacketGenerationResult["packet"],
+  chapterNumber: number,
+): string {
+  return `${serializedContext}\n\n# SLOT PIPELINE BRIEF\nChương ${chapterNumber} phải bám sát cấu trúc slot-based.\nGoal: ${packet.goal}\nConflict: ${packet.conflict}\nCliffhanger: ${packet.cliffhanger}`;
+}
+
 function buildWorkerProvider(data: GenerateChapterJob): LLMProvider {
   const provider =
     data.llmProvider ?? parseLlmProvider(process.env.NOVEL_LLM_PROVIDER);
@@ -593,6 +686,14 @@ export async function executeGenerateChapterPipeline(
 
   log.info({ mode }, "starting generate-chapter pipeline");
 
+  const recordParseRecovery = (event: { strategy: "strip_fences" | "extract_object" | "re_prompt"; detail: string }) => {
+    incrementMetric(METRIC_NAMES.parseRecoveryTotal);
+    log.info(
+      { metric: METRIC_NAMES.parseRecoveryTotal, strategy: event.strategy, detail: event.detail },
+      "worker metric incremented",
+    );
+  };
+
   const arc = data.arcId
     ? await getArcById(db, data.arcId)
     : await getArcForChapter(db, data.storyId, data.chapterNumber);
@@ -661,6 +762,11 @@ export async function executeGenerateChapterPipeline(
     );
     const openThreads = await getOpenThreadsForStory(db, data.storyId);
     const dueSeeds = await getSeedsDueForChapter(
+      db,
+      data.storyId,
+      data.chapterNumber,
+    );
+    const mustIncludeSeeds = await getSeedsApproachingPlantDeadline(
       db,
       data.storyId,
       data.chapterNumber,
@@ -797,6 +903,11 @@ Trạng thái hiện tại: ${currentRealms || "(chưa xác định)"}`;
         payoffDescription: s.payoffDescription,
         plantWindowEnd: s.plantWindowEnd,
       })),
+      mustIncludeSeeds: mustIncludeSeeds.map((s) => ({
+        id: s.id,
+        seedText: s.seedText,
+        plantWindowEnd: s.plantWindowEnd,
+      })),
       overdueThreads: overdueThreads.map((t) => ({
         title: t.title,
         introducedChapter: t.introducedChapter,
@@ -813,23 +924,9 @@ Trạng thái hiện tại: ${currentRealms || "(chưa xác định)"}`;
       logger: log,
       model: packetModel,
     });
-    let packetResult: PacketGenerationResult;
-    let attemptCount = 1;
-
-    packetResult = await packetGen.generate(
-      {
-        ...packetInput,
-        genreDef: domain.genreDef,
-        personalityDef: domain.personalityDef,
-        storyOptions: domain.storyOptions,
-      },
-      {
-        traceId,
-        storyId: data.storyId,
-      },
-    );
-    accumulateUsage(packetResult.usage, tokenAcc);
-    totalCost += estimateCostUsd(packetModel, packetResult.usage);
+    // §1.8 — initialized inside while loop; guaranteed assigned on first iteration
+    let packetResult: PacketGenerationResult = undefined!;
+    let attemptCount = 0;
 
     const overdueTurningPoints: string[] =
       saga?.startChapter != null &&
@@ -850,33 +947,9 @@ Trạng thái hiện tại: ${currentRealms || "(chưa xác định)"}`;
           })()
         : [];
 
-    const auditInput = {
-      packet: packetResult.packet,
-      characters: activeCharacters.map((c) => ({
-        name: c.name,
-        status: c.status,
-        currentRealm: c.currentRealm,
-      })),
-      forbiddenRules: bible.forbiddenRules,
-      duePlantedSeeds: dueSeeds.map((s) => ({
-        id: s.id,
-        seedText: s.seedText,
-        plantWindowEnd: s.plantWindowEnd,
-      })),
-      overdueTurningPoints,
-    };
-
-    const auditResult = auditPacket(auditInput, {
-      genreFamily: domain.genreFamily,
-      realmLadder: resolveRealmLadder(bible, domain.genreFamily),
-    });
-
-    if (auditResult.requiresRegenerate && attemptCount < 2) {
-      log.warn(
-        { issues: auditResult.issues },
-        "packet audit failed, regenerating with hints",
-      );
-      const hints = auditResult.issues.map((i) => i.message);
+    // §1.8 — two-attempt regenerate loop
+    let auditResult: ReturnType<typeof auditPacket> = undefined!;
+    while (attemptCount < 2) {
       packetResult = await packetGen.generate(
         {
           ...packetInput,
@@ -887,13 +960,73 @@ Trạng thái hiện tại: ${currentRealms || "(chưa xác định)"}`;
         {
           traceId,
           storyId: data.storyId,
-          auditHints: hints,
+          previousIssues: auditResult?.issues,
+          mustIncludeSeeds,
         },
       );
-      attemptCount++;
       accumulateUsage(packetResult.usage, tokenAcc);
       totalCost += estimateCostUsd(packetModel, packetResult.usage);
+
+      // §1.5 — locked fact candidates retrieved from DB using packet text
+      const packetSearchText = [
+        packetResult.packet.goal,
+        packetResult.packet.conflict,
+        ...packetResult.packet.requiredEvents.map((e) => e.description),
+      ].join(" ");
+      const lockedFactCandidates = await getLockedCanonFactCandidates(
+        db,
+        data.storyId,
+        packetSearchText,
+        5,
+      );
+
+      const auditInput = {
+        packet: packetResult.packet,
+        characters: activeCharacters.map((c) => ({
+          name: c.name,
+          status: c.status,
+          currentRealm: c.currentRealm,
+        })),
+        forbiddenRules: bible.forbiddenRules,
+        duePlantedSeeds: dueSeeds.map((s) => ({
+          id: s.id,
+          seedText: s.seedText,
+          plantWindowEnd: s.plantWindowEnd,
+        })),
+        overdueTurningPoints,
+        lockedFactCandidates,
+      };
+
+      auditResult = auditPacket(auditInput, {
+        genreFamily: domain.genreFamily,
+        realmLadder: resolveRealmLadder(bible, domain.genreFamily),
+      });
+
+      attemptCount++;
+      if (!auditResult.requiresRegenerate) break;
+      if (attemptCount < 2) {
+        log.warn(
+          { issues: auditResult.issues, attempt: attemptCount },
+          "packet audit failed, regenerating with hints",
+        );
+      }
     }
+
+    if (auditResult.requiresRegenerate) {
+      log.error(
+        { issues: auditResult.issues, attemptCount },
+        "packet audit failed after all retries — operator review required (safe-mode escalation)",
+      );
+      // TODO: enqueue safe-mode re-queue when mode escalation API is available
+    }
+
+    const packetHighStakes =
+      (arc as { phase?: string | null } | undefined)?.phase === "climax" ||
+      isFirstChapterOfArc(arc, data.chapterNumber) ||
+      isLastChapterOfArc(arc, data.chapterNumber) ||
+      packetResult.packet.requiredEvents.some((event) =>
+        /đột phá|đột phá cảnh giới|breakthrough|character death|chết|tử trận|hi sinh/i.test(event.description),
+      );
 
     await db.insert(chapterPackets).values({
       storyId: data.storyId,
@@ -908,12 +1041,21 @@ Trạng thái hiện tại: ${currentRealms || "(chưa xác định)"}`;
       conflict: packetResult.packet.conflict,
       cliffhanger: packetResult.packet.cliffhanger,
       forbiddenMoves: packetResult.packet.forbiddenMoves,
+      highStakes: packetHighStakes,
+    });
+
+    const chapterGenerationMode = decideChapterGenerationMode({
+      packetHighStakes,
+      isFirstChapterOfArc: isFirstChapterOfArc(arc, data.chapterNumber),
+      isLastChapterOfArc: isLastChapterOfArc(arc, data.chapterNumber),
     });
 
     await db
       .update(chapters)
       .set({
         packetAuditStatus: auditResult.pass ? "passed" : "failed",
+        generationMode: chapterGenerationMode,
+        polishPassStatus: "skipped",
         updatedAt: new Date(),
       })
       .where(eq(chapters.id, chapterId));
@@ -949,21 +1091,92 @@ Trạng thái hiện tại: ${currentRealms || "(chưa xác định)"}`;
     });
 
     const writerModel = modelForRole(effectiveConfig, "writer");
-    const writer = new WriterAgent({
-      provider,
-      logger: log,
-      model: writerModel,
-    });
-    let writerResult = await writer.write({
-      serializedContext,
-      cacheKey: context.meta.hotHash,
-      chapterNumber: data.chapterNumber,
-      storyId: data.storyId,
-      traceId,
-      genreDef: domain.genreDef,
-    });
+    let writerResult: WriterResult;
+    if (chapterGenerationMode === "slot_based") {
+      incrementMetric(METRIC_NAMES.slotBasedChaptersTotal);
+      log.info({ metric: METRIC_NAMES.slotBasedChaptersTotal, generationMode: chapterGenerationMode }, "worker metric incremented");
+      const structureAgent = new SlotStructureAgent({ provider, model: writerModel });
+      const characterAgent = new SlotCharacterAgent({ provider, model: writerModel });
+      const sceneAgent = new SlotSceneAgent({ provider, model: writerModel });
+      const synthesisAgent = new SlotSynthesisAgent({ provider, model: writerModel });
+      const structure = await structureAgent.plan({
+        serializedContext,
+        chapterNumber: data.chapterNumber,
+      });
+      const characterPlans = await characterAgent.plan({
+        charactersPresent: packetResult.packet.charactersPresent,
+      });
+      const scenePlan = await sceneAgent.plan({
+        structure,
+        characterPlans,
+        conflict: packetResult.packet.conflict,
+        requiredEvents: packetResult.packet.requiredEvents.map((event) => event.description),
+        cliffhanger: packetResult.packet.cliffhanger,
+      });
+      writerResult = await synthesisAgent.write({
+        serializedContext: buildSlotSerializedContext(serializedContext, packetResult.packet, data.chapterNumber),
+        cacheKey: context.meta.hotHash,
+        chapterNumber: data.chapterNumber,
+        storyId: data.storyId,
+        traceId,
+        genreDef: domain.genreDef,
+        structure,
+        characterPlans,
+        scenePlan,
+      });
+    } else {
+      const writer = new WriterAgent({
+        provider,
+        logger: log,
+        model: writerModel,
+      });
+      writerResult = await writer.write({
+        serializedContext,
+        cacheKey: context.meta.hotHash,
+        chapterNumber: data.chapterNumber,
+        storyId: data.storyId,
+        traceId,
+        genreDef: domain.genreDef,
+        consistentChronology: buildConsistentChronology(context),
+        entryState: context.warm.entryState,
+        chapterTailBridge: context.warm.tailContentPrev,
+        emotionalArc: buildEmotionalArc(context.warm.entryState),
+        parallelThreads: (context.warm.parallelThreads ?? [])
+          .filter((thread) => thread.startChapter <= data.chapterNumber)
+          .map((thread) => `${thread.id}: ${thread.premise} (ch${thread.startChapter}-ch${thread.endChapter})`),
+      });
+    }
     accumulateUsage(writerResult.usage, tokenAcc);
     totalCost += estimateCostUsd(writerModel, writerResult.usage);
+
+    const reviewerTriggerAfterWriter = shouldRunReviewer({
+      chapterNumber: data.chapterNumber,
+      arcStartChapter: arc?.startChapter,
+      arcEndChapter: arc?.endChapter ?? null,
+      arcPhase: (arc as { phase?: string | null } | undefined)?.phase,
+      worstValidatorSeverity: "none",
+      packetHighStakes,
+      requiredEventTexts: packetResult.packet.requiredEvents.map((event) => event.description),
+    });
+
+    if (reviewerTriggerAfterWriter.run) {
+      try {
+        const reviewJobId = await enqueueHighStakesReview({
+          storyId: data.storyId,
+          chapterId,
+          chapterNumber: data.chapterNumber,
+          triggerReason: reviewerTriggerAfterWriter.reason!,
+          traceId: data.traceId,
+          llmProvider: data.llmProvider,
+          modelRoutes: data.modelRoutes,
+        });
+        log.info({ reviewJobId, reason: reviewerTriggerAfterWriter.reason }, "enqueued high-stakes review after writer");
+      } catch (enqueueErr) {
+        log.warn({ err: enqueueErr }, "failed to enqueue post-writer high-stakes review");
+      }
+    }
+
+    let polishPassStatus: "skipped" | "applied" | "failed" = "skipped";
 
     const checkCanon = buildCheckCanon(context);
     const checkInput: CheckInput = {
@@ -1037,6 +1250,20 @@ Trạng thái hiện tại: ${currentRealms || "(chưa xác định)"}`;
           { criticalIssues },
           "deterministic validation had critical issues, marking chapter as failed",
         );
+        try {
+          const reviewJobId = await enqueueHighStakesReview({
+            storyId: data.storyId,
+            chapterId,
+            chapterNumber: data.chapterNumber,
+            triggerReason: "critical_severity",
+            traceId: data.traceId,
+            llmProvider: data.llmProvider,
+            modelRoutes: data.modelRoutes,
+          });
+          log.info({ reviewJobId }, "enqueued high-stakes review for deterministic critical issues");
+        } catch (enqueueErr) {
+          log.warn({ err: enqueueErr }, "failed to enqueue deterministic critical-severity review");
+        }
         await writeValidationLog(
           {
             storyId: data.storyId,
@@ -1068,6 +1295,7 @@ Trạng thái hiện tại: ${currentRealms || "(chưa xác định)"}`;
         provider,
         logger: log,
         model: llmValidatorModel,
+        onParseRecovery: recordParseRecovery,
       });
       const llmValResult = await llmValidator.validate({
         serializedContext,
@@ -1121,6 +1349,20 @@ Trạng thái hiện tại: ${currentRealms || "(chưa xác định)"}`;
             { criticalLlmIssues },
             "LLM validator found critical/high issues",
           );
+          try {
+            const reviewJobId = await enqueueHighStakesReview({
+              storyId: data.storyId,
+              chapterId,
+              chapterNumber: data.chapterNumber,
+              triggerReason: "critical_severity",
+              traceId: data.traceId,
+              llmProvider: data.llmProvider,
+              modelRoutes: data.modelRoutes,
+            });
+            log.info({ reviewJobId }, "enqueued high-stakes review for critical validator issues");
+          } catch (enqueueErr) {
+            log.warn({ err: enqueueErr }, "failed to enqueue critical-severity high-stakes review");
+          }
           if (mode === "safe") {
             const pausedWordCount = writerResult.content.trim()
               ? writerResult.content.trim().split(/\s+/).length
@@ -1132,7 +1374,10 @@ Trạng thái hiện tại: ${currentRealms || "(chưa xác định)"}`;
                 content: writerResult.content,
                 status: "paused_pending_updates",
                 wordCount: pausedWordCount,
+                generationMode: chapterGenerationMode,
+                polishPassStatus,
                 contextCacheKey: context.meta.hotHash,
+                tailContent: extractTailContent(writerResult.content),
                 updatedAt: new Date(),
               })
               .where(eq(chapters.id, chapterId));
@@ -1147,10 +1392,35 @@ Trạng thái hiện tại: ${currentRealms || "(chưa xác định)"}`;
           }
         }
 
-        if (nonCriticalIssues.length > 0) {
+        const antiPatternIssues = findAntiLlmPatternHits(writerResult.content).map((hit) => ({
+          code: hit.code,
+          severity: hit.severity,
+          message: hit.message,
+        }));
+        if (antiPatternIssues.length > 0) {
+          incrementMetric(METRIC_NAMES.antiLlmPatternHitsTotal, antiPatternIssues.length);
           log.info(
-            { nonCriticalIssues },
-            "LLM validator found low/medium issues, auto-fixing",
+            { metric: METRIC_NAMES.antiLlmPatternHitsTotal, count: antiPatternIssues.length },
+            "worker metric incremented",
+          );
+          await persistValidationRows(db, {
+            storyId: data.storyId,
+            chapterId,
+            checks: antiPatternIssues.map((issue) => ({
+              id: issue.code,
+              severity: issue.severity,
+              pass: false,
+              issues: [issue.message],
+            })),
+            validatorModel: "anti_llm_patterns",
+          });
+        }
+
+        const combinedFixIssues = [...nonCriticalIssues, ...antiPatternIssues];
+        if (combinedFixIssues.length > 0) {
+          log.info(
+            { combinedFixIssues },
+            "validator or anti-LLM issues found, auto-fixing",
           );
           const autoFixerModel = modelForRole(effectiveConfig, "auto_fixer");
           const autoFixer = new AutoFixerAgent({
@@ -1163,7 +1433,7 @@ Trạng thái hiện tại: ${currentRealms || "(chưa xác định)"}`;
             chapterContent: writerResult.content,
             chapterTitle: writerResult.title,
             chapterNumber: data.chapterNumber,
-            issues: nonCriticalIssues,
+            issues: combinedFixIssues,
             storyId: data.storyId,
             traceId,
             genreDef: domain.genreDef,
@@ -1177,6 +1447,39 @@ Trạng thái hiện tại: ${currentRealms || "(chưa xác định)"}`;
             cost: fixResult.cost,
           };
         }
+
+        const polishModel = modelForRole(effectiveConfig, "polish_pass");
+        const polishAgent = new PolishPassAgent({ provider, logger: log, model: polishModel });
+        try {
+          const polishResult = await polishAgent.polish({
+            serializedContext,
+            chapterContent: writerResult.content,
+            chapterTitle: writerResult.title,
+            chapterNumber: data.chapterNumber,
+            hints: buildPolishHints(writerResult.content),
+            storyId: data.storyId,
+            traceId,
+            genreDef: domain.genreDef,
+          });
+          accumulateUsage(polishResult.usage, tokenAcc);
+          totalCost += estimateCostUsd(polishModel, polishResult.usage);
+          writerResult = {
+            ...writerResult,
+            title: polishResult.title,
+            content: polishResult.content,
+          };
+          polishPassStatus = "applied";
+          incrementMetric(METRIC_NAMES.polishPassAppliedTotal);
+          log.info({ metric: METRIC_NAMES.polishPassAppliedTotal }, "worker metric incremented");
+        } catch (polishErr) {
+          polishPassStatus = "failed";
+          log.warn({ err: polishErr }, "polish pass failed, keeping publishable chapter");
+        }
+
+        await db
+          .update(chapters)
+          .set({ polishPassStatus, updatedAt: new Date() })
+          .where(eq(chapters.id, chapterId));
       }
     }
 
@@ -1188,6 +1491,7 @@ Trạng thái hiện tại: ${currentRealms || "(chưa xác định)"}`;
       provider,
       logger: log,
       model: canonExtractorModel,
+      onParseRecovery: recordParseRecovery,
     });
     const canonSnapshot = buildCanonSnapshotFromContext(
       context,
@@ -1285,8 +1589,19 @@ Trạng thái hiện tại: ${currentRealms || "(chưa xác định)"}`;
     }
 
     const wordCount = writerResult.content.split(/\s+/).length;
+
+    // §3.4 — critical conflict types always pause the chapter regardless of mode.
+    const CRITICAL_CONFLICT_TYPES = new Set([
+      "realm_regression",
+      "dead_character_action",
+      "locked_field",
+    ]);
+    const hasCriticalConflict = mergerResult.conflicts.some((c) =>
+      CRITICAL_CONFLICT_TYPES.has(c.type),
+    );
     const finalStatus: GenerateChapterJobResult["status"] =
-      mergerMode === "review" && mergerResult.pendingCount > 0
+      hasCriticalConflict ||
+      (mergerMode === "review" && mergerResult.pendingCount > 0)
         ? "paused_pending_updates"
         : "completed";
 
@@ -1301,7 +1616,10 @@ Trạng thái hiện tại: ${currentRealms || "(chưa xác định)"}`;
             ? "paused_pending_updates"
             : "completed",
         wordCount,
+        generationMode: chapterGenerationMode,
+        polishPassStatus,
         contextCacheKey: context.meta.hotHash,
+        tailContent: extractTailContent(writerResult.content),
         updatedAt: new Date(),
       })
       .where(eq(chapters.id, chapterId));
@@ -1324,26 +1642,6 @@ Trạng thái hiện tại: ${currentRealms || "(chưa xác định)"}`;
         log.warn({ err: enqueueErr }, "failed to enqueue arc summary refresh");
       }
 
-      if (
-        arc &&
-        arc.endChapter != null &&
-        data.chapterNumber === arc.endChapter
-      ) {
-        try {
-          const reviewJobId = await enqueueHighStakesReview({
-            storyId: data.storyId,
-            chapterId,
-            chapterNumber: data.chapterNumber,
-            triggerReason: "arc_end",
-            traceId: data.traceId,
-            llmProvider: data.llmProvider,
-            modelRoutes: data.modelRoutes,
-          });
-          log.info({ reviewJobId }, "enqueued high-stakes review for arc end");
-        } catch (enqueueErr) {
-          log.warn({ err: enqueueErr }, "failed to enqueue high-stakes review");
-        }
-      }
     }
 
     log.info(

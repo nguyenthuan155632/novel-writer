@@ -50,6 +50,7 @@ function makeContext(overrides?: {
         conflict: "test conflict",
         cliffhanger: "test cliffhanger",
         forbiddenMoves: [],
+        seedsAutoEnforced: [],
       },
       ...overrides?.cold,
     },
@@ -61,8 +62,8 @@ function makeContext(overrides?: {
       warmHash: "",
       sagaProgressPercent: null,
       arcProgressPercent: null,
-        sagaProgressSource: null,
-        arcProgressSource: null,
+      sagaProgressSource: null,
+      arcProgressSource: null,
       sagaRange: null,
       arcRange: null,
       sagaPhase: null,
@@ -78,11 +79,10 @@ describe("shrinkToFit", () => {
     const ctx = makeContext();
     const budget = 100000;
     const result = shrinkToFit(ctx, budget);
-    expect(result.cold.retrievedPastChapters).toEqual([]);
-    expect(result.cold.retrievedFacts).toEqual([]);
+    expect(result).toEqual(ctx);
   });
 
-  it("drops retrievedPastChapters first", () => {
+  it("keeps retrievedPastChapters unchanged", () => {
     const ctx = makeContext({
       cold: {
         recentSummaries: [{ chapterNumber: 1, summary: "a".repeat(1000) }],
@@ -97,91 +97,153 @@ describe("shrinkToFit", () => {
         retrievedPastChapters: [
           { chapterNumber: 1, summary: "c".repeat(1000) },
         ],
-        seedsToPlantNow: [],
-        packet: {
-          chapterNumber: 1,
-          goal: "g",
-          requiredEvents: [],
-          charactersPresent: [],
-          conflict: "c",
-          cliffhanger: "h",
-          forbiddenMoves: [],
-        },
       },
     });
-    const smallBudget = 50;
-    const result = shrinkToFit(ctx, smallBudget);
-    expect(result.cold.retrievedPastChapters).toEqual([]);
+    const result = shrinkToFit(ctx, 50);
+    expect(result.cold.retrievedPastChapters).toEqual([
+      { chapterNumber: 1, summary: "c".repeat(1000) },
+    ]);
   });
 
-  it("drops retrievedFacts second", () => {
+  it("raises retrievedFacts threshold before other cold drops", () => {
     const ctx = makeContext({
       cold: {
         retrievedPastChapters: [],
         retrievedFacts: [
-          { id: "f1", topic: "realm", importance: "high", fact: "fact" },
+          { id: "f1", topic: "realm", importance: "high", fact: "high fact" },
+          { id: "f2", topic: "rule", importance: "locked", fact: "locked fact" },
         ],
-        recentSummaries: [],
-        seedsToPlantNow: [],
-        packet: {
-          chapterNumber: 1,
-          goal: "g",
-          requiredEvents: [],
-          charactersPresent: [],
-          conflict: "c",
-          cliffhanger: "h",
-          forbiddenMoves: [],
-        },
       },
     });
-    const totalTokens = estimateTokensJson(ctx);
-    const budget = totalTokens - 10;
+    const budget = estimateTokensJson(ctx) - 10;
     const result = shrinkToFit(ctx, budget);
-    expect(result.cold.retrievedFacts).toEqual([]);
+    expect(result.cold.retrievedFacts).toEqual([
+      { id: "f2", topic: "rule", importance: "locked", fact: "locked fact" },
+    ]);
   });
 
-  it("strips character optional fields in compact mode", () => {
-    const fullChar: CharacterCompact = {
-      id: "c1",
-      name: "Linh",
-      currentRealm: "kim đan",
-      status: "alive",
-      bloodlines: ["Hỏa Long"],
-      faction: "Thiên Môn",
-      shortTraits: ["dũng cảm"],
-    };
-    const ctx = makeContext({
-      warm: { activeCharacters: [fullChar] },
-    });
-    const smallBudget = 10;
-    const result = shrinkToFit(ctx, smallBudget);
-    expect(result.warm.activeCharacters[0]).toEqual({
-      id: "c1",
-      name: "Linh",
-      status: "alive",
-      bloodlines: [],
-      shortTraits: [],
-    });
-  });
-
-  it("does not mutate the original context", () => {
+  it("increases recent summaries min gap by five", () => {
     const ctx = makeContext({
       cold: {
-        retrievedPastChapters: [{ chapterNumber: 5, summary: "test" }],
-        retrievedFacts: [
-          { id: "f1", topic: "realm", importance: "high", fact: "fact" },
+        retrievedPastChapters: [],
+        retrievedFacts: [],
+        recentSummaries: [
+          { chapterNumber: 20, summary: "latest" },
+          { chapterNumber: 16, summary: "too close" },
+          { chapterNumber: 10, summary: "keep" },
         ],
-        recentSummaries: [],
-        seedsToPlantNow: [],
-        packet: {
-          chapterNumber: 1,
-          goal: "g",
-          requiredEvents: [],
-          charactersPresent: [],
-          conflict: "c",
-          cliffhanger: "h",
-          forbiddenMoves: [],
-        },
+      },
+    });
+    const result = shrinkToFit(ctx, 10);
+    expect(result.cold.recentSummaries).toEqual([
+      { chapterNumber: 20, summary: "latest" },
+      { chapterNumber: 10, summary: "keep" },
+    ]);
+  });
+
+  it("drops oldest pending canon updates before timeline events if still over budget", () => {
+    const ctx = makeContext({
+      cold: {
+        retrievedPastChapters: [],
+        retrievedFacts: [{ id: 'f1', topic: 'realm', importance: 'high', fact: 'fact' }],
+        recentSummaries: [{ chapterNumber: 1, summary: 'sum' }],
+        pendingCanonUpdates: [
+          { id: 'p1', updateType: 'create', targetTable: 'canon_facts', conflictStatus: 'none', conflictReasons: [], summary: 'older' },
+          { id: 'p2', updateType: 'create', targetTable: 'canon_facts', conflictStatus: 'none', conflictReasons: [], summary: 'newer' },
+        ],
+        timelineEvents: [
+          { chapterNumber: 1, eventType: 'battle', eventText: 'older event', importance: 'high' },
+          { chapterNumber: 2, eventType: 'battle', eventText: 'newer event', importance: 'high' },
+        ],
+      },
+    });
+    const result = shrinkToFit(ctx, 1);
+    expect(result.cold.pendingCanonUpdates).toEqual([{ id: 'p1', updateType: 'create', targetTable: 'canon_facts', conflictStatus: 'none', conflictReasons: [], summary: 'older' }]);
+    expect(result.cold.timelineEvents).toEqual([{ chapterNumber: 1, eventType: 'battle', eventText: 'older event', importance: 'high' }]);
+  });
+
+  it("trims activeCharacters by lastActiveChapter and keeps at least three", () => {
+    const chars: CharacterCompact[] = [
+      {
+        id: 'c1',
+        name: 'A',
+        currentRealm: 'realm-1',
+        status: 'alive',
+        bloodlines: ['x'],
+        shortTraits: ['t'],
+        lastActiveChapter: 1,
+      },
+      {
+        id: 'c2',
+        name: 'B',
+        currentRealm: 'realm-2',
+        status: 'alive',
+        bloodlines: ['x'],
+        shortTraits: ['t'],
+        lastActiveChapter: 20,
+      },
+      {
+        id: 'c3',
+        name: 'C',
+        currentRealm: 'realm-3',
+        status: 'alive',
+        bloodlines: ['x'],
+        shortTraits: ['t'],
+        lastActiveChapter: 10,
+      },
+      {
+        id: 'c4',
+        name: 'D',
+        currentRealm: 'realm-4',
+        status: 'alive',
+        bloodlines: ['x'],
+        shortTraits: ['t'],
+        lastActiveChapter: 30,
+      },
+    ];
+    const ctx = makeContext({ warm: { activeCharacters: chars } });
+    const result = shrinkToFit(ctx, 10);
+    expect(result.warm.activeCharacters).toEqual([
+      {
+        id: 'c4',
+        name: 'D',
+        status: 'alive',
+        bloodlines: [],
+        shortTraits: [],
+        lastActiveChapter: 30,
+      },
+      {
+        id: 'c2',
+        name: 'B',
+        status: 'alive',
+        bloodlines: [],
+        shortTraits: [],
+        lastActiveChapter: 20,
+      },
+      {
+        id: 'c3',
+        name: 'C',
+        status: 'alive',
+        bloodlines: [],
+        shortTraits: [],
+        lastActiveChapter: 10,
+      },
+    ]);
+  });
+
+  it("keeps hot tier intact", () => {
+    const ctx = makeContext({ hot: { systemRules: 'HOT-RULES' } });
+    const result = shrinkToFit(ctx, 1);
+    expect(result.hot.systemRules).toBe('HOT-RULES');
+  });
+
+  it("does not mutate original context", () => {
+    const ctx = makeContext({
+      cold: {
+        retrievedPastChapters: [{ chapterNumber: 5, summary: 'test' }],
+        retrievedFacts: [
+          { id: 'f1', topic: 'realm', importance: 'high', fact: 'fact' },
+        ],
       },
     });
     const origPastChapters = [...ctx.cold.retrievedPastChapters];
@@ -189,5 +251,40 @@ describe("shrinkToFit", () => {
     shrinkToFit(ctx, 10);
     expect(ctx.cold.retrievedPastChapters).toEqual(origPastChapters);
     expect(ctx.cold.retrievedFacts).toEqual(origFacts);
+  });
+
+  it("ends within budget for oversized context", () => {
+    const ctx = makeContext({
+      warm: {
+        activeCharacters: [
+          { id: 'c1', name: 'A', currentRealm: 'realm-1', status: 'alive', bloodlines: ['x'], shortTraits: ['t'] },
+          { id: 'c2', name: 'B', currentRealm: 'realm-2', status: 'alive', bloodlines: ['x'], shortTraits: ['t'] },
+          { id: 'c3', name: 'C', currentRealm: 'realm-3', status: 'alive', bloodlines: ['x'], shortTraits: ['t'] },
+          { id: 'c4', name: 'D', currentRealm: 'realm-4', status: 'alive', bloodlines: ['x'], shortTraits: ['t'] },
+        ],
+      },
+      cold: {
+        recentSummaries: [
+          { chapterNumber: 20, summary: 'a'.repeat(500) },
+          { chapterNumber: 16, summary: 'b'.repeat(500) },
+          { chapterNumber: 10, summary: 'c'.repeat(500) },
+        ],
+        retrievedFacts: [
+          { id: 'f1', topic: 'x', importance: 'high', fact: 'd'.repeat(500) },
+          { id: 'f2', topic: 'y', importance: 'locked', fact: 'e'.repeat(500) },
+        ],
+        retrievedPastChapters: [{ chapterNumber: 1, summary: 'f'.repeat(500) }],
+        pendingCanonUpdates: [
+          { id: 'p1', updateType: 'create', targetTable: 'canon_facts', conflictStatus: 'none', conflictReasons: [], summary: 'g'.repeat(500) },
+          { id: 'p2', updateType: 'create', targetTable: 'canon_facts', conflictStatus: 'none', conflictReasons: [], summary: 'h'.repeat(500) },
+        ],
+        timelineEvents: [
+          { chapterNumber: 1, eventType: 'battle', eventText: 'i'.repeat(500), importance: 'high' },
+          { chapterNumber: 2, eventType: 'battle', eventText: 'j'.repeat(500), importance: 'high' },
+        ],
+      },
+    });
+    const result = shrinkToFit(ctx, 1200);
+    expect(estimateTokensJson(result)).toBeLessThanOrEqual(1200);
   });
 });

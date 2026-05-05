@@ -14,6 +14,7 @@ export type CanonExtractorDeps = {
   provider: LLMProvider;
   logger: Logger;
   model?: string;
+  onParseRecovery?: (event: { strategy: 'strip_fences' | 'extract_object' | 're_prompt'; detail: string }) => void;
 };
 
 export type CanonExtractionResult = {
@@ -55,6 +56,21 @@ export class CanonExtractor {
             return res;
           },
           3,
+          {
+            request: {
+              model: this.deps.model ?? MODEL_CONFIG.routes.canon_extractor,
+              messages: [{ role: 'system', content: built.system }, { role: 'user', content: built.user }],
+              responseSchema: EXTRACTOR_JSON_SCHEMA,
+              temperature: 0.2,
+              metadata: {
+                agentRole: canonExtractorPromptV2.agentRole,
+                promptVersion: canonExtractorPromptV2.version,
+                traceId: ctx.traceId,
+                storyId: ctx.storyId,
+              },
+            },
+            onParseRecovery: this.deps.onParseRecovery,
+          },
         ),
       );
     } catch (err) {

@@ -18,6 +18,8 @@ const VALID_OUTPUT = JSON.stringify({
     startChapter: i * 100 + 1,
     endChapter: (i + 1) * 100,
     expectedTurningPoints: ['first turning point event', 'second turning point event'],
+    parallelThreads: [],
+    convergencePoints: [],
   })),
   plantedSeeds: Array.from({ length: 10 }, (_, i) => ({
     seedKey: `k_${i}`,

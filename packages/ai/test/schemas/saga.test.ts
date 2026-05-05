@@ -16,6 +16,8 @@ describe('SagaPlannerOutputSchema', () => {
         startChapter: i * 100 + 1,
         endChapter: (i + 1) * 100,
         expectedTurningPoints: ['a turning point event', 'another turning point event'],
+        parallelThreads: [],
+        convergencePoints: [],
       })),
       plantedSeeds: Array.from({ length: 10 }, (_, i) => ({
         seedKey: `seed_${i}`,
@@ -38,6 +40,8 @@ describe('SagaPlannerOutputSchema', () => {
         startChapter: i * 100 + 1,
         endChapter: (i + 1) * 100,
         expectedTurningPoints: ['first turning point event', 'second turning point event'],
+        parallelThreads: [],
+        convergencePoints: [],
       })),
       plantedSeeds: Array.from({ length: 10 }, (_, i) => ({
         seedKey: `k_${i}`,
@@ -47,6 +51,34 @@ describe('SagaPlannerOutputSchema', () => {
         payoffChapter: 100,
         importance: 'minor' as const,
       })),
+    });
+    expect(r.success).toBe(true);
+  });
+
+  it('accepts parallel threads and convergence points', () => {
+    const r = SagaPlannerOutputSchema.safeParse({
+      sagas: [{
+        index: 0,
+        title: 'Saga 0',
+        premise: 'A premise '.repeat(8),
+        startChapter: 1,
+        endChapter: 100,
+        expectedTurningPoints: ['first turning point event', 'second turning point event'],
+        parallelThreads: [
+          { id: 'thread-a', premise: 'Side plot across border sect war', startChapter: 10, endChapter: 30, parentTimelineId: null },
+        ],
+        convergencePoints: [
+          { atChapter: 30, threadIds: ['thread-a'], synopsis: 'Threads reunite at mountain summit.' },
+        ],
+      }],
+      plantedSeeds: [{
+        seedKey: 'k_1',
+        description: 'desc '.repeat(10),
+        plantWindowStart: 1,
+        plantWindowEnd: 50,
+        payoffChapter: 100,
+        importance: 'minor' as const,
+      }],
     });
     expect(r.success).toBe(true);
   });

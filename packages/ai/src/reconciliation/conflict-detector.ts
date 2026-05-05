@@ -54,12 +54,9 @@ export type ConflictEntry = {
   type:
     | "locked_field"
     | "realm_regression"
-    | "locked_fact"
     | "duplicate_fact"
     | "dead_character_action"
-    | "thread_status_invalid"
-    | "duplicate_faction"
-    | "destroyed_faction_action";
+    | "thread_status_invalid";
   targetTable: string;
   targetId?: string;
   reason: string;
@@ -164,7 +161,7 @@ export function detectConflicts(
       const existingLocked = snapshot.canonFacts.filter((f) => f.locked);
       if (existingLocked.length >= 20) {
         conflicts.push({
-          type: "locked_fact",
+          type: "duplicate_fact",
           targetTable: "canon_facts",
           reason: `Too many locked facts (max 20), cannot add "${cf.fact}" as locked`,
           payloadKey: "importance",
@@ -202,7 +199,7 @@ export function detectConflicts(
     if (fu.action === "create" && existing) {
       // Refuse to create a duplicate-named faction; updates should target the existing row instead.
       conflicts.push({
-        type: "duplicate_faction",
+        type: "duplicate_fact",
         targetTable: "factions",
         targetId: existing.id,
         reason: `Faction "${existing.name}" already exists; create rejected (use update instead)`,
@@ -237,7 +234,7 @@ export function detectConflicts(
         );
         for (const f of forbiddenFields) {
           conflicts.push({
-            type: "destroyed_faction_action",
+            type: "locked_field",
             targetTable: "factions",
             targetId: existing.id,
             reason: `Faction "${existing.name}" is ${existing.status}; field "${f}" cannot change`,

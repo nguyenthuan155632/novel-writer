@@ -10,6 +10,7 @@ export const contextPackets = pgTable('context_packets', {
   totalInputTokens: integer('total_input_tokens'),
   cachedInputTokens: integer('cached_input_tokens'),
   configSnapshot: jsonb('config_snapshot').$type<Record<string, unknown>>(),
+  activeLocationKey: text('active_location_key'),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
 });
 

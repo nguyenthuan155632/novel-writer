@@ -69,6 +69,63 @@ describe("LlmValidatorAgent", () => {
     expect(calls[0]!.metadata!.agentRole).toBe("llm_validator");
   });
 
+  it("surfaces weak_cliffhanger and repetition issues from LLM output", async () => {
+    const weakCliffhangerOutput = JSON.stringify({
+      pass: false,
+      issues: [
+        {
+          code: "weak_cliffhanger",
+          severity: "low",
+          message: "Cliffhanger quá yếu, không đủ hook.",
+        },
+        {
+          code: "repetition",
+          severity: "low",
+          message: "Cụm 'ánh mắt lạnh lùng' lặp 4 lần trong chương.",
+        },
+      ],
+      summary: "Phát hiện 2 vấn đề phong cách.",
+    });
+    const provider = new MockProvider({
+      responder: { kind: "fixed", content: weakCliffhangerOutput },
+    });
+    const agent = new LlmValidatorAgent({ provider });
+    const result = await agent.validate({
+      serializedContext: "context",
+      chapterContent: "ánh mắt lạnh lùng... ánh mắt lạnh lùng...",
+      chapterTitle: "Ch 6",
+      chapterNumber: 6,
+      storyId: "s1",
+      traceId: "t1",
+      genreDef: {
+        slug: "tien_hiep",
+        viLabel: "Tiên hiệp",
+        viDescription: "",
+        family: "cultivation",
+        allowedTropes: [],
+        discouragedTropes: [],
+        toneGuidance: "",
+        worldbuildingGuidance: "",
+        examplePremises: [],
+      } as any,
+      personalityDef: {
+        slug: "tram_on",
+        viLabel: "",
+        viDescription: "",
+        voiceHints: "",
+        decisionStyle: "",
+        dialogueStyle: "",
+        conflictResponse: "",
+        driftSignals: [],
+      } as any,
+      storyOptions: {} as any,
+    });
+    expect(result.output.pass).toBe(false);
+    const codes = result.output.issues.map((i) => i.code);
+    expect(codes).toContain("weak_cliffhanger");
+    expect(codes).toContain("repetition");
+  });
+
   it("returns issues when validator flags problems", async () => {
     const provider = new MockProvider({
       responder: { kind: "fixed", content: INVALID_VALIDATOR_OUTPUT },

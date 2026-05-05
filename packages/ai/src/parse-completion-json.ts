@@ -1,4 +1,14 @@
-import type { CompletionResponse } from './providers/types.ts';
+import type { CompletionRequest, CompletionResponse } from './providers/types.ts';
+
+export interface ParseRecoveryEvent {
+  strategy: 'strip_fences' | 'extract_object' | 're_prompt';
+  detail: string;
+}
+
+export interface ParseRetryOptions {
+  request?: CompletionRequest;
+  onParseRecovery?: (event: ParseRecoveryEvent) => void;
+}
 
 function tryParsedFromMessage(msg: Record<string, unknown>): unknown {
   const parsed = msg.parsed;
@@ -20,10 +30,86 @@ function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+function tryParseObjectString(content: string): unknown {
+  const parsed = JSON.parse(content);
+  if (parsed !== null && typeof parsed === 'object' && !Array.isArray(parsed)) {
+    return parsed;
+  }
+  return parsed;
+}
+
+function stripMarkdownFences(content: string): string | null {
+  const match = content.match(/^```(?:json)?\s*([\s\S]*?)\s*```$/i);
+  const fenced = match?.[1];
+  return fenced != null ? fenced.trim() : null;
+}
+
+function extractFirstJsonObject(content: string): string | null {
+  const start = content.indexOf('{');
+  if (start < 0) return null;
+
+  let depth = 0;
+  let inString = false;
+  let escaped = false;
+
+  for (let i = start; i < content.length; i++) {
+    const ch = content[i];
+    if (inString) {
+      if (escaped) {
+        escaped = false;
+      } else if (ch === '\\') {
+        escaped = true;
+      } else if (ch === '"') {
+        inString = false;
+      }
+      continue;
+    }
+    if (ch === '"') {
+      inString = true;
+      continue;
+    }
+    if (ch === '{') depth++;
+    if (ch === '}') {
+      depth--;
+      if (depth === 0) {
+        return content.slice(start, i + 1);
+      }
+    }
+  }
+
+  return null;
+}
+
+function snippet(content: string): string {
+  return content.length > 400 ? `${content.slice(0, 400)}…` : content;
+}
+
+function buildInvalidJsonError(context: string, content: string): Error {
+  return new Error(`${context}: invalid JSON in completion content: ${snippet(content)}`);
+}
+
+function parseCandidateObject(content: string): { value?: unknown; error?: Error } {
+  try {
+    return { value: tryParseObjectString(content) };
+  } catch {
+    return { error: buildInvalidJsonError('parse', content) };
+  }
+}
+
+function finalizeParsedObject(
+  parsed: unknown,
+  context: string,
+  finishReason: CompletionResponse['finishReason'],
+): unknown {
+  if (parsed !== null && typeof parsed === 'object' && !Array.isArray(parsed)) {
+    return parsed;
+  }
+  const kind = parsed === null ? 'null' : Array.isArray(parsed) ? 'array' : typeof parsed;
+  throw new Error(`${context}: expected JSON object, got ${kind} (finishReason=${finishReason})`);
+}
+
 /**
- * Retries the completion call on transient model errors
- * (finishReason=error or finishReason=content_filter) and returns the raw
- * CompletionResponse so callers can do their own parsing.
+ * Retries completion call on transient model errors and returns raw response.
  */
 export async function withCompletionRetryRaw(
   context: string,
@@ -47,50 +133,100 @@ export async function withCompletionRetryRaw(
 }
 
 /**
- * Wraps a completion call with retry logic for transient model errors
- * (finishReason=error or finishReason=content_filter). Parse errors
- * (invalid JSON, wrong type) are not retried.
+ * Wraps completion call with transient retry and parse recovery.
  */
 export async function withCompletionRetry(
   context: string,
-  complete: () => Promise<CompletionResponse>,
+  complete: (requestOverride?: CompletionRequest) => Promise<CompletionResponse>,
   maxRetries: number = 3,
+  options?: ParseRetryOptions,
 ): Promise<unknown> {
-  const res = await withCompletionRetryRaw(context, complete, maxRetries);
-  return parseCompletionJsonObject(res, context);
+  const res = await withCompletionRetryRaw(context, () => complete(), maxRetries);
+  try {
+    return parseCompletionJsonObject(res, context, options?.onParseRecovery);
+  } catch (error) {
+    if (!options?.request?.responseSchema) {
+      throw error;
+    }
+    options.onParseRecovery?.({
+      strategy: 're_prompt',
+      detail: error instanceof Error ? error.message : `${error}`,
+    });
+    const repaired = await complete({
+      ...options.request,
+      messages: [
+        {
+          role: 'system',
+          content: [
+            options.request.messages[0]?.content ?? '',
+            'Chỉ trả JSON object hợp lệ theo response schema. Không dùng markdown fence. Không giải thích.',
+          ].join('\n\n').trim(),
+        },
+        {
+          role: 'user',
+          content: [
+            ...options.request.messages.filter((message) => message.role !== 'system').map((message) => message.content),
+            `Parse error trước đó: ${error instanceof Error ? error.message : `${error}`}`,
+            'Hãy trả lại duy nhất 1 JSON object hợp lệ theo schema đã cung cấp.',
+          ].join('\n\n'),
+        },
+      ],
+    });
+    return parseCompletionJsonObject(repaired, context, options.onParseRecovery);
+  }
 }
 
 /**
- * Parses a JSON object from an LLM completion. Handles providers that return the literal
- * `"null"`, empty strings, or nest structured output on `choices[0].message.parsed`.
+ * Parses JSON object from completion. Handles null, empty strings, nested parsed output,
+ * markdown fences, and object extraction from surrounding text.
  */
-export function parseCompletionJsonObject(res: CompletionResponse, context: string): unknown {
+export function parseCompletionJsonObject(
+  res: CompletionResponse,
+  context: string,
+  onParseRecovery?: (event: ParseRecoveryEvent) => void,
+): unknown {
   const raw = res.raw as { choices?: Array<{ message?: Record<string, unknown> }> } | undefined;
   const fallbackMsg = raw?.choices?.[0]?.message;
-
-  const trimmed =
-    res.content == null || res.content === '' ? '' : String(res.content).trim();
+  const trimmed = res.content == null || res.content === '' ? '' : String(res.content).trim();
 
   if (trimmed.length > 0) {
-    let parsed: unknown;
-    try {
-      parsed = JSON.parse(trimmed);
-    } catch {
-      const snippet = trimmed.length > 400 ? `${trimmed.slice(0, 400)}…` : trimmed;
-      throw new Error(`${context}: invalid JSON in completion content: ${snippet}`);
+    const direct = parseCandidateObject(trimmed);
+    if (direct.value !== undefined) {
+      try {
+        return finalizeParsedObject(direct.value, context, res.finishReason);
+      } catch (error) {
+        if (fallbackMsg) {
+          const fromMsg = tryParsedFromMessage(fallbackMsg);
+          if (fromMsg !== undefined) return fromMsg;
+        }
+        throw error;
+      }
     }
-    if (parsed !== null && typeof parsed === 'object' && !Array.isArray(parsed)) {
-      return parsed;
+
+    const unfenced = stripMarkdownFences(trimmed);
+    if (unfenced) {
+      const parsed = parseCandidateObject(unfenced);
+      if (parsed.value !== undefined) {
+        onParseRecovery?.({ strategy: 'strip_fences', detail: 'parsed object after removing markdown fences' });
+        return finalizeParsedObject(parsed.value, context, res.finishReason);
+      }
     }
+
+    const extracted = extractFirstJsonObject(trimmed);
+    if (extracted) {
+      const parsed = parseCandidateObject(extracted);
+      if (parsed.value !== undefined) {
+        onParseRecovery?.({ strategy: 'extract_object', detail: 'parsed first JSON object from mixed content' });
+        return finalizeParsedObject(parsed.value, context, res.finishReason);
+      }
+    }
+
     if (fallbackMsg) {
       const fromMsg = tryParsedFromMessage(fallbackMsg);
       if (fromMsg !== undefined) return fromMsg;
     }
-    const kind =
-      parsed === null ? 'null' : Array.isArray(parsed) ? 'array' : typeof parsed;
-    throw new Error(
-      `${context}: expected JSON object, got ${kind} (finishReason=${res.finishReason})`,
-    );
+
+    throw buildInvalidJsonError(context, trimmed);
   }
 
   if (fallbackMsg) {

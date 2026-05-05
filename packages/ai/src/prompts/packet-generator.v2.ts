@@ -22,6 +22,10 @@ export type PacketGeneratorV2PromptInput = {
     plantWindowEnd: number;
   }[];
   overdueThreads: { title: string; introducedChapter: number }[];
+  /** §1.9 — seeds approaching plantWindowEnd (within 2 chapters). Auto-enforced at critical priority. */
+  mustIncludeSeeds?: { id: string; seedText: string; plantWindowEnd: number }[];
+  prevChapterTailContent?: string;
+  knowledgeState?: Record<string, number>;
   forbiddenRules: string;
   chapterNumber: number;
   arcGoals: string;
@@ -59,6 +63,12 @@ export const packetGeneratorPromptV2: DualPromptTemplate = {
       title: string;
       introducedChapter: number;
     }[];
+    const prevTail = input.prevChapterTailContent;
+    const mustIncludeSeeds = (input.mustIncludeSeeds ?? []) as {
+      id: string;
+      seedText: string;
+      plantWindowEnd: number;
+    }[];
 
     return {
       system: `Bạn là planner chương cho tiểu thuyết ${genreDef.viLabel} tiếng Việt. Trả JSON đúng schema. KHÔNG viết nội dung chương — chỉ kế hoạch.
@@ -69,6 +79,9 @@ ${renderPersonalityContract(personalityDef)}
 
 ${buildStoryOptionsBlock({ storyOptions, target: "packet" })}`,
       user: [
+        `# NỐI TIẾP CHƯƠNG TRƯỚC`,
+        prevTail ? `Đoạn cuối chương trước:\n"${prevTail}"\n\n(Kế hoạch chương này PHẢI bắt đầu nối tiếp mạch cảm xúc/hành động từ đoạn trên)` : "",
+        "",
         `# BIBLE`,
         input.bibleCompact,
         "",
@@ -104,6 +117,19 @@ ${buildStoryOptionsBlock({ storyOptions, target: "packet" })}`,
             `- (id=${s.id}) MUST plant: "${s.seedText}" — pays off: ${s.payoffDescription} — window ends ch${s.plantWindowEnd}`,
         ),
         "",
+        // §1.9 — critical auto-enforced seeds approaching deadline
+        ...(mustIncludeSeeds.length > 0
+          ? [
+              `<must_include_seeds priority="critical">`,
+              `BẮT BUỘC TUYỆT ĐỐI — các seed sau PHẢI xuất hiện trong requiredEvents của chương này (đã qua deadline -2):`,
+              ...mustIncludeSeeds.map(
+                (s) =>
+                  `- seedId="${s.id}" plantWindowEnd=ch${s.plantWindowEnd}: "${s.seedText}"`,
+              ),
+              `</must_include_seeds>`,
+              "",
+            ]
+          : []),
         overdue.length > 0 ? `# THREAD QUÁ HẠN — cần resolve sớm:` : "",
         ...overdue.map((t) => `- ${t.title} (intro ch${t.introducedChapter})`),
         "",
@@ -118,6 +144,7 @@ ${buildStoryOptionsBlock({ storyOptions, target: "packet" })}`,
         `Viết ngắn gọn, trọn ý, không lặp.`,
         `forbiddenMoves: liệt kê những đòn từ # CẤM mà chương này nên tránh dùng.`,
         `Trả về JSON theo schema ChapterPacket.`,
+        `BẮT BUỘC: phải thiết lập entryState. Kế thừa từ summary chương trước + logic nhân vật. KHÔNG TỰ BỊA.`,
       ]
         .filter(Boolean)
         .join("\n"),

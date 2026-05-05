@@ -1,4 +1,5 @@
 import type { GenreDef, StoryOptions } from "@novel/core";
+import { PLANNER_FRAME } from "./role-frames.ts";
 import { registerPrompt, type DualPromptTemplate } from "./registry.ts";
 import { renderGenreContract } from "./contracts/genre-contract.ts";
 import { buildStoryOptionsBlock } from "./contracts/story-options-block.ts";
@@ -27,7 +28,9 @@ export const arcPlannerPromptV2: DualPromptTemplate = {
     }
 
     return {
-      system: `Bạn là biên kịch cấp arc cho tiểu thuyết ${genreDef.viLabel} tiếng Việt. Chia nhỏ một SAGA thành ${arcCount} ARC, mỗi arc ${arcLength} chương.
+      system: `${PLANNER_FRAME}
+
+Bạn là biên kịch cấp arc cho tiểu thuyết ${genreDef.viLabel} tiếng Việt. Chia nhỏ một SAGA thành ${arcCount} ARC, mỗi arc ${arcLength} chương.
 
 ${renderGenreContract(genreDef, storyOptions)}
 

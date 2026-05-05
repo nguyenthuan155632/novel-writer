@@ -10,6 +10,8 @@ export const batches = pgTable('batches', {
   status: text('status', { enum: ['running', 'completed', 'paused', 'failed', 'cancelled'] }).notNull().default('running'),
   pausedReason: text('paused_reason'),
   completedChapters: integer('completed_chapters').notNull().default(0),
+  checkpointChapter: integer('checkpoint_chapter'),
+  resumedFromChapter: integer('resumed_from_chapter'),
   totalCostUsd: text('total_cost_usd').notNull().default('0'),
   meta: jsonb('meta').notNull().default({}),
   startedAt: timestamp('started_at', { withTimezone: true }).notNull().defaultNow(),

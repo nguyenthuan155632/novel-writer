@@ -24,9 +24,13 @@ process.env.DATABASE_URL = TEST_DB;
 
 const mockEnqueue = vi.fn().mockResolvedValue({ jobId: 'gen-story-1' });
 const mockGetStatus = vi.fn().mockResolvedValue(null);
+const mockRunGeneratePreflight = vi.fn().mockResolvedValue({ ok: true, failed: [] });
 vi.mock('../../src/services/queue-client.js', () => ({
   enqueueGenerateChapter: (...args: unknown[]) => mockEnqueue(...args),
   getGenerateChapterStatus: (...args: unknown[]) => mockGetStatus(...args),
+}));
+vi.mock('../../src/services/preflight.ts', () => ({
+  runGeneratePreflight: (...args: unknown[]) => mockRunGeneratePreflight(...args),
 }));
 
 const app = buildServer();
@@ -37,6 +41,8 @@ beforeEach(async () => {
   mockEnqueue.mockResolvedValue({ jobId: 'gen-story-1' });
   mockGetStatus.mockReset();
   mockGetStatus.mockResolvedValue(null);
+  mockRunGeneratePreflight.mockReset();
+  mockRunGeneratePreflight.mockResolvedValue({ ok: true, failed: [] });
   await resetActiveProviderForTests();
 });
 
@@ -222,6 +228,29 @@ describe('chapters routes', () => {
       payload: { chapterNumber: 1, mode: 'invalid' },
     });
     expect(r.statusCode).toBe(400);
+  });
+
+  it('POST /api/stories/:storyId/chapters/generate returns preflight_failed before enqueueing', async () => {
+    const storyId = await createPlannedStory();
+    mockRunGeneratePreflight.mockResolvedValueOnce({
+      ok: false,
+      failed: [{ key: 'budget_guard', pass: false, reason: 'budget_breach:daily:100.0%' }],
+    });
+
+    const r = await app.inject({
+      method: 'POST',
+      url: `/api/stories/${storyId}/chapters/generate`,
+      payload: { chapterNumber: 1, mode: 'safe' },
+    });
+
+    expect(r.statusCode).toBe(409);
+    expect(JSON.parse(r.body)).toEqual(expect.objectContaining({
+      error: 'preflight_failed',
+      failed: [{ key: 'budget_guard', pass: false, reason: 'budget_breach:daily:100.0%' }],
+    }));
+    expect(mockEnqueue).not.toHaveBeenCalled();
+
+    await getDb(TEST_DB).delete(stories).where(eq(stories.id, storyId));
   });
 
   it('GET /api/stories/:storyId/chapters/:chapterNumber/status returns status', async () => {

@@ -1,5 +1,6 @@
 import { pgTable, uuid, text, integer, timestamp, jsonb, boolean, customType } from 'drizzle-orm/pg-core';
 import { stories } from './stories.ts';
+import type { ImportanceLevel } from '@novel/core';
 
 const vector1536 = customType<{ data: number[]; driverData: string }>({
   dataType() {
@@ -19,7 +20,10 @@ export const canonFacts = pgTable('canon_facts', {
   topic: text('topic').default('').notNull(),
   fact: text('fact').notNull(),
   sourceChapter: integer('source_chapter'),
-  importance: text('importance').default('medium').notNull(),
+  validUntilChapter: integer('valid_until_chapter'),
+  knownBy: jsonb('known_by').$type<string[]>().default([]).notNull(),
+  visibility: text('visibility', { enum: ['public', 'restricted', 'secret'] }).default('restricted').notNull(),
+  importance: text('importance').$type<ImportanceLevel>().default('medium').notNull(),
   locked: boolean('locked').default(false).notNull(),
   tags: jsonb('tags').$type<string[]>().default([]).notNull(),
   embedding: vector1536('embedding'),

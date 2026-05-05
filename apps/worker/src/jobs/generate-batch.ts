@@ -45,7 +45,12 @@ export async function runGenerateBatchJob(
   // Resume support: read prior progress from DB so a re-queued batch resumes where it stopped.
   let completed = batch.completedChapters ?? 0;
   let totalCostUsd = Number(batch.totalCostUsd ?? 0);
-  const resumeFrom = startChapter + completed;
+  const resumeFrom = (batch.checkpointChapter ?? (startChapter + completed - 1)) + 1;
+
+  await db
+    .update(batches)
+    .set({ resumedFromChapter: resumeFrom })
+    .where(eq(batches.id, batchId));
 
   jobLog.info(
     { batchId, resumeFrom, completed },
@@ -123,6 +128,7 @@ export async function runGenerateBatchJob(
           status: "failed",
           pausedReason: `chapter_${chapterNumber}_failed`,
           completedChapters: completed,
+          checkpointChapter: chapterNumber - 1,
           totalCostUsd: totalCostUsd.toFixed(6),
           finishedAt: new Date(),
         })
@@ -142,6 +148,7 @@ export async function runGenerateBatchJob(
           status: "paused",
           pausedReason: `chapter_${chapterNumber}_pending_updates`,
           completedChapters: completed,
+          checkpointChapter: chapterNumber,
           totalCostUsd: totalCostUsd.toFixed(6),
         })
         .where(eq(batches.id, batchId));
@@ -152,6 +159,7 @@ export async function runGenerateBatchJob(
       .update(batches)
       .set({
         completedChapters: completed,
+        checkpointChapter: chapterNumber,
         totalCostUsd: totalCostUsd.toFixed(6),
       })
       .where(eq(batches.id, batchId));
@@ -162,6 +170,7 @@ export async function runGenerateBatchJob(
     .set({
       status: "completed",
       completedChapters: completed,
+      checkpointChapter: endChapter,
       totalCostUsd: totalCostUsd.toFixed(6),
       finishedAt: new Date(),
     })

@@ -4,10 +4,16 @@ import type { CanonSnapshot } from './conflict-detector.ts';
 import type { EmbeddingService } from '../embeddings/types.ts';
 import type { ExtractorOutput } from '../schemas/extractor.ts';
 import { detectConflicts, type ConflictEntry } from './conflict-detector.ts';
+import type { ImportanceLevel, CanonConflictType } from '@novel/core';
+import { ConflictResolverAgent } from '../agents/conflict-resolver.ts';
+import type { LLMProvider } from '../providers/types.ts';
 
 export type CanonMergerDeps = {
   db: import('drizzle-orm/node-postgres').NodePgDatabase<Record<string, never>>;
   embeddingService: EmbeddingService;
+  /** Optional LLM provider for conflict-resolver suggestions. Omit in tests or when not needed. */
+  provider?: LLMProvider;
+  logger?: { info: (...args: any[]) => void; warn: (...args: any[]) => void };
 };
 
 export type CanonMergerMode = 'auto' | 'review';
@@ -32,6 +38,8 @@ export type CanonMergerSubmitParams = {
 export type CanonMergerResult = {
   pendingCount: number;
   autoAppliedCount: number;
+  /** How many rows were auto-approved because conflictStatus=none AND importance=low in review mode. */
+  autoApprovedLowImportanceCount: number;
   conflicts: ConflictEntry[];
 };
 
@@ -53,6 +61,9 @@ export class CanonMerger {
         .filter(r => r.targetTable === 'canon_facts')
         .map(r => ({
           topic: (r.payload.topic as string) ?? '',
+          visibility: (r.payload.visibility as 'public' | 'restricted' | 'secret') ?? 'restricted',
+          knownBy: (r.payload.knownBy as string[]) ?? [],
+          validUntilChapter: r.payload.validUntilChapter as number | undefined,
           fact: r.payload.fact as string,
           importance: r.payload.importance as 'low' | 'medium' | 'high' | 'locked',
         })),
@@ -86,25 +97,47 @@ export class CanonMerger {
     const conflicts = detectConflicts(extracted, snapshot);
     const pendingRows: (typeof pendingCanonUpdates.$inferInsert)[] = [];
     const autoApplyRows: CanonMergerRow[] = [];
+    const autoApprovedLowRows: CanonMergerRow[] = [];
+
+    // §3.3 — conflict resolver for suggestion generation (only when provider available).
+    const resolver = this.deps.provider
+      ? new ConflictResolverAgent({ provider: this.deps.provider, logger: this.deps.logger })
+      : null;
 
     for (const row of params.rows) {
+      const payloadFields = (row.payload.fields as Record<string, unknown> | undefined) ?? {};
       const hasConflict = conflicts.some(c => {
         if (c.targetTable !== row.targetTable) return false;
         // Update rows carry a concrete targetId; require an exact id match plus
         // the conflicting payload key to be set on this specific row.
+        // The key may be at top-level payload OR inside nested `fields` (for character/faction updates).
         if (row.targetId != null) {
-          return c.targetId === row.targetId && row.payload[c.payloadKey] !== undefined;
+          return c.targetId === row.targetId &&
+            (row.payload[c.payloadKey] !== undefined || payloadFields[c.payloadKey] !== undefined);
         }
         // Create rows have no id yet, so any same-table conflict that flags a
         // payload key actually present on this row should route to pending
-        // (e.g. `duplicate_fact`, `duplicate_faction`).
-        return row.payload[c.payloadKey] !== undefined;
+        // (e.g. `duplicate_fact`).
+        return row.payload[c.payloadKey] !== undefined || payloadFields[c.payloadKey] !== undefined;
       });
 
       if (hasConflict) {
         const conflictReasons = conflicts
           .filter(c => c.targetTable === row.targetTable && c.targetId === row.targetId)
-          .map(c => c.reason);
+          .map(c => c.reason) as CanonConflictType[];
+
+        // §3.3 — attempt to generate a suggested resolution before writing to pending.
+        let suggestedResolution: Record<string, unknown> | undefined;
+        if (resolver) {
+          const suggestion = await resolver.suggest({
+            updateRow: row,
+            snapshot,
+            conflictReasons,
+            traceId: params.traceId,
+            storyId: params.storyId,
+          });
+          if (suggestion) suggestedResolution = suggestion;
+        }
 
         pendingRows.push({
           storyId: params.storyId,
@@ -115,20 +148,27 @@ export class CanonMerger {
           payload: row.payload,
           conflictStatus: 'conflict',
           conflictReasons,
+          suggestedResolution,
           resolution: 'pending',
         });
       } else if (params.mode === 'review') {
-        pendingRows.push({
-          storyId: params.storyId,
-          chapterId: params.chapterId,
-          updateType: row.updateType,
-          targetTable: row.targetTable,
-          targetId: row.targetId,
-          payload: row.payload,
-          conflictStatus: 'none',
-          conflictReasons: [],
-          resolution: 'pending',
-        });
+        // §3.2 — auto-approve low-importance clean rows even in review mode.
+        const importance = row.payload.importance as string | undefined;
+        if (importance === 'low') {
+          autoApprovedLowRows.push(row);
+        } else {
+          pendingRows.push({
+            storyId: params.storyId,
+            chapterId: params.chapterId,
+            updateType: row.updateType,
+            targetTable: row.targetTable,
+            targetId: row.targetId,
+            payload: row.payload,
+            conflictStatus: 'none',
+            conflictReasons: [],
+            resolution: 'pending',
+          });
+        }
       } else {
         autoApplyRows.push(row);
       }
@@ -139,6 +179,21 @@ export class CanonMerger {
     }
 
     let autoAppliedCount = 0;
+    let autoApprovedLowImportanceCount = 0;
+
+    // §3.2 — apply low-importance clean rows regardless of mode.
+    for (const row of autoApprovedLowRows) {
+      await this.applyRow(row, params.storyId, params.chapterNumber, params.traceId);
+      autoApprovedLowImportanceCount++;
+      this.deps.logger?.info({
+        traceId: params.traceId,
+        storyId: params.storyId,
+        targetTable: row.targetTable,
+        targetId: row.targetId,
+        metadata: { canon_merger_auto_apply: true, reason: 'low_importance_clean' },
+      }, 'canon merger auto-applied low-importance clean row');
+    }
+
     if (params.mode === 'auto') {
       for (const row of autoApplyRows) {
         await this.applyRow(row, params.storyId, params.chapterNumber, params.traceId);
@@ -158,6 +213,7 @@ export class CanonMerger {
     return {
       pendingCount: pendingRows.length,
       autoAppliedCount,
+      autoApprovedLowImportanceCount,
       conflicts,
     };
   }
@@ -193,12 +249,15 @@ export class CanonMerger {
       case 'canon_facts': {
         const factText = row.payload.fact as string;
         const topicText = (row.payload.topic as string) ?? '';
-        const importance = (row.payload.importance as string) ?? 'medium';
+        const importance = ((row.payload.importance as string) ?? 'medium') as ImportanceLevel;
+        const visibility = (row.payload.visibility as 'public' | 'restricted' | 'secret') ?? 'restricted';
+        const knownBy = (row.payload.knownBy as string[]) ?? [];
+        const validUntilChapter = row.payload.validUntilChapter as number | undefined;
         const embResp = await this.deps.embeddingService.embed({
           input: factText,
           traceId,
         });
-        await this.deps.db.insert(canonFacts).values({
+        const [insertedFact] = await this.deps.db.insert(canonFacts).values({
           storyId,
           topic: topicText,
           fact: factText,
@@ -206,7 +265,28 @@ export class CanonMerger {
           importance,
           locked: importance === 'locked',
           embedding: embResp.vector,
-        });
+          visibility,
+          knownBy,
+          validUntilChapter,
+        }).returning({ id: canonFacts.id });
+
+        if (knownBy.length > 0) {
+          // Update knowledgeState for each character in knownBy
+          for (const characterId of knownBy) {
+            const charRows = await this.deps.db.select({ knowledgeState: characters.knowledgeState })
+              .from(characters)
+              .where(and(eq(characters.id, characterId), eq(characters.storyId, storyId)))
+              .limit(1);
+
+            if (charRows.length > 0 && charRows[0]) {
+              const currentState = (charRows[0].knowledgeState as Record<string, number>) ?? {};
+              const newState = { ...currentState, [insertedFact!.id]: chapterNumber };
+              await this.deps.db.update(characters)
+                .set({ knowledgeState: newState, updatedAt: new Date() })
+                .where(and(eq(characters.id, characterId), eq(characters.storyId, storyId)));
+            }
+          }
+        }
         break;
       }
       case 'open_threads': {
@@ -240,17 +320,36 @@ export class CanonMerger {
           storyId,
           chapterNumber,
           eventText: row.payload.description as string,
-          importance: (row.payload.significance as string) ?? 'minor',
+          importance: ((row.payload.significance as string) ?? 'minor') as ImportanceLevel,
           relatedCharacterIds: (row.payload.charactersInvolved as string[]) ?? [],
         });
         break;
       }
       case 'planted_seeds': {
         if (row.targetId) {
+          const status = (row.payload.status as string | undefined) ?? 'paid_off';
+          const paidOffAtChapter = (row.payload.paidOffAtChapter as number | undefined) ?? chapterNumber;
+
+          if (status === 'paid_off') {
+            const seedRows = await this.deps.db.select({ plantedInChapter: plantedSeeds.plantedInChapter })
+              .from(plantedSeeds)
+              .where(and(eq(plantedSeeds.id, row.targetId), eq(plantedSeeds.storyId, storyId)))
+              .limit(1);
+
+            if (seedRows.length === 0) {
+              throw new Error(`Planted seed ${row.targetId} not found`);
+            }
+
+            const plantedInChapter = seedRows[0]!.plantedInChapter!;
+            if (paidOffAtChapter < plantedInChapter) {
+              throw new Error(`Invalid state transition: paidOffAtChapter (${paidOffAtChapter}) cannot be before plantedInChapter (${plantedInChapter})`);
+            }
+          }
+
           await this.deps.db.update(plantedSeeds)
             .set({
-              status: (row.payload.status as string | undefined) ?? 'paid_off',
-              paidOffAtChapter: (row.payload.paidOffAtChapter as number | undefined) ?? chapterNumber,
+              status,
+              paidOffAtChapter,
             })
             .where(and(eq(plantedSeeds.id, row.targetId), eq(plantedSeeds.storyId, storyId)));
         }

@@ -1,5 +1,7 @@
+import type { EntryState } from "@novel/core";
 import type { ChapterPacket } from "../schemas/packet.js";
 import type { ProgressWindowSource } from "./progress.js";
+import type { CanonConflictType } from "@novel/core";
 
 export type StyleFewShot = { excerpt: string; sourceChapter?: number };
 
@@ -23,6 +25,7 @@ export type CharacterCompact = {
   bloodlines: string[];
   faction?: string;
   shortTraits: string[];
+  lastActiveChapter?: number;
 };
 
 export type ThreadCompact = {
@@ -51,11 +54,21 @@ export type FactionCompact = {
   powerLevel?: string;
 };
 
+export type ParallelThreadCompact = {
+  id: string;
+  premise: string;
+  startChapter: number;
+  endChapter: number;
+  parentTimelineId: string | null;
+};
+
 export type TimelineEventCompact = {
   chapterNumber: number;
   eventType: string;
   eventText: string;
   importance: string;
+  threadId?: string | null;
+  relatedThreadIds?: string[];
 };
 
 export type PendingCanonUpdateCompact = {
@@ -63,7 +76,7 @@ export type PendingCanonUpdateCompact = {
   updateType: string;
   targetTable: string;
   conflictStatus: string;
-  conflictReasons: string[];
+  conflictReasons: CanonConflictType[];
   summary: string;
 };
 
@@ -73,6 +86,7 @@ export type WarmTier = {
   activeCharacters: CharacterCompact[];
   arcOpenThreads: ThreadCompact[];
   arcPlantedSeeds: SeedCompact[];
+  parallelThreads?: ParallelThreadCompact[];
   /**
    * All canonical factions for this story. Kept in WARM (not COLD) because the
    * unknown-faction validator and canon-extractor both need a stable list every
@@ -83,6 +97,8 @@ export type WarmTier = {
    * consumers should treat `undefined` as `[]`.
    */
   knownFactions?: FactionCompact[];
+  tailContentPrev?: string;
+  entryState?: EntryState;
 };
 
 export type ChapterSummaryCompact = {

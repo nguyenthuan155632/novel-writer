@@ -1,3 +1,4 @@
+import { MONITOR_FRAME } from "./role-frames.ts";
 import { registerPrompt, type DualPromptTemplate } from "./registry.ts";
 
 export type SummaryCompactorV2PromptInput = {
@@ -20,7 +21,9 @@ export const summaryCompactorPromptV2: DualPromptTemplate = {
       : "ưu tiên conflict, plot twist, character development";
 
     return {
-      system: `Bạn là summary-compactor cho một tiểu thuyết tiếng Việt. Tóm tắt chương vừa viết thành bản chi tiết (tối đa 2000 ký tự Unicode).
+      system: `${MONITOR_FRAME}
+
+Bạn là summary-compactor cho một tiểu thuyết tiếng Việt. Tóm tắt chương vừa viết thành bản chi tiết (tối đa 2000 ký tự Unicode).
 Quy tắc:
 - Chỉ tóm tắt những gì THỰC SỰ xảy ra.
 - keyEvents là sự kiện quan trọng nhất, ${keyEventHint}.

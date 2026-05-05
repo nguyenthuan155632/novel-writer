@@ -73,8 +73,10 @@ function makeInput(overrides: Partial<CheckInput> = {}): CheckInput {
 describe("buildChecks", () => {
   it("returns all checks sorted by severity", () => {
     const checks = buildChecks("", "cultivation");
-    // 12 prior checks + unknown_faction = 13 for cultivation.
-    expect(checks.length).toBe(13);
+    // Cosmetic checks (cliffhanger, conflict_presence, style_red_flags, repetition) removed.
+    // cultivation: dead_character + realm_jump + new_bloodline_source + locked_fact +
+    //   forbidden_move + word_count + unknown_character + unknown_location + unknown_faction = 9.
+    expect(checks.length).toBe(9);
     expect(checks[0]!.severity).toBe("critical");
     expect(checks[checks.length - 1]!.severity).toBe("low");
   });
@@ -118,10 +120,10 @@ describe("runDeterministicValidator", () => {
     expect(result.shortCircuited).toBe(true);
   });
 
-  it("reports all issues when no critical failure", () => {
+  it("reports issues when no critical failure (word_count fails for short content)", () => {
     const checks = buildChecks("", "cultivation");
     const input = makeInput({
-      content: "Nội dung không có xung đột.",
+      content: "Nội dung quá ngắn.",
       canon: {
         deadCharacterNames: [],
         knownCharacterNames: [],

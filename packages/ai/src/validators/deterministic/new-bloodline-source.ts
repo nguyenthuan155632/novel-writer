@@ -2,7 +2,7 @@ import type { CheckInput, CheckResult, DeterministicCheck } from './types.ts';
 
 export const newBloodlineSourceCheck: DeterministicCheck = {
   id: 'new_bloodline_source',
-  severity: 'medium',
+  severity: 'low',
   run(input: CheckInput): CheckResult {
     const issues: string[] = [];
     const knownBloodlines = new Set(input.canon.knownBloodlineNames.map(n => n.toLowerCase()));

@@ -29,6 +29,7 @@ import {
   getGenerateChapterStatus,
 } from "../services/queue-client.js";
 import { getQueueLlmSnapshot } from "../lib/provider-switcher.ts";
+import { runGeneratePreflight } from "../services/preflight.ts";
 
 const ChapterParams = z.object({
   storyId: z.string().uuid(),
@@ -160,6 +161,18 @@ const plugin: FastifyPluginCallback = (app, _opts, done) => {
       return reply.code(409).send({
         error: "planning_required",
         missing,
+        chapterNumber: body.chapterNumber,
+      });
+    }
+
+    const preflight = await runGeneratePreflight({
+      storyId,
+      chapterNumber: body.chapterNumber,
+    });
+    if (!preflight.ok) {
+      return reply.code(409).send({
+        error: "preflight_failed",
+        failed: preflight.failed,
         chapterNumber: body.chapterNumber,
       });
     }

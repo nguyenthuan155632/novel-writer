@@ -1,4 +1,5 @@
-import { pgTable, uuid, text, integer, timestamp, jsonb } from 'drizzle-orm/pg-core';
+import type { EntryState } from "@novel/core";
+import { pgTable, uuid, text, integer, timestamp, jsonb, boolean } from 'drizzle-orm/pg-core';
 import { stories } from './stories.ts';
 import { chapters } from './chapters.ts';
 import { arcs } from './arcs.ts';
@@ -15,7 +16,10 @@ export const chapterPackets = pgTable('chapter_packets', {
   conflict: text('conflict'),
   cliffhanger: text('cliffhanger'),
   forbiddenMoves: jsonb('forbidden_moves').$type<string[]>().default([]).notNull(),
+  highStakes: boolean('high_stakes').default(false).notNull(),
   contextNotes: text('context_notes'),
+  entryState: jsonb('entry_state').$type<EntryState>(),
+  activeLocationKey: text('active_location_key'),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
 });
 

@@ -27,13 +27,14 @@ import {
   getOpenThreadsForStory,
   getSeedsDueForChapter,
   getRecentSummaries,
-  getTopKCanonFacts,
+  getTopKCanonFactsHybrid,
   getPastChapterSummaries,
   getPlantedSeedsForStory,
   getFactionsForStory,
   getTimelineEventsForChapter,
   getPendingCanonUpdatesForStory,
   getStoryTargetChapterCount,
+  getPrevChapterTailContent,
 } from "./retrieval.js";
 import { shrinkToFit } from "./shrink.js";
 import { renderGenreContract } from "../prompts/contracts/genre-contract.js";
@@ -109,6 +110,7 @@ export async function buildContext(
     knownFactions,
     timelineEventsRows,
     pendingCanonUpdatesRows,
+    tailContentPrev,
   ] = await Promise.all([
     getActiveCharacters(db, storyId, chapterNumber),
     getOpenThreadsForStory(db, storyId),
@@ -123,6 +125,7 @@ export async function buildContext(
     getFactionsForStory(db, storyId),
     getTimelineEventsForChapter(db, storyId, chapterNumber),
     getPendingCanonUpdatesForStory(db, storyId),
+    getPrevChapterTailContent(db, storyId, chapterNumber),
   ]);
 
   const arcSeeds = filterArcSeeds(allSeeds, chapterNumber);
@@ -173,22 +176,46 @@ export async function buildContext(
     activeCharacters: characters,
     arcOpenThreads: threads,
     arcPlantedSeeds: arcSeeds,
+    parallelThreads: Array.isArray(saga?.parallelThreads)
+      ? saga.parallelThreads.filter(
+          (thread): thread is { id: string; premise: string; startChapter: number; endChapter: number; parentTimelineId: string | null } =>
+            !!thread &&
+            typeof thread === "object" &&
+            typeof (thread as any).id === "string" &&
+            typeof (thread as any).premise === "string" &&
+            typeof (thread as any).startChapter === "number" &&
+            typeof (thread as any).endChapter === "number" &&
+            (typeof (thread as any).parentTimelineId === "string" || (thread as any).parentTimelineId === null),
+        )
+      : [],
     knownFactions,
+    tailContentPrev: tailContentPrev ?? undefined,
+    entryState: packet.entryState,
   };
 
   const goalText = packet.goal;
+  const povName = packet.entryState?.povCharacter.name;
+  const povId = povName
+    ? (characters.find((c) => c.name === povName)?.id ?? null)
+    : null;
+  const activeLocationKey = packet.entryState?.locationId ?? null;
+  const characterNames = packet.charactersPresent ?? [];
+
   let retrievedFacts: CanonFactCompact[] = [];
   try {
     const embResp = await embeddingService.embed({
       input: goalText,
       traceId,
     });
-    retrievedFacts = await getTopKCanonFacts(
+    retrievedFacts = await getTopKCanonFactsHybrid(
       db,
       storyId,
       embResp.vector,
+      characterNames,
+      chapterNumber,
+      povId,
+      activeLocationKey,
       cfg.RETRIEVED_CANON_FACTS_TOP_K,
-      [...cfg.RETRIEVAL_MIN_IMPORTANCE],
     );
   } catch (err) {
     log?.warn(
@@ -216,7 +243,6 @@ export async function buildContext(
   };
 
   const hotHash = computeHotHash(hot);
-  const warmHash = computeWarmHash(warm);
 
   const sagaProgress = computeProgressWindow({
     chapterNumber,
@@ -267,7 +293,7 @@ export async function buildContext(
       chapterNumber,
       arcId,
       hotHash,
-      warmHash,
+      warmHash: "",
       sagaProgressPercent: sagaProgress?.percent ?? null,
       arcProgressPercent: arcProgress?.percent ?? null,
       sagaProgressSource: sagaProgress?.source ?? null,
@@ -281,7 +307,11 @@ export async function buildContext(
     },
   };
 
-  ctx = shrinkToFit(ctx, cfg.TOKEN_BUDGET_NORMAL);
+  ctx = shrinkToFit(ctx, cfg.TOKEN_BUDGET_NORMAL, {
+    order: cfg.SHRINK_ORDER,
+    retrievedPastChaptersMinGap: cfg.RETRIEVED_PAST_CHAPTERS_MIN_GAP,
+  });
+  ctx.meta.warmHash = computeWarmHash(ctx.warm);
 
   return ctx;
 }

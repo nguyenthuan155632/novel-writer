@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import type { JsonSchema } from '../providers/types.ts';
+import { IMPORTANCE_LEVELS } from '@novel/core';
 
 /** Models often emit placeholders or prose for IDs; drop invalid values instead of failing parse. */
 export const optionalUuidFromUnknown = z.unknown().transform((val): string | undefined => {
@@ -36,7 +37,11 @@ export const CharacterUpdateSchema = z.object({
 export const CanonFactProposalSchema = z.object({
   topic: z.string().min(1).max(120),
   fact: z.string().min(1).max(800),
-  importance: z.enum(['low', 'medium', 'high', 'locked']),
+  // 'critical' included: extractor may propose critical-importance facts for operator review.
+  importance: z.enum(IMPORTANCE_LEVELS),
+  visibility: z.enum(['public', 'restricted', 'secret']).default('restricted'),
+  knownBy: z.array(z.string()).default([]),
+  validUntilChapter: optionalPositiveChapter,
 });
 
 export const ThreadUpdateSchema = z.object({
@@ -133,7 +138,10 @@ export const EXTRACTOR_JSON_SCHEMA: JsonSchema = {
         properties: {
           topic: { type: 'string' },
           fact: { type: 'string' },
-          importance: { type: 'string', enum: ['low', 'medium', 'high', 'locked'] },
+          importance: { type: 'string', enum: [...IMPORTANCE_LEVELS] },
+          visibility: { type: 'string', enum: ['public', 'restricted', 'secret'] },
+          knownBy: { type: 'array', items: { type: 'string' } },
+          validUntilChapter: { type: 'integer' },
         },
         required: ['topic', 'fact', 'importance'],
       },

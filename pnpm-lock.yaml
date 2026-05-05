@@ -69,6 +69,9 @@ importers:
 
   apps/web:
     dependencies:
+      '@novel/core':
+        specifier: workspace:*
+        version: link:../../packages/core
       diff:
         specifier: ^9.0.0
         version: 9.0.0
@@ -177,6 +180,9 @@ importers:
       epub-gen-memory:
         specifier: ^1.1.2
         version: 1.1.2
+      gpt-tokenizer:
+        specifier: ^3.4.0
+        version: 3.4.0
       pino:
         specifier: 10.3.1
         version: 10.3.1
@@ -1439,6 +1445,9 @@ packages:
 
   get-tsconfig@4.14.0:
     resolution: {integrity: sha512-yTb+8DXzDREzgvYmh6s9vHsSVCHeC0G3PI5bEXNBHtmshPnO+S5O7qgLEOn0I5QvMy6kpZN8K1NKGyilLb93wA==}
+
+  gpt-tokenizer@3.4.0:
+    resolution: {integrity: sha512-wxFLnhIXTDjYebd9A9pGl3e31ZpSypbpIJSOswbgop5jLte/AsZVDvjlbEuVFlsqZixVKqbcoNmRlFDf6pz/UQ==}
 
   htmlparser2@7.2.0:
     resolution: {integrity: sha512-H7MImA4MS6cw7nbyURtLPO1Tms7C5H602LRETv95z1MxO/7CP7rDVROehUYeYBUYEON94NXXDEPmZuq+hX4sog==}
@@ -2865,6 +2874,8 @@ snapshots:
   get-tsconfig@4.14.0:
     dependencies:
       resolve-pkg-maps: 1.0.0
+
+  gpt-tokenizer@3.4.0: {}
 
   htmlparser2@7.2.0:
     dependencies:

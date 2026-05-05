@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { SummaryCompactor } from '../../src/agents/summary-compactor.ts';
+import { SummaryCompactor, BibleCompactionTooLargeError } from '../../src/agents/summary-compactor.ts';
 import { MockProvider } from '../../src/providers/mock.ts';
 import type { Logger } from '../../src/agents/summary-compactor.ts';
 import '../../src/prompts/summary-compactor.v2.ts';
@@ -8,6 +8,7 @@ const silentLogger: Logger = {
   child: () => silentLogger,
   error: () => {},
   info: () => {},
+  warn: () => {},
 };
 
 const VALID_SUMMARY_OUTPUT = JSON.stringify({
@@ -16,6 +17,18 @@ const VALID_SUMMARY_OUTPUT = JSON.stringify({
   charactersPresent: ['Lam Trach', 'Sư phụ'],
   moodShift: 'lighter',
 });
+
+// Generates a summary that exceeds 500 tokens (uses natural text to avoid BPE compression of repetitive chars)
+function makeOversizedSummary(): string {
+  // ~500+ tokens: natural prose at ~1.3 tokens/word, repeated to ensure > 500 tokens regardless of tokenizer.
+  const sentence = 'Lam Trach tu luyện không biết mệt mỏi trong hang sâu, ngày qua ngày đêm qua đêm, ';
+  const longSummary = sentence.repeat(50); // ~3500 chars, ~500+ tokens on any tokenizer
+  return JSON.stringify({
+    summary: longSummary,
+    keyEvents: ['event'],
+    charactersPresent: ['char'],
+  });
+}
 
 describe('SummaryCompactor', () => {
   it('parses valid mocked JSON output', async () => {
@@ -48,5 +61,50 @@ describe('SummaryCompactor', () => {
       previousSummary: 'Prev',
       bibleCompact: 'Bible',
     }, { traceId: 't', storyId: 's' })).rejects.toThrow();
+  });
+
+  it('§1.11 retries with stricter prompt when summary exceeds 500 tokens', async () => {
+    let callCount = 0;
+    const provider = new MockProvider({
+      responder: {
+        kind: 'fn',
+        fn: () => {
+          callCount++;
+          const content = callCount === 1 ? makeOversizedSummary() : VALID_SUMMARY_OUTPUT;
+          return {
+            content,
+            usage: { inputTokens: 100, outputTokens: 50, cachedInputTokens: 0 },
+            finishReason: 'stop' as const,
+            raw: {},
+          };
+        },
+      },
+    });
+    const compactor = new SummaryCompactor({ provider, logger: silentLogger });
+    const r = await compactor.compact({
+      chapterNumber: 5,
+      chapterContent: 'Content',
+      previousSummary: 'Prev',
+      bibleCompact: 'Bible',
+    }, { traceId: 't', storyId: 's' });
+
+    expect(callCount).toBe(2);
+    expect(r.output.summary).toBeTruthy();
+    expect(r.output.summary.length).toBeLessThan(700); // short summary from VALID_SUMMARY_OUTPUT
+  });
+
+  it('§1.11 throws BibleCompactionTooLargeError when both attempts produce oversized summary', async () => {
+    const provider = new MockProvider({
+      responder: { kind: 'fixed', content: makeOversizedSummary() },
+    });
+    const compactor = new SummaryCompactor({ provider, logger: silentLogger });
+    await expect(
+      compactor.compact({
+        chapterNumber: 5,
+        chapterContent: 'Content',
+        previousSummary: 'Prev',
+        bibleCompact: 'Bible',
+      }, { traceId: 't', storyId: 's' }),
+    ).rejects.toThrow(BibleCompactionTooLargeError);
   });
 });

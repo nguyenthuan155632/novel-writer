@@ -2,15 +2,49 @@ import { describe, it, expect } from 'vitest';
 import { findGenre } from '@novel/core';
 import { writerPromptV2 } from '../../src/prompts/writer.v2.ts';
 
+import { WRITER_SYSTEM_PROMPT_TEMPLATE } from '../../src/prompts/writer.v2.ts';
+
 describe('writerPromptV2', () => {
-  it('system prompt includes the chosen genre label and not "tiên hiệp/huyền huyễn"', () => {
+  it('system prompt includes chosen genre label and stays byte-equal to template', () => {
     const built = writerPromptV2.build({
       serializedContext: 'CTX',
       genreDef: findGenre('do_thi'),
-    });
+    } as unknown as Record<string, unknown>);
+
     expect(built.system.toLowerCase()).not.toContain('tiên hiệp');
     expect(built.system.toLowerCase()).not.toContain('huyền huyễn');
     expect(built.system).toContain('Đô thị');
-    expect(built.user).toBe('CTX');
+    expect(built.system).toBe(
+      WRITER_SYSTEM_PROMPT_TEMPLATE.replace('__GENRE_LABEL__', 'Đô thị'),
+    );
+  });
+
+  it('adds no XML inserts when optional data is empty', () => {
+    const built = writerPromptV2.build({
+      serializedContext: 'CTX',
+      genreDef: findGenre('do_thi'),
+    } as unknown as Record<string, unknown>);
+
+    expect(built.user).not.toContain('<consistent_chronology>');
+    expect(built.user).not.toContain('<entry_state>');
+    expect(built.user).not.toContain('<chapter_tail_bridge>');
+    expect(built.user).not.toContain('<emotional_arc>');
+    expect(built.user).not.toContain('<parallel_threads>');
+  });
+
+  it('adds only relevant XML inserts for partial data', () => {
+    const built = writerPromptV2.build({
+      serializedContext: 'CTX',
+      genreDef: findGenre('do_thi'),
+      chapterTailBridge: 'Tail line',
+      emotionalArc: ['fear to resolve'],
+      parallelThreads: ['thread-a: covert infiltration (ch4-ch7)'],
+    } as unknown as Record<string, unknown>);
+
+    expect(built.user).toContain('<chapter_tail_bridge>\nTail line\n</chapter_tail_bridge>');
+    expect(built.user).toContain('<emotional_arc>\n- fear to resolve\n</emotional_arc>');
+    expect(built.user).toContain('<parallel_threads>\n- thread-a: covert infiltration (ch4-ch7)\n</parallel_threads>');
+    expect(built.user).not.toContain('<consistent_chronology>');
+    expect(built.user).not.toContain('<entry_state>');
   });
 });

@@ -158,6 +158,8 @@ describe("detectConflicts", () => {
           topic: "Huyết mạch",
           fact: "Hỏa Long huyết mạch chỉ truyền nam",
           importance: "medium",
+          visibility: "restricted",
+          knownBy: [],
         },
       ],
       threadUpdates: [],
@@ -230,7 +232,7 @@ describe("detectConflicts", () => {
     };
     const conflicts = detectConflicts(extracted, BASE_SNAPSHOT);
     expect(conflicts).toHaveLength(1);
-    expect(conflicts[0]!.type).toBe("duplicate_faction");
+    expect(conflicts[0]!.type).toBe("duplicate_fact");
     expect(conflicts[0]!.targetTable).toBe("factions");
   });
 
@@ -251,7 +253,7 @@ describe("detectConflicts", () => {
       seedsResolvedThisChapter: [],
     };
     const conflicts = detectConflicts(extracted, BASE_SNAPSHOT);
-    expect(conflicts.some((c) => c.type === "destroyed_faction_action")).toBe(
+    expect(conflicts.some((c) => c.type === "locked_field")).toBe(
       true,
     );
   });

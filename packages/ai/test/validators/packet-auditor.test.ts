@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { auditPacket } from "../../src/validators/packet-auditor.ts";
+import { auditPacket, MANDATORY_REGEN_CODES } from "../../src/validators/packet-auditor.ts";
 import type { ChapterPacket } from "../../src/schemas/packet.ts";
 
 const basePacket = {
@@ -80,6 +80,169 @@ describe("auditPacket", () => {
   });
 });
 
+// §1.4 — forbidden_move in packet-auditor
+describe("auditPacket forbidden_move", () => {
+  it("flags forbidden phrase found in requiredEvents description", () => {
+    // Rule text appears verbatim in the event description
+    const r = auditPacket(
+      {
+        packet: {
+          ...basePacket,
+          requiredEvents: [{ description: "giết sư phụ xảy ra trong chương" }],
+        } as any,
+        characters: [aliveChar],
+        forbiddenRules: "giết sư phụ",
+        duePlantedSeeds: [],
+      },
+      { genreFamily: "cultivation" },
+    );
+    expect(r.issues.some((i) => i.code === "forbidden_move")).toBe(true);
+  });
+
+  it("flags forbidden phrase found in forbiddenMoves field", () => {
+    // packet.forbiddenMoves echoes the exact banned phrase from rules
+    const r = auditPacket(
+      {
+        packet: {
+          ...basePacket,
+          forbiddenMoves: ["giết sư phụ"],
+        } as any,
+        characters: [aliveChar],
+        forbiddenRules: "giết sư phụ",
+        duePlantedSeeds: [],
+      },
+      { genreFamily: "cultivation" },
+    );
+    expect(r.issues.some((i) => i.code === "forbidden_move")).toBe(true);
+  });
+
+  it("no false positive when forbiddenRules is empty", () => {
+    const r = auditPacket(
+      {
+        packet: basePacket as any,
+        characters: [aliveChar],
+        forbiddenRules: "",
+        duePlantedSeeds: [],
+      },
+      { genreFamily: "cultivation" },
+    );
+    expect(r.issues.some((i) => i.code === "forbidden_move")).toBe(false);
+  });
+
+  it("no false positive when forbiddenRules present but no phrase matched in packet", () => {
+    // Rules are non-empty but the packet contains none of the forbidden phrases
+    const r = auditPacket(
+      {
+        packet: {
+          ...basePacket,
+          goal: "Lam Trach tìm kiếm báu vật trong rừng",
+          requiredEvents: [{ description: "Phát hiện dấu vết kỳ lạ trên vách núi" }],
+        } as any,
+        characters: [aliveChar],
+        forbiddenRules: "giết sư phụ\nphản bội tông môn",
+        duePlantedSeeds: [],
+      },
+      { genreFamily: "cultivation" },
+    );
+    expect(r.issues.some((i) => i.code === "forbidden_move")).toBe(false);
+  });
+});
+
+// §1.5 — locked_fact_candidate and locked_fact
+describe("auditPacket locked fact candidates", () => {
+  it("emits locked_fact_candidate (non-blocking) when topic mentioned without contradiction", () => {
+    const r = auditPacket(
+      {
+        packet: {
+          ...basePacket,
+          goal: "Lam Trach tranh đoạt thần khí",
+          requiredEvents: [{ description: "Tìm kiếm thần khí trong hang" }],
+        } as any,
+        characters: [aliveChar],
+        forbiddenRules: "",
+        duePlantedSeeds: [],
+        lockedFactCandidates: [
+          { id: "f1", fact: "Thần khí ở Hắc Lâm", topic: "thần khí", lockedFields: [] },
+        ],
+      },
+      { genreFamily: "cultivation" },
+    );
+    const candidate = r.issues.find((i) => i.code === "locked_fact_candidate");
+    expect(candidate).toBeTruthy();
+    expect(candidate!.severity).toBe("medium");
+    // Should NOT be in MANDATORY_REGEN_CODES → requiresRegenerate=false (unless other issues)
+    expect(MANDATORY_REGEN_CODES.has("locked_fact_candidate")).toBe(false);
+  });
+
+  it("emits blocking locked_fact when locked field explicitly contradicted", () => {
+    const r = auditPacket(
+      {
+        packet: {
+          ...basePacket,
+          goal: "Lam Trach thay đổi trạng thái thần khí",
+          requiredEvents: [{ description: "thần khí bị phá hủy trong hang" }],
+        } as any,
+        characters: [aliveChar],
+        forbiddenRules: "",
+        duePlantedSeeds: [],
+        lockedFactCandidates: [
+          {
+            id: "f1",
+            fact: "Thần khí không thể bị phá hủy",
+            topic: "thần khí",
+            lockedFields: ["thần khí"],
+          },
+        ],
+      },
+      { genreFamily: "cultivation" },
+    );
+    expect(r.issues.some((i) => i.code === "locked_fact")).toBe(true);
+  });
+
+  it("no issue when unrelated topic — no false positive", () => {
+    const r = auditPacket(
+      {
+        packet: basePacket as any,
+        characters: [aliveChar],
+        forbiddenRules: "",
+        duePlantedSeeds: [],
+        lockedFactCandidates: [
+          { id: "f1", fact: "Rồng ở phía Bắc", topic: "rồng phương bắc", lockedFields: [] },
+        ],
+      },
+      { genreFamily: "cultivation" },
+    );
+    expect(r.issues.some((i) => i.code === "locked_fact_candidate")).toBe(false);
+    expect(r.issues.some((i) => i.code === "locked_fact")).toBe(false);
+  });
+});
+
+// §1.7 — MANDATORY_REGEN_CODES set
+describe("MANDATORY_REGEN_CODES and requiresRegenerate", () => {
+  it("MANDATORY_REGEN_CODES contains locked_fact, dead_character, realm_jump_excess", () => {
+    expect(MANDATORY_REGEN_CODES.has("locked_fact")).toBe(true);
+    expect(MANDATORY_REGEN_CODES.has("dead_character")).toBe(true);
+    expect(MANDATORY_REGEN_CODES.has("realm_jump_excess")).toBe(true);
+  });
+
+  it("locked_fact_candidate is NOT in MANDATORY_REGEN_CODES", () => {
+    expect(MANDATORY_REGEN_CODES.has("locked_fact_candidate")).toBe(false);
+  });
+
+  it("requiresRegenerate=true when dead_character present", () => {
+    const r = auditPacket(
+      {
+        packet: basePacket as any,
+        characters: [{ ...aliveChar, status: "dead" }],
+        forbiddenRules: "",
+        duePlantedSeeds: [],
+      },
+      { genreFamily: "cultivation" },
+    );
+    expect(r.requiresRegenerate).toBe(true);
+  });
+});
+
 const baseRealmPacket: ChapterPacket = {
   chapterNumber: 5,
   goal: "Một mục tiêu rõ ràng",
@@ -90,6 +253,7 @@ const baseRealmPacket: ChapterPacket = {
   charactersPresent: ["Lý Phong"],
   forbiddenMoves: [],
   toneHints: [],
+  seedsAutoEnforced: [],
   requiredEvents: [
     { description: "Đột phá cảnh giới mới", seedId: "" },
     { description: "Đột phá lần thứ hai", seedId: "" },
