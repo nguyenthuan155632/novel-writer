@@ -10,18 +10,44 @@
 
 **Coverage rule:** every numbered proposal in every source must map to a section here. Where a proposal is deferred, the spec records the explicit phase it lands in. **No silent drops.**
 
+**Review revision:** 2026-05-05. This version was reconciled against the live repo and Obsidian graph before implementation.
+
+**Obsidian notes consulted:**
+- `00-index/00 Overview.md`
+- `validators/packet-auditor.md`
+- `validators/deterministic-runner.md`
+- `flows/chapter-generation-flow.md`
+- `flows/validation-flow.md`
+- `domain/canon-fact.md`
+- `database/tables/canon-facts.md`
+- `database/tables/pending-canon-updates.md`
+- `database/tables/chapter-packets.md`
+- `database/tables/planted-seeds.md`
+- `modules/context-builder.md`
+- `modules/canon-merger.md`
+
+**Repo constraints found:**
+- `@novel/ai` depends on `@novel/db`; DB schema must not import runtime/types from `@novel/ai`. Shared schema/type contracts used by DB and AI belong in `@novel/core`.
+- There is no `settings.id` table. The existing settings table is `story_settings` keyed by `storyId`; location filtering must use a text/tag key until a real locations/settings table exists.
+- Existing planted seed columns are `planted_in_chapter` and `paid_off_at_chapter`, not `planted_chapter` / `payoff_chapter`.
+- Obsidian still documents 12 deterministic content checks. Cosmetic deterministic checks cannot be removed until equivalent LLM Validator coverage lands in the same phase.
+- Canon integrity rule: new facts are staged through `pending_canon_updates` / CanonMerger; direct canon writes outside that path are out of scope.
+- Prompt-cache invariants must be verified against the current writer serializer, where HOT content is rendered into the writer user message.
+
+**Documentation status:** several Obsidian notes are stale or duplicated: the flow notes mention a deterministic pre-check stage that is not separately implemented in `generate-chapter.ts`, and validator severity notes differ from current source. Implementation must update graph notes after code changes.
+
 ---
 
 ## 1. Goals
 
 1. Cut wasted Writer-LLM spend by catching hard-constraint violations **before** the Writer runs (Shift-Left).
-2. Eliminate AI-omniscience leaks by tracking which facts each character actually knows.
+2. Reduce AI-omniscience leaks by adding explicit fact visibility and character knowledge tracking without exposing legacy secret facts by default.
 3. Keep narrative continuity tight between chapter N and N+1 with a literal text bridge plus structured entry-state.
 4. Keep the Cold Tier relevant past chapter 500+ via TTL on canon facts and POV-filtered RAG.
-5. Preserve Anthropic prompt-cache hit rate (≥ 90% on Hot Tier) — no Hot Tier shape changes.
+5. Preserve prompt-cache hit rate (≥ 90% on Hot Tier) by keeping Writer system prompt and Hot serialization byte-stable unless a phase explicitly updates cache tests.
 6. Reduce HITL queue volume by auto-approving safe, low-importance canon updates and surfacing pre-resolved suggestions on conflicts.
 7. Lift writing quality with a polish pass, anti-LLM pattern guard, and emotional-arc / chronological prompt reinforcement.
-8. Build operational durability: real tokenizer in BudgetGuard, batch checkpointing, post-flight audits, adaptive JSON.
+8. Build operational durability: real tokenizer in shared token estimation, batch checkpointing, post-flight audits, adaptive JSON.
 9. Lay foundation for multi-threaded narrative (Saga-spanning Global Timeline) — schema-only in this effort, full activation later.
 10. Bring slot-based decomposition (NovelGenerator) into the Writer pipeline as an opt-in mode for high-stakes chapters.
 
@@ -60,13 +86,13 @@ Every source proposal mapped to its destination section / phase.
 |---|---|---|---|
 | 2.1 | tail_content (200–300 words of ch N) in Warm Tier | §6, §10 | 2 |
 | 2.2 | entry_state JSON on each ChapterPacket (location, timestamp, POV physical/emotional/goal/active_knowledge) | §6, §10 | 2 |
-| 3.1 | active_location_id on context_packets — RAG location filter | §6, §10 | 2 |
+| 3.1 | active_location_key on packet/context snapshot — RAG location filter without nonexistent settings FK | §6, §10 | 2 |
 | 3.2 | known_by[] on canon_facts (POV knowledge isolation) | §6, §10 | 2 |
 | 4 | Multi-pass: Drafting → Det Validation → LLM Validator+Auto-Fixer → **Polish Pass** | §11 | 5 |
 | 4 | High-Stakes Reviewer triggered on breakthrough/death | §11 | 5 |
 | 5.1 | 3-tier optimisation (Hot/Warm/Cold) | §6 | 2 |
 | 5.2 | Seed enforcement — auto-push to required_events with `priority: critical` when chapter ≥ plant_window_end − 2 | §11 | 1 |
-| 6 | Schema: chapters.tail_content, characters.knowledge_ids, context_packets.active_location_id | §10 | 2 |
+| 6 | Schema: chapters.tail_content, characters.knowledge_state, canon_facts visibility/known_by, chapter_packets/context active_location_key | §10 | 2 |
 | 6 | Auto-Fixer pre-resolves pending_canon_updates conflicts (human just clicks Approve) | §13 | 3 |
 
 ### Plan 2 — Architecture & Operations
@@ -89,7 +115,7 @@ Every source proposal mapped to its destination section / phase.
 | 4 | Packet Auditor: Locked Facts + Forbidden Rules pre-write | §7, §11 | 1 |
 | 5 | Heartbeat / Stale Job Detector at >30 min | §15 | 6 |
 | 5 | Batch Checkpoint / Batch Resume | §15 | 6 |
-| 5 | BudgetGuard real tokenizer (gpt-tokenizer) | §14 | 3 |
+| 5 | Shared token estimator uses real tokenizer (gpt-tokenizer) | §14 | 3 |
 | 6 | Auto-approve pending updates: conflict_status=none AND importance=low | §13 | 3 |
 | 6 | Mandatory Regeneration list (locked_fact critical, pivotal conflict, realm regression) | §11 | 1 |
 | 7 | 3-stage roadmap | §16 | n/a |
@@ -98,13 +124,13 @@ Every source proposal mapped to its destination section / phase.
 
 | # | Proposal | Section | Phase |
 |---|---|---|---|
-| 2.1 | Drop 4 cosmetic deterministic checks (style_red_flags, cliffhanger, conflict_presence, repetition) | §7 | 1 |
+| 2.1 | Replace 4 cosmetic deterministic checks in LLM Validator, then remove from deterministic runner | §7 | 1 |
 | 2.2 | Downgrade word_count, unknown_character, unknown_location, new_bloodline_source to hints/low | §7 | 1 |
 | 2.3 | Keep + upgrade 4 hard constraints (dead_character, realm_jump, locked_fact, forbidden_move) | §7 | 1 |
 | 3 | Shift-Left: hard constraints into Phase 3 (Packet Auditor) with `previousIssues[]` regenerate hint | §7, §11 | 1 |
 | 4 | Realm Jump: dynamic ladder parsing from cultivation_system JSONB | §7 | 1 |
 | 4 | Dead Character: last_alive_chapter context-aware (flashback exception) | §7 | 1 |
-| 4 | Locked Fact: vector cosine semantic search vs canon_facts(locked=true) | §7 | 1 |
+| 4 | Locked Fact: retrieve similar locked facts as candidates; hard-block only explicit contradictions | §7 | 1 |
 | 5 | 3-stage roadmap (Refactor → Logic Upgrade → Decommission) | §16 | n/a |
 
 ### Plan 4 — Prompt Engineering
@@ -141,7 +167,7 @@ Every source proposal mapped to its destination section / phase.
 
 ## 4. Adopted vs deferred
 
-Every proposal is adopted somewhere — nothing is dropped. "Deferred" items still get spec language and a phase number; they're not silently abandoned.
+Every proposal is either adopted, modified for repo fit, or explicitly deferred. "No silent drops" does not mean implementing unsafe source-plan details verbatim.
 
 - **Phases 1–4** ship the operational and continuity wins (validators, schema, RAG, prompts).
 - **Phase 5** ships the writing-quality lift (polish pass, anti-LLM patterns, slot-mode for high-stakes chapters, multi-pass orchestration).
@@ -164,12 +190,13 @@ Phase B — Audit (Shift-Left)
     EXISTING:  dead_character, unresolved_due_seed, missing_conflict,
                missing_cliffhanger, realm_jump_excess, overdue_turning_point.
     NEW:       forbidden_move (regex on packet.forbiddenMoves ∪ requiredEvents),
-               locked_fact (vector cosine ≥ 0.85 against canon_facts WHERE locked=true),
-               open_thread_high_priority_overdue (Plan 4 §3),
+               locked_fact_candidates (retrieve similar locked facts as audit hints only;
+                 hard-block only on explicit structured contradiction, never on cosine alone),
+               open_thread_high_priority_overdue (deferred until open_threads has priority/reference fields),
                character_state_dead (Plan 4 §3 — already covered by dead_character),
                seeds_due_check (Plan 4 §3 — already covered by unresolved_due_seed).
     Mandatory regenerate codes (Plan 2 §6):
-      - locked_fact_critical
+      - locked_fact_critical (explicit contradiction only)
       - dead_character_action
       - realm_regression_illegal
     On audit fail: regenerate Packet ONCE with previousIssues[] hint.
@@ -191,9 +218,13 @@ Phase C — Build Context (3-tier, stateful)
     recent_summaries,
     retrieved_facts: hybrid (keyword on charactersPresent ∪ vector on goal/conflict)
       filtered by:
-        - POV known_by (or known_by = [] for public)
+        - fact visibility:
+          * visibility='public' is visible to every POV
+          * visibility='restricted' is visible only when pov_id ∈ known_by
+          * visibility='secret' is hidden from Writer context unless explicitly required
+          * legacy rows with unknown visibility are treated conservatively until backfilled
         - TTL valid_until_chapter
-        - active_location_id (when packet specifies one)
+        - active_location_key (when packet specifies one)
     retrieved_past_chapters, seeds_to_plant_now,
     timeline_events, pending_canon_updates, packet.
   Shrink algorithm when over TOKEN_BUDGET:
@@ -216,12 +247,14 @@ Phase D — Write
 
 Phase E — Validate (lean post-write)
   Deterministic Validator:
-    Hard (blocking): dead_character, realm_jump (llmVerifiable), locked_fact, forbidden_move.
+    Hard (blocking): dead_character, realm_jump (llmVerifiable), locked_fact only when explicitly contradicted, forbidden_move.
     Hints (low):     word_count, unknown_character (medium, llmVerifiable),
                      unknown_location (low, llmVerifiable), unknown_faction (low),
                      new_bloodline_source.
-    REMOVED (delegated to LLM Validator):
+    DEFERRED REMOVAL (delegated to LLM Validator only after replacement coverage lands):
                      style_red_flags, cliffhanger, conflict_presence, repetition.
+    Phase rule: the LLM Validator prompt/tests must absorb these four checks in the same
+      phase that removes them from `buildChecks()`. Until then, keep the existing checks.
   Anti-LLM-Pattern guard (NovelGenerator):
     - 16 hardcoded forbidden phrases + 8 writing rules — surfaces as Auto-Fixer hints.
 
@@ -235,7 +268,7 @@ Phase F — LLM Validator → Auto-Fixer
 
 Phase G — Memory
   CanonExtractor:
-    emits known_by[] per fact,
+    emits visibility + known_by[] per fact,
     prioritises Relationship Shifts + Knowledge State Updates,
     flags any of 5 conflict types (realm_regression, dead_character_action,
       locked_field, duplicate_fact[cosine>0.95], thread_status_invalid).
@@ -260,7 +293,7 @@ Members (unchanged shape): `system_rules`, `bible_compact`, `style_guide`, `powe
 - `bible_compact` ≤ 500 tokens — enforced at SummaryCompactor build time.
 - Mandatory preservation: `forbidden_rules`, `cultivation_system`/`power_system`, `style_guide` MUST NOT be elided during compaction. Compactor errors out instead of dropping them.
 
-**Anthropic prompt cache rule (Plan 4 §7):** Hot Tier MUST be the first content of the system message — verified by serialiser invariant test in `cache-keys.test.ts`.
+**Prompt cache rule (Plan 4 §7):** in the current repo, `serializeContextForWriter()` renders HOT content at the start of the Writer user/context payload while `writerPromptV2.system` remains byte-stable. Tests must assert that serialized user payload begins with HOT sections and that the Writer system prompt is unchanged.
 
 ### Warm Tier (per-chapter)
 
@@ -275,9 +308,13 @@ Active-character filter switches from `last_seen_chapter` → `last_active_chapt
 Existing: `recent_summaries`, `retrieved_facts`, `retrieved_past_chapters`, `seeds_to_plant_now`, `timeline_events`, `pending_canon_updates`, `packet`.
 
 `retrieved_facts` upgraded to hybrid: keyword on `charactersPresent` ∪ vector on `goal/conflict`, fused by score sum. Filtered by:
-- POV `known_by` (a fact is visible if `known_by = []` or `pov_id ∈ known_by`).
+- Visibility and POV knowledge:
+  - `visibility='public'`: visible to all Writer contexts.
+  - `visibility='restricted'`: visible only when `pov_id ∈ known_by`.
+  - `visibility='secret'`: hidden from Writer context unless a future explicit reveal/payoff rule supplies it.
+  - Legacy rows without reviewed visibility are excluded from Writer POV retrieval until the Phase 2 backfill marks them public or restricted.
 - TTL `valid_until_chapter` (`NULL` or `chapterNumber ≤ valid_until_chapter`).
-- `active_location_id` (when packet supplies one — facts whose `tags` mention the location are upweighted).
+- `active_location_key` (when packet supplies one — facts whose `tags` mention the location key are upweighted).
 
 ### Shrink Algorithm (Plan 4 §2)
 
@@ -306,17 +343,17 @@ function shrinkToFit(ctx, budget):
 |---|---|---|---|---|
 | `dead_character` | critical | critical | audit + post-write | Use `last_alive_chapter` for flashback exception (Plan 3 §4) |
 | `realm_jump` | high (llmVerifiable) | high (llmVerifiable) | audit + post-write | Dynamic ladder via `parseRealmLadder()` from `cultivation_system` JSONB (Plan 3 §4) |
-| `locked_fact` | critical | critical (post-write) + high (audit) | audit + post-write | Vector cosine ≥ `LOCKED_FACT_AUDIT_THRESHOLD` (default 0.85) (Plan 3 §4) |
+| `locked_fact` | critical | critical (post-write) + high (audit only for explicit contradictions) | audit + post-write | Audit may retrieve similar locked facts as candidates, but cosine similarity is never a hard block by itself. Hard audit failures require deterministic structured contradiction or verified contradiction. |
 | `forbidden_move` | critical | critical (post-write) + high (audit) | audit + post-write | Regex on `packet.forbiddenMoves ∪ requiredEvents` |
 | `word_count` | medium | **low** (hint) | post-write | No block |
 | `unknown_character` | medium (llmVerifiable) | medium (llmVerifiable) | post-write | unchanged |
 | `unknown_location` | low (llmVerifiable) | low (llmVerifiable) | post-write | unchanged |
 | `unknown_faction` | low | low | post-write | unchanged |
 | `new_bloodline_source` | medium | **low** (hint) | post-write | No block |
-| `style_red_flags` | medium | **REMOVED** | — | LLM Validator |
-| `cliffhanger` | low | **REMOVED** | — | LLM Validator |
-| `conflict_presence` | medium | **REMOVED** | — | LLM Validator |
-| `repetition` | low | **REMOVED** | — | LLM Validator |
+| `style_red_flags` | medium | remove only after LLM Validator replacement lands | post-write | LLM Validator |
+| `cliffhanger` | low | remove only after LLM Validator replacement lands | post-write | LLM Validator |
+| `conflict_presence` | medium | remove only after LLM Validator replacement lands | post-write | LLM Validator |
+| `repetition` | low | remove only after LLM Validator replacement lands | post-write | LLM Validator |
 
 Net: 12 → 9 checks (cultivation), 9 → 7 (non-cultivation). Hard blockers: 4. Hints: 5.
 
@@ -326,15 +363,15 @@ Existing codes (preserved): `dead_character`, `unresolved_due_seed`, `missing_co
 
 New codes:
 - `forbidden_move` — regex sweep over `requiredEvents[].description ∪ forbiddenMoves[]`.
-- `locked_fact` — vector cosine over `requiredEvents` embeddings vs `canon_facts WHERE locked=true`.
-- `open_thread_high_priority_overdue` — any `open_threads` with `priority='high'` un-touched for ≥ 10 chapters.
+- `locked_fact_candidate` — candidate retrieval against locked facts for logging / packet-generator hints only. This code does not set `requiresRegenerate` unless a deterministic structured contradiction is also detected.
+- `open_thread_high_priority_overdue` — deferred until `open_threads` has `priority` and `last_referenced_chapter` fields. Current repo only has `openedChapter`, `plannedResolutionChapter`, `status`, and `updatedAt`.
 
 ### Mandatory-regeneration set (Plan 2 §6)
 
 Two independent sets:
 
 **A. Packet-audit-time** (codes from `auditPacket`) — if any present, ALWAYS regenerate the packet (do not partial-fix):
-- `locked_fact` with `severity ∈ {critical, high}`.
+- `locked_fact` only when an explicit structured contradiction is detected. Similarity-only `locked_fact_candidate` is a hint, not a blocker.
 - `dead_character` with active action in `requiredEvents`.
 - `realm_jump_excess`.
 
@@ -400,7 +437,9 @@ tailContent: text('tail_content'),
 
 `packages/db/src/schema/chapter-packets.ts`
 ```ts
+// EntryState type exported from @novel/core, not @novel/ai.
 entryState: jsonb('entry_state').$type<EntryState>(),
+activeLocationKey: text('active_location_key'),
 ```
 
 `packages/db/src/schema/characters.ts`
@@ -413,11 +452,12 @@ lastActiveChapter: integer('last_active_chapter').default(0).notNull(),
 ```ts
 validUntilChapter: integer('valid_until_chapter'),
 knownBy: jsonb('known_by').$type<string[]>().default([]).notNull(),
+visibility: text('visibility', { enum: ['public', 'restricted', 'secret'] }).default('restricted').notNull(),
 ```
 
 `packages/db/src/schema/context-packets.ts`
 ```ts
-activeLocationId: uuid('active_location_id').references(() => settings.id, { onDelete: 'set null' }),
+activeLocationKey: text('active_location_key'),
 ```
 
 ### Phase 3 columns
@@ -456,11 +496,15 @@ parallelSagaId: uuid('parallel_saga_id'),                     // nullable; cross
 parentTimelineId: uuid('parent_timeline_id'),                 // for multi-thread sagas
 ```
 
-All migrations additive — no destructive changes, no backfill required.
+Migrations are additive, but Phase 2 requires a conservative visibility backfill:
+- Existing `canon_facts` default to `visibility='restricted'` during migration.
+- Backfill may mark rows `public` only when topic/tags/importance clearly describe public world facts.
+- Rows that mention secrets, identity reveals, hidden motives, deaths, locked/high facts, or ambiguous knowledge stay `restricted` until reviewed or learned by a POV.
+- `known_by=[]` never means public; publicness is encoded only by `visibility='public'`.
 
 ### `EntryState` type (Phase 2)
 
-`packages/ai/src/schemas/packet.ts`
+`packages/core/src/types/entry-state.ts`
 ```ts
 export const EntryStateSchema = z.object({
   locationId: z.string().optional(),
@@ -475,6 +519,8 @@ export const EntryStateSchema = z.object({
 });
 export type EntryState = z.infer<typeof EntryStateSchema>;
 ```
+
+`packages/ai/src/schemas/packet.ts` imports the core type/schema and extends `ChapterPacketSchema` with `entryState?: EntryState`.
 
 ## 11. Agent / Prompt Changes
 
@@ -494,6 +540,7 @@ Implements every audit rule listed in §7 plus:
 ### CanonExtractor (Phase 2)
 
 - Output schema gains `knownBy[]` per `newCanonFacts[]`.
+- Output schema gains `visibility: 'public' | 'restricted' | 'secret'` per `newCanonFacts[]`.
 - Output schema gains `validUntilChapter?` per fact (extractor hints expiry; null = eternal).
 - Prompt re-prioritised: emit Relationship Shifts and Knowledge Updates BEFORE physical-event facts (Plan 2 §4, Plan 1 §3.2).
 - Prompt tags every fact with one of the 5 importance levels and any of the 5 conflict types it triggers.
@@ -501,6 +548,7 @@ Implements every audit rule listed in §7 plus:
 ### CanonMerger (Phase 3)
 
 - Auto-apply when `conflict_status='none' AND importance='low'`.
+- When a fact is applied or approved, update `characters.knowledge_state` for each character in `knownBy[]` with `{ [factId]: chapterNumber }`.
 - On conflict → run Auto-Fixer-Lite to produce `suggested_resolution` JSON (resolve realm_regression by deferring the demotion, mark dead_character_action as flashback, etc.).
 - Insert into `pending_canon_updates` with the suggestion attached.
 - Chapter status becomes `paused_pending_updates` if any conflict reason is in the mandatory-regeneration set.
@@ -542,7 +590,7 @@ A new `packages/ai/src/prompts/role-frames.ts` exports three reusable XML-tagged
 - **Creator frame** (Writer / Auto-Fixer): style_guide + Forbidden Rules.
 - **Monitor frame** (LLM Validator / Canon Extractor / Summary Compactor): objective + importance-classification.
 
-Frames are appended to system prompts as XML blocks AFTER the cached Hot Tier — preserves cache hash while adding behavioural reinforcement.
+Writer cache rule: Writer system prompt remains byte-identical in Phase 4. Writer role-frame content is appended to the writer user/context payload after HOT serialization or represented by tests as outside the Hot hash. Non-writer agents may receive system-prompt frame updates because they do not rely on the same Hot prompt-cache invariant.
 
 ### Polish Pass (Phase 5 — Plan 1 §4 + reference §2)
 
@@ -592,7 +640,7 @@ Records `generationMode='slot_based'` on `chapters`.
 
 ```ts
 export async function getTopKCanonFactsHybrid(
-  db, storyId, queryEmbedding, characterNames, chapterNumber, povId, activeLocationId, topK
+  db, storyId, queryEmbedding, characterNames, chapterNumber, povId, activeLocationKey, topK
 ): Promise<CanonFactCompact[]>
 ```
 
@@ -603,7 +651,7 @@ WITH kw AS (
   WHERE story_id = $1
     AND topic ILIKE ANY ($characterNames patterns)
     AND (valid_until_chapter IS NULL OR $chapterNumber <= valid_until_chapter)
-    AND (jsonb_array_length(known_by) = 0 OR known_by @> jsonb_build_array($povId))
+    AND (visibility = 'public' OR (visibility = 'restricted' AND known_by @> jsonb_build_array($povId)))
   LIMIT $topK
 ),
 vec AS (
@@ -612,14 +660,17 @@ vec AS (
   WHERE story_id = $1
     AND embedding IS NOT NULL
     AND (valid_until_chapter IS NULL OR $chapterNumber <= valid_until_chapter)
-    AND (jsonb_array_length(known_by) = 0 OR known_by @> jsonb_build_array($povId))
+    AND (visibility = 'public' OR (visibility = 'restricted' AND known_by @> jsonb_build_array($povId)))
   ORDER BY embedding <=> $2::vector
   LIMIT $topK
 ),
 loc_boost AS (
   SELECT id, 0.2 AS score FROM canon_facts
-  WHERE $activeLocationId IS NOT NULL
-    AND tags @> jsonb_build_array($activeLocationId)
+  WHERE $activeLocationKey IS NOT NULL
+    AND story_id = $1
+    AND (valid_until_chapter IS NULL OR $chapterNumber <= valid_until_chapter)
+    AND (visibility = 'public' OR (visibility = 'restricted' AND known_by @> jsonb_build_array($povId)))
+    AND tags @> jsonb_build_array($activeLocationKey)
 )
 SELECT id, SUM(score) AS rank
 FROM (kw UNION ALL vec UNION ALL loc_boost) sub
@@ -628,7 +679,7 @@ ORDER BY rank DESC
 LIMIT $topK;
 ```
 
-Fallback: when `characterNames=[]` AND `activeLocationId=NULL`, behave as the existing pure-vector retrieval (no behaviour change).
+Fallback: when `characterNames=[]` AND `activeLocationKey=NULL`, behave as the existing pure-vector retrieval plus the same visibility/TTL filters.
 
 ## 13. Pending Canon Updates — full structure (Plan 4 §5 + Plan 1 §6)
 
@@ -652,9 +703,11 @@ type PendingCanonUpdate = {
 
 Chapter-side state added: `chapter.status = 'paused_pending_updates'` when any conflict is critical/locked.
 
-## 14. BudgetGuard tokenizer upgrade (Phase 3 — Plan 2 §5)
+## 14. Tokenizer upgrade (Phase 3 — Plan 2 §5)
 
-`packages/core/src/policy/budget-guardrails.ts`:
+The repo's token estimator lives in `packages/core/src/utils/tokens.ts`, and `estimateTokensJson()` is used by context shrink/persistence. Upgrade that shared utility rather than adding a second estimator inside `budget-guardrails.ts`.
+
+`packages/core/src/utils/tokens.ts`:
 
 ```ts
 let encoderRef: { encode: (s: string) => unknown[] } | null = null;
@@ -673,22 +726,23 @@ export function estimateTokens(text: string): number {
 }
 ```
 
-All existing call sites switch to `estimateTokens()`. Daily/monthly caps unchanged.
+All existing call sites continue to use `estimateTokens()` / `estimateTokensJson()`. Daily/monthly caps unchanged.
 
 ## 15. Operations / Infrastructure (Phase 6)
 
 ### Stale Job Detector (Plan 2 §5) — already exists; verify
 
-`apps/worker/src/services/stale-job-detector.ts` confirmed at 30 min threshold. Phase 6 adds:
+`apps/worker/src/services/stale-job-detector.ts` confirmed at 30 min threshold. Current behavior marks stale `generating` chapters as `failed`; it does not re-enqueue directly. Phase 6 adds:
 - Metric counter `stale_jobs_reset_total` (Sentry / log).
 - Notification when ≥ 3 resets within 1 hour (likely a real bug, not transient).
+- Optional re-enqueue should happen through the existing batch retry/resume path, not inside the detector.
 
 ### Batch Resume / Batch Checkpoint (Plan 2 §5)
 
-`apps/worker/src/services/batch-checkpoint.ts` (new):
-- After each chapter completes, write `batch.checkpoint_chapter = N`.
-- New API endpoint `POST /api/admin/batches/:id/resume` reads checkpoint and re-enqueues from `checkpoint_chapter + 1`.
-- Idempotency key on the BullMQ job: `{batchId}:{chapterNumber}` — existing jobs at that key short-circuit with success.
+Existing `generate-batch.ts` already resumes from `completedChapters`, and `apps/api/src/routes/batches.ts` has a retry endpoint. Phase 6 extends that instead of inventing a parallel resume model:
+- Add `batches.checkpoint_chapter` only if `completedChapters` is insufficient for operator-facing resume semantics.
+- Resume reads `max(completedChapters, checkpoint_chapter)` and re-enqueues from the next chapter.
+- Idempotency key on chapter-level work: `{batchId}:{chapterNumber}` — existing jobs at that key short-circuit with success.
 
 ### Pre-Generate Operational Checklist (Plan 4 §8)
 
@@ -725,15 +779,15 @@ Phase 7 is the largest scope and intentionally last. Schema is added earlier so 
 
 - `cache-keys.test.ts` invariant: Hot hash MUST be byte-identical for two builds with identical Bible + Style Guide, regardless of Warm/Cold differences (Plan 1, Plan 4).
 - `cache-keys.test.ts` invariant: Warm hash MUST differ when `tailContentPrev` differs.
-- Serialiser test: Hot Tier MUST be the FIRST element of the serialised system message (Anthropic prompt-cache positioning, Plan 4 §7).
+- Serializer test: Writer user/context payload from `serializeContextForWriter()` MUST begin with HOT sections, and `writerPromptV2.system` MUST remain byte-identical under Warm/Cold changes.
 
 ## 18. Implementation Phases (high-level)
 
 | Phase | Scope | Risk | Detail |
 |---|---|---|---|
 | 1 | Validator restructure (Shift-Left + cleanup) + importance/conflict taxonomies + seed enforcement + bible_compact ≤ 500 token guard | Low | Pure validator-package logic |
-| 2 | Schema migrations + Warm/Cold tier wiring + tail_content + entry_state + known_by + valid_until_chapter + last_active_chapter + active_location_id + Canon Extractor relationship-priority | Medium | Drizzle migrations, additive |
-| 3 | Hybrid RAG + auto-approve canon updates (with suggested_resolution) + gpt-tokenizer in BudgetGuard + paused_pending_updates state | Medium | Retrieval rewrite, merger branch |
+| 2 | Schema migrations + Warm/Cold tier wiring + tail_content + entry_state + visibility/known_by + valid_until_chapter + last_active_chapter + active_location_key + Canon Extractor relationship-priority | Medium | Drizzle migrations + conservative visibility backfill |
+| 3 | Hybrid RAG + auto-approve canon updates (with suggested_resolution) + gpt-tokenizer in shared token estimator + paused_pending_updates state | Medium | Retrieval rewrite, merger branch |
 | 4 | Writer prompt inserts + role-grouped system prompts + Shrink Algorithm in code + Anthropic Hot-Tier-first invariant test + hybrid routing audit | Low | Prompt-only |
 | 5 | Multi-pass orchestration: Polish Pass + High-Stakes auto-trigger + Slot-Based decomposition (opt-in) + Anti-LLM Pattern guard | High | New agents |
 | 6 | Ops hardening: Batch Resume, Pre-Flight + Post-Flight checklists, Adaptive JSON, observability metrics | Medium | New services |
@@ -746,7 +800,7 @@ Phase 7 is the largest scope and intentionally last. Schema is added earlier so 
 | Cost per blocked chapter | $0.03–0.06 wasted | ~$0 (caught at packet audit) |
 | Estimated total cost reduction | baseline | ~15–20% (Plan 3 §5) |
 | Hot Tier cache hit rate | ≥ 90% | ≥ 90% (preserved) |
-| AI omniscience leaks | possible | eliminated via `known_by` |
+| AI omniscience leaks | possible | reduced via `visibility` + `known_by` + `knowledge_state` |
 | Saga RAG quality at ch.1000 | degrades | stable via TTL |
 | Deterministic check surface | 12 checks | 9 checks |
 | HITL queue volume | all non-conflict updates | only conflict / high+ / locked, with pre-resolved suggestions |
@@ -766,7 +820,8 @@ Phase 7 is the largest scope and intentionally last. Schema is added earlier so 
 | Hybrid RAG returns fewer relevant facts than pure vector | Fallback to pure vector when hybrid yields < 3 rows |
 | `gpt-tokenizer` not bundled in worker | Lazy require + char heuristic fallback |
 | Audit retry creates infinite regenerate loop | Hard cap 1 retry; second failure → safe mode |
-| `known_by = []` accidentally hides public facts | Empty array treated as public (visible to all) |
+| Legacy canon visibility leaks secret facts | Add `visibility`; backfill conservatively; `known_by=[]` is never public by itself |
+| Public facts hidden too aggressively after backfill | Operator review report lists restricted high-use facts with no `known_by` |
 | Auto-approve hides extractor bugs | Log every auto-applied row to `llm_calls.metadata` |
 | Slot-based mode quality unproven | Phase 5 opt-in only; A/B vs single-pass on small sample first |
 | Anti-LLM pattern list false-positives | Severity `low` (hint only); revisable list in code |
@@ -777,9 +832,12 @@ Phase 7 is the largest scope and intentionally last. Schema is added earlier so 
 ## 21. Testing Plan
 
 - Unit:
-  - `packet-auditor.test.ts` — `forbidden_move`, `locked_fact`, `open_thread_high_priority_overdue`, 1-retry budget, mandatory-regen set.
+  - `packet-auditor.test.ts` — `forbidden_move`, explicit `locked_fact` contradiction only, similarity-only `locked_fact_candidate` as hint, 1-retry budget, mandatory-regen set.
   - `runner.test.ts` — confirm 4 dropped checks not registered, severity downgrades reflected.
   - `retrieval.test.ts` — hybrid RAG ordering, TTL filter, `known_by` filter, location boost.
+  - `retrieval.test.ts` — visibility filter: public visible, restricted visible only to `known_by`, secret hidden.
+  - migration/backfill test — legacy canon rows do not become public solely because `known_by=[]`.
+  - `canon-merger.test.ts` — applying/approving a fact updates `characters.knowledge_state` for `knownBy[]`.
   - `canon-merger.test.ts` — auto-apply branch on `none + low`; `suggested_resolution` populated on conflict.
   - `cache-keys.test.ts` — Hot-hash invariant; Warm-hash sensitivity; Hot-first serialisation.
   - `budget-guardrails.test.ts` — tokenizer parity within ±5% vs heuristic on a 5k-char sample.

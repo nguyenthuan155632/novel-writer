@@ -154,3 +154,10 @@ Now includes these previously-missing sections:
 - `serializeContextForWriter()` renders a `# PENDING CANON UPDATES (chưa apply — KHÔNG dựa vào để viết)` section
 - Purpose: surface staged-but-unapplied canon changes to the writer so it's aware of what's pending, without treating them as established facts
 - Closes the "pending canon updates" gap identified in the LLM context audit's required-context list
+
+### Parallel Thread Context (Phase 7)
+- `WarmTier` now carries optional `parallelThreads` from `sagas.parallel_threads`
+- `getTimelineEventsForChapter()` now filters thread-scoped timeline rows using active parallel threads plus same-chapter convergence points
+- Base timeline events without `threadId` still always pass through
+- `serializeContextForWriter()` now emits `# PARALLEL THREADS` with active/closed status and chapter window
+- `writerPromptV2` now supports optional `<parallel_threads>` XML block so side-thread constraints survive prompt composition

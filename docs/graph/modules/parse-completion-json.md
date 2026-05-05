@@ -49,3 +49,7 @@ Safely parses JSON objects from LLM completion responses and wraps all completio
 
 ## Related flows
 - [[flows/llm-provider-flow]]
+
+## Phase 6 update
+- Parse recovery now attempts, in order: strip Markdown fences, extract first JSON object from mixed content, then a single schema-guided re-prompt when `responseSchema` is present.
+- Recovery hooks emit structured events (`strip_fences`, `extract_object`, `re_prompt`) so callers can count parse recovery without changing provider contract.

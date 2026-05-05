@@ -1,8 +1,40 @@
 # NotebookLM-Style Improvement — Implementation Plan
 
+> **For agentic workers:** REQUIRED SUB-SKILL: Use `superpowers:subagent-driven-development` (recommended) or `superpowers:executing-plans` to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+
+**Goal:** Improve generation quality and continuity while preserving canon safety, prompt-cache stability, and the current repo architecture.
+
+**Architecture:** Implement in small PR-sized phases. Keep cache-sensitive Writer system prompt stable, add continuity/knowledge data through shared core types and additive DB columns, and shift only deterministic hard constraints left before Writer. Cosmetic quality checks move only after LLM Validator replacement coverage exists.
+
+**Tech Stack:** TypeScript, pnpm workspace, Drizzle/Postgres/pgvector, BullMQ worker, Vitest, OpenRouter-compatible LLM providers.
+
 **Spec:** [2026-05-04-notebook-llm-improvement-design.md](../specs/2026-05-04-notebook-llm-improvement-design.md)
 **Date:** 2026-05-04
 **Coverage rule:** every proposal in plan_1..4 + reference.md is mapped to a phase. **No silent drops.**
+
+**Review revision:** 2026-05-05. This plan was corrected after reading the live repo and Obsidian graph.
+
+**Obsidian notes consulted:**
+- `00-index/00 Overview.md`
+- `validators/packet-auditor.md`
+- `validators/deterministic-runner.md`
+- `flows/chapter-generation-flow.md`
+- `flows/validation-flow.md`
+- `domain/canon-fact.md`
+- `database/tables/canon-facts.md`
+- `database/tables/pending-canon-updates.md`
+- `database/tables/chapter-packets.md`
+- `database/tables/planted-seeds.md`
+- `modules/context-builder.md`
+- `modules/canon-merger.md`
+
+**Repo constraints found:**
+- DB schema cannot import `EntryState` from `@novel/ai`; shared schemas go in `@novel/core`.
+- There is no `settings.id`; use `activeLocationKey: text` until a real location table exists.
+- Existing planted seed columns are `planted_in_chapter` / `paid_off_at_chapter`.
+- `open_threads` has no `priority` or `last_referenced_chapter`; overdue high-priority thread audit is deferred.
+- Existing batch job already resumes from `completedChapters`; Phase 6 extends that behavior rather than replacing it.
+- Cosmetic deterministic validators stay until LLM Validator replacement checks are implemented and tested.
 
 ---
 
@@ -11,7 +43,7 @@
 - Each phase is a single PR-able unit, ends green: `pnpm typecheck && pnpm lint && pnpm test && pnpm smoke:generate-chapter` (where listed).
 - Tests written **before** the matching implementation where reasonable.
 - Each phase commits independently with a `feat(...)` or `refactor(...)` prefix.
-- Schema migrations are additive only — no destructive changes, no data backfill required.
+- Schema migrations are additive only. Phase 2 requires a conservative canon visibility backfill; no destructive migration is allowed.
 
 ---
 
@@ -19,25 +51,32 @@
 
 **Spec sections:** §3 Plan 3 (all rows), Plan 4 §5 / §6, Plan 1 §5.2, Plan 2 §2 / §6, Plan 3 §1–§5
 **Goal:** Hard constraints catch violations before Writer runs; cosmetic checks delegated; importance/conflict taxonomies formalised; seed enforcement, mandatory-regen list, bible_compact size guard.
-**Risk:** Low — pure logic shuffle inside the validator + core packages.
+**Risk:** Medium — validator behavior changes plus LLM Validator prompt coverage.
 **Estimated saving on rollout:** ~15% of generation spend (Plan 3 §5).
 
 ## 1.1 Audit current surface
 
-- [ ] `grep -rn "severity:" packages/ai/src/validators/deterministic/` — confirm matrix vs spec §7.
-- [ ] `grep -rn "llmVerifiable" packages/ai/src/validators/deterministic/` — confirm flags.
+- [ ] `rg -n "severity:" packages/ai/src/validators/deterministic/` — confirm matrix vs spec §7.
+- [ ] `rg -n "llmVerifiable" packages/ai/src/validators/deterministic/` — confirm flags.
 - [ ] Read `packages/ai/src/validators/packet-auditor.ts` — confirm existing audit codes.
 - [ ] Verify Plan 3 §4 "Realm Jump dynamic ladder" already implemented: `parseRealmLadder()` parses from `cultivation_system` JSONB and `auditPacket` accepts `ctx.realmLadder`. If gap → add task here.
 
 **Verify:** matches spec §7. If divergent, update spec inline before continuing.
 
-## 1.2 Drop 4 cosmetic deterministic checks (Plan 3 §2.1)
+## 1.2 Move cosmetic quality coverage into LLM Validator before disabling deterministic checks (Plan 3 §2.1)
 
-- [ ] `packages/ai/src/validators/deterministic/runner.ts` — remove imports + `allChecks` entries for `cliffhangerCheck`, `conflictPresenceCheck`, `styleRedFlagsCheck`, `repetitionCheck`.
-- [ ] Delete `cliffhanger.ts`, `conflict-presence.ts`, `style-red-flags.ts`, `repetition.ts` (verify zero external consumers).
-- [ ] Remove their tests under `packages/ai/test/validators/`.
+- [ ] `packages/ai/src/prompts/llm-validator.v2.ts` — extend the prompt to explicitly evaluate:
+  - Cliffhanger strength (replacement for deterministic `cliffhanger`).
+  - Conflict presence in scene (replacement for `conflict_presence`).
+  - Style red flags from Bible/style guide (replacement for `style_red_flags`).
+  - Repetition / repeated phrasing (replacement for `repetition`).
+  - Tone-shift and dialogue-vs-description balance (reference §4).
+- [ ] `packages/ai/test/prompts/llm-validator.v2.test.ts` — assert the prompt names all five replacement concerns.
+- [ ] `packages/ai/test/agents/llm-validator.test.ts` — add a golden sample where a weak cliffhanger/repetition issue appears in `Issue[]`.
+- [ ] Only after those tests pass, update `packages/ai/src/validators/deterministic/runner.ts` to remove imports + `allChecks` entries for `cliffhangerCheck`, `conflictPresenceCheck`, `styleRedFlagsCheck`, `repetitionCheck`.
+- [ ] Keep the source files for one phase but mark them unused in exports/tests; delete them in a later cleanup PR after no external imports remain.
 
-**Verify:** `pnpm --filter @novel/ai vitest run test/validators/`
+**Verify:** `pnpm --filter @novel/ai vitest run test/prompts/llm-validator.v2.test.ts test/agents/llm-validator.test.ts test/validators/deterministic/runner.test.ts`
 
 ## 1.3 Downgrade severities (Plan 3 §2.2)
 
@@ -57,29 +96,28 @@
 
 **Verify:** `pnpm --filter @novel/ai vitest run test/validators/packet-auditor.test.ts`
 
-## 1.5 Add `locked_fact` (vector cosine) to `auditPacket` (Plan 3 §4)
+## 1.5 Add locked-fact audit hints without cosine hard-blocks (Plan 3 §4, corrected)
 
-- [ ] `packages/ai/src/context/retrieval.ts` — add `getLockedCanonFacts(db, storyId)`: returns `{ id, fact, embedding }[]` filtered `WHERE locked = true AND embedding IS NOT NULL`.
-- [ ] `packages/ai/src/embeddings/utils.ts` — add `cosineSimilarity(a, b)`.
-- [ ] `packages/core/src/config/index.ts` — add `GENERATION_CONFIG.LOCKED_FACT_AUDIT_THRESHOLD = 0.85`.
+- [ ] `packages/ai/src/context/retrieval.ts` — add `getLockedCanonFactCandidates(db, storyId, packetText, topK)`: returns locked facts that are textually or semantically near the packet. These are candidates/hints only.
 - [ ] `packages/ai/src/validators/packet-auditor.ts`:
-  - Extend `AuditInput` with `lockedFacts: { id; fact; embedding: number[] }[]` and `requiredEventEmbeddings: number[][]`.
-  - For each requiredEvent embedding, compute max cosine vs locked facts; flag if ≥ threshold with `severity: 'high'`.
-- [ ] `apps/worker/src/jobs/generate-chapter.ts`:
-  - Call `getLockedCanonFacts`.
-  - Embed `requiredEvents[].description` via existing `embeddingService`.
-  - Pass into `auditPacket`.
-- [ ] Tests: semantically-similar requiredEvent → flagged; unrelated → passes.
+  - Extend `AuditInput` with `lockedFactCandidates?: { id; fact; topic; lockedFields?: string[] }[]`.
+  - Emit `code: 'locked_fact_candidate', severity: 'medium'` when a candidate is relevant but no explicit contradiction is proven.
+  - Emit blocking `code: 'locked_fact', severity: 'high'` only when a deterministic structured contradiction is found, for example a required event directly mutates a locked field already represented in the snapshot.
+- [ ] `apps/worker/src/jobs/generate-chapter.ts` — pass candidates into `auditPacket`, but do not embed every required event solely to create a hard blocker.
+- [ ] Tests:
+  - Similar-but-compatible packet text → `locked_fact_candidate`, `requiresRegenerate=false`.
+  - Explicit locked-field contradiction → `locked_fact`, `requiresRegenerate=true`.
+  - Unrelated locked facts → no issue.
 
-**Verify:** `pnpm --filter @novel/ai vitest run test/validators/`
+**Verify:** `pnpm --filter @novel/ai vitest run test/validators/packet-auditor.test.ts test/context/retrieval.test.ts`
 
-## 1.6 Add `open_thread_high_priority_overdue` (Plan 4 §3)
+## 1.6 Defer `open_thread_high_priority_overdue` until schema supports it (Plan 4 §3)
 
-- [ ] `packet-auditor.ts` — extend `AuditInput` with `openThreads: ThreadCompact[]`.
-- [ ] Emit `code: 'open_thread_high_priority_overdue', severity: 'medium'` when a thread has `priority='high'` AND `last_referenced_chapter < currentChapter - 10`.
-- [ ] Tests: thread overdue flagged; thread referenced recently passes.
+- [ ] Do not implement this audit in Phase 1. Current `open_threads` has no `priority` or `last_referenced_chapter` field.
+- [ ] Add a follow-up note to the plan backlog: implement `open_threads.priority` and `open_threads.lastReferencedChapter` before this audit can be deterministic.
+- [ ] Keep existing overdue-turning-point audit unchanged.
 
-**Verify:** `pnpm --filter @novel/ai vitest run test/validators/packet-auditor.test.ts`
+**Verify:** no code change in this step.
 
 ## 1.7 Mandatory-regeneration set (Plan 2 §6)
 
@@ -87,8 +125,9 @@ Set A (packet-audit time) only — `realm_regression` / `dead_character_action` 
 
 - [ ] `packet-auditor.ts` — add `MANDATORY_REGEN_CODES = new Set(['locked_fact', 'dead_character', 'realm_jump_excess'])`.
 - [ ] In `AuditResult`, set `requiresRegenerate=true` whenever any issue's code is in this set, regardless of severity.
+- [ ] Confirm `locked_fact_candidate` is not in this set.
 
-**Verify:** unit test: critical-locked-fact + low-severity → still requires regenerate.
+**Verify:** unit test: explicit `locked_fact` requires regenerate; `locked_fact_candidate` does not.
 
 ## 1.8 Wire single regenerate retry (Plan 3 §3)
 
@@ -111,9 +150,10 @@ Set A (packet-audit time) only — `realm_regression` / `dead_character_action` 
 ## 1.9 Seed enforcement (Plan 1 §5.2)
 
 - [ ] `packages/ai/src/agents/packet-generator.ts`:
-  - Before LLM call, fetch all pending seeds where `chapterNumber >= plant_window_end - 2`.
+  - Before LLM call, receive all pending seeds where `chapterNumber >= plant_window_end - 2`.
   - Inject as `<must_include_seeds>` block in user prompt with priority='critical'.
   - Output schema gains `seedsAutoEnforced: string[]` (ids).
+- [ ] `packages/ai/src/context/retrieval.ts` or worker-local helper — add `getSeedsApproachingPlantDeadline(db, storyId, chapterNumber)` using existing `planted_seeds.plantWindowEnd`.
 - [ ] If LLM returns a packet missing any auto-enforced seed → packet-auditor will flag it via existing `unresolved_due_seed`. Combined with §1.8 → auto-regenerate.
 - [ ] Test: seed at plant_window_end−1 → auto-pushed.
 
@@ -166,19 +206,25 @@ Set A (packet-audit time) only — `realm_regression` / `dead_character_action` 
 
 ## 2.1 Schema migrations (Plan 1 §6, Plan 2 §3)
 
+- [ ] `packages/core/src/types/entry-state.ts` (new) — export `EntryStateSchema` and `EntryState` so both DB and AI can import it without creating an `@novel/db` → `@novel/ai` cycle.
+- [ ] `packages/core/src/index.ts` — export the new entry-state type/schema.
 - [ ] `packages/db/src/schema/chapters.ts` — `tailContent: text('tail_content')`.
-- [ ] `packages/db/src/schema/chapter-packets.ts` — `entryState: jsonb('entry_state').$type<EntryState>()`.
+- [ ] `packages/db/src/schema/chapter-packets.ts` — import `type EntryState` from `@novel/core`; add `entryState: jsonb('entry_state').$type<EntryState>()`, `activeLocationKey: text('active_location_key')`.
 - [ ] `packages/db/src/schema/characters.ts` — `knowledgeState: jsonb('knowledge_state').$type<Record<string, number>>().default({}).notNull()`, `lastActiveChapter: integer('last_active_chapter').default(0).notNull()`.
-- [ ] `packages/db/src/schema/canon-facts.ts` — `validUntilChapter: integer('valid_until_chapter')`, `knownBy: jsonb('known_by').$type<string[]>().default([]).notNull()`.
-- [ ] `packages/db/src/schema/context-packets.ts` — `activeLocationId: uuid('active_location_id').references(() => settings.id, { onDelete: 'set null' })` (`settings` table assumed; adjust to actual table name).
+- [ ] `packages/db/src/schema/canon-facts.ts` — `validUntilChapter: integer('valid_until_chapter')`, `knownBy: jsonb('known_by').$type<string[]>().default([]).notNull()`, `visibility: text('visibility', { enum: ['public', 'restricted', 'secret'] }).default('restricted').notNull()`.
+- [ ] `packages/db/src/schema/context-packets.ts` — `activeLocationKey: text('active_location_key')`. Do not reference `settings.id`; that table does not exist.
 - [ ] `pnpm db:generate` — migration must be additive only.
+- [ ] Edit the generated migration to backfill existing `canon_facts.visibility` conservatively:
+  - Default all existing rows to `restricted`.
+  - Optionally mark obvious public world facts as `public` only when `topic/tags` are unambiguous.
+  - Do not treat `known_by=[]` as public.
 - [ ] `pnpm db:migrate` against local Postgres.
 
 **Verify:** `pnpm --filter @novel/db typecheck`
 
 ## 2.2 `EntryState` type (Plan 1 §2.2)
 
-- [ ] `packages/ai/src/schemas/packet.ts`:
+- [ ] `packages/core/src/types/entry-state.ts`:
   ```ts
   export const EntryStateSchema = z.object({
     locationId: z.string().optional(),
@@ -193,9 +239,9 @@ Set A (packet-audit time) only — `realm_regression` / `dead_character_action` 
   });
   export type EntryState = z.infer<typeof EntryStateSchema>;
   ```
-- [ ] Extend `ChapterPacketSchema` with `entryState?: EntryState`.
+- [ ] `packages/ai/src/schemas/packet.ts` — import `EntryStateSchema` from `@novel/core`; extend `ChapterPacketSchema` with `entryState?: EntryState`.
 
-**Verify:** `pnpm --filter @novel/ai typecheck`
+**Verify:** `pnpm --filter @novel/core typecheck && pnpm --filter @novel/ai typecheck && pnpm --filter @novel/db typecheck`
 
 ## 2.3 Update `WarmTier` types (Plan 1 §5.1)
 
@@ -213,15 +259,20 @@ Set A (packet-audit time) only — `realm_regression` / `dead_character_action` 
 - [ ] `packages/ai/src/context/retrieval.ts`:
   - `getPrevChapterTailContent(db, storyId, chapterNumber): Promise<string | null>`.
   - `getActiveCharacters` — replace filter to use `lastActiveChapter` (fall back to `lastSeenChapter` when `lastActiveChapter === 0` for backwards compatibility); suppress dead unless `lastActiveChapter ≥ chapterNumber - FLASHBACK_WINDOW (5)`.
-  - `getTopKCanonFacts` — extend signature with `chapterNumber: number, povCharacterId?: string`. Add SQL filters:
+  - `getTopKCanonFacts` — extend signature with `chapterNumber: number, povCharacterId?: string, activeLocationKey?: string`. Add SQL filters:
     ```sql
     AND (valid_until_chapter IS NULL OR $chapterNumber <= valid_until_chapter)
-    AND (jsonb_array_length(known_by) = 0 OR known_by @> jsonb_build_array($povId))
+    AND (
+      visibility = 'public'
+      OR (visibility = 'restricted' AND known_by @> jsonb_build_array($povId))
+    )
     ```
+  - Location boost uses `tags @> jsonb_build_array($activeLocationKey)` but still applies the same `story_id`, TTL, and visibility/POV filters.
 - [ ] Tests:
   - `getPrevChapterTailContent` returns prior chapter's text.
   - TTL filter excludes expired facts.
-  - `known_by` filter visibility: empty (public), POV-included, POV-excluded.
+  - Visibility filter: public visible to all; restricted visible only to POV in `known_by`; secret hidden from Writer retrieval.
+  - `known_by=[]` with `visibility='restricted'` is not public.
   - Active-characters flashback gating.
 
 **Verify:** `pnpm --filter @novel/ai vitest run test/context/retrieval.test.ts`
@@ -231,7 +282,8 @@ Set A (packet-audit time) only — `realm_regression` / `dead_character_action` 
 - [ ] `packages/ai/src/context/builder.ts`:
   - Add `getPrevChapterTailContent` to `Promise.all`.
   - Lift `entryState` from `packet.entryState` into the `WarmTier`.
-  - Pass POV id (resolved from `packet.entryState?.povCharacter.name` or first `charactersInScene`) and `chapterNumber` into canon-fact retrieval.
+  - Resolve POV id from `packet.entryState?.povCharacter.name` or first `charactersInScene`.
+  - Pass POV id, `chapterNumber`, and `packet.activeLocationKey` into canon-fact retrieval.
 - [ ] Snapshot test: `warm.tailContentPrev` populated when prev chapter exists; `warm.entryState` lifted.
 
 **Verify:** `pnpm --filter @novel/ai vitest run test/context/builder.test.ts`
@@ -258,13 +310,17 @@ Set A (packet-audit time) only — `realm_regression` / `dead_character_action` 
 
 **Verify:** `pnpm --filter @novel/ai vitest run test/agents/packet-generator.test.ts`
 
-## 2.8 CanonExtractor emits `known_by[]` + relationship priority (Plan 1 §3.2, Plan 2 §4)
+## 2.8 CanonExtractor emits visibility + `known_by[]` + relationship priority (Plan 1 §3.2, Plan 2 §4)
 
 - [ ] `packages/ai/src/agents/canon-extractor.ts`:
-  - Output schema row: `knownBy: string[]`, `validUntilChapter?: number | null`, `importance: ImportanceLevel`.
-  - Prompt: prioritise Relationship Shifts + Knowledge State Updates BEFORE physical events. For each fact, list characters who can plausibly know it; estimate `validUntilChapter` only when fact is clearly transient (location-specific, weather, ephemeral); else null.
-- [ ] `packages/ai/src/reconciliation/canon-merger.ts` — persist `knownBy` + `validUntilChapter`.
-- [ ] Tests: extractor stub on sample chapter → rows include `knownBy[]` populated with at least the POV.
+  - Output schema row: `visibility: 'public' | 'restricted' | 'secret'`, `knownBy: string[]`, `validUntilChapter?: number | null`, `importance: ImportanceLevel`.
+  - Prompt: prioritise Relationship Shifts + Knowledge State Updates BEFORE physical events. For each fact, decide visibility, list characters who can plausibly know it, and estimate `validUntilChapter` only when fact is clearly transient (location-specific, weather, ephemeral); else null.
+- [ ] `packages/ai/src/reconciliation/canon-merger.ts` — persist `visibility`, `knownBy`, and `validUntilChapter`.
+- [ ] `canon-merger.ts` — after applying or approving a fact with `knownBy[]`, update each matching character's `knowledgeState` with `{ [factId]: chapterNumber }`.
+- [ ] Tests:
+  - extractor stub on sample chapter → rows include visibility + `knownBy[]`.
+  - applying a fact updates `canon_facts` and relevant `characters.knowledgeState`.
+  - restricted fact with `knownBy=[]` is not visible to Writer retrieval.
 
 **Verify:** `pnpm --filter @novel/ai vitest run test/agents/canon-extractor.test.ts`
 
@@ -274,7 +330,14 @@ Set A (packet-audit time) only — `realm_regression` / `dead_character_action` 
   ```sql
   ALTER TABLE planted_seeds
     ADD CONSTRAINT planted_seeds_status_order
-    CHECK ((status = 'paid_off') = (planted_chapter IS NOT NULL AND payoff_chapter IS NOT NULL AND payoff_chapter >= planted_chapter));
+    CHECK (
+      status <> 'paid_off'
+      OR (
+        planted_in_chapter IS NOT NULL
+        AND paid_off_at_chapter IS NOT NULL
+        AND paid_off_at_chapter >= planted_in_chapter
+      )
+    );
   ```
 - [ ] `packages/ai/src/reconciliation/canon-merger.ts` — validate the order before allowing a status transition; reject paid_off when no planted record.
 - [ ] Test: cannot mark paid_off without planted; cannot regress from paid_off back to pending.
@@ -284,6 +347,7 @@ Set A (packet-audit time) only — `realm_regression` / `dead_character_action` 
 ## 2.10 Phase-2 gate
 
 - [ ] `pnpm db:migrate` (idempotent re-run)
+- [ ] Verify migration/backfill: no existing `canon_facts` row is public solely because `known_by=[]`.
 - [ ] `pnpm typecheck && pnpm lint && pnpm test`
 - [ ] `pnpm smoke:generate-chapter`
 
@@ -291,7 +355,7 @@ Set A (packet-audit time) only — `realm_regression` / `dead_character_action` 
 
 ---
 
-# Phase 3 — Hybrid RAG, Auto-Approve (with suggested resolution), BudgetGuard
+# Phase 3 — Hybrid RAG, Auto-Approve (with suggested resolution), Token Estimation
 
 **Spec sections:** Plan 2 §2 / §5 / §6, Plan 1 §6, Plan 4 §5
 **Goal:** Cold Tier rewards both name-overlap and semantics; routine canon updates auto-apply; conflicts arrive with pre-resolved suggestions; cost estimation precise.
@@ -299,13 +363,14 @@ Set A (packet-audit time) only — `realm_regression` / `dead_character_action` 
 
 ## 3.1 Hybrid retrieval (Plan 2 §2)
 
-- [ ] `packages/ai/src/context/retrieval.ts` — `getTopKCanonFactsHybrid(db, storyId, queryEmbedding, characterNames, chapterNumber, povId, activeLocationId, topK)` per spec §12.
-- [ ] Fallback to vector-only when `characterNames.length === 0 AND activeLocationId IS NULL`, OR hybrid yields < 3 rows.
+- [ ] `packages/ai/src/context/retrieval.ts` — `getTopKCanonFactsHybrid(db, storyId, queryEmbedding, characterNames, chapterNumber, povId, activeLocationKey, topK)` per spec §12.
+- [ ] Every hybrid branch applies TTL and visibility filters. `known_by=[]` is not public without `visibility='public'`.
+- [ ] Fallback to vector-only when `characterNames.length === 0 AND activeLocationKey IS NULL`, OR hybrid yields < 3 rows.
 - [ ] Replace builder call site.
 - [ ] Tests:
   - Hybrid promotes a fact mentioning a present character.
   - Empty character list → vector fallback.
-  - `activeLocationId` boost works.
+  - `activeLocationKey` boost works only for facts that pass `story_id`, TTL, and visibility/POV filters.
 
 **Verify:** `pnpm --filter @novel/ai vitest run test/context/retrieval.test.ts`
 
@@ -341,10 +406,10 @@ Set A (packet-audit time) only — `realm_regression` / `dead_character_action` 
 
 **Verify:** `pnpm --filter @novel/api vitest run test/stories.test.ts`
 
-## 3.5 Real tokenizer in BudgetGuard (Plan 2 §5)
+## 3.5 Real tokenizer in shared token estimation (Plan 2 §5)
 
 - [ ] Add `gpt-tokenizer` to `packages/core/package.json`.
-- [ ] `packages/core/src/policy/budget-guardrails.ts` — `estimateTokens(text)` per spec §14.
+- [ ] `packages/core/src/utils/tokens.ts` — upgrade `estimateTokens(text)` per spec §14.
 - [ ] Replace `Math.ceil(text.length / 3.2)` call sites with `estimateTokens(text)`.
 - [ ] Test: parity within ±5% on 5k-char sample.
 
@@ -380,9 +445,9 @@ Set A (packet-audit time) only — `realm_regression` / `dead_character_action` 
   - `PLANNER_FRAME` (Bible / Saga / Arc / Packet) — XML role + CoT-before-JSON.
   - `CREATOR_FRAME` (Writer / Auto-Fixer) — style + Forbidden Rules.
   - `MONITOR_FRAME` (LLM Validator / Canon Extractor / Summary Compactor) — objective extraction + importance classification.
-- [ ] Each frame appended AFTER the cached Hot Tier in the agent's system prompt, NOT before — preserves hash.
-- [ ] Update each agent's prompt builder to emit the appropriate frame.
-- [ ] Test: each agent's system prompt = Hot Tier prefix + frame; cache invariant unchanged.
+- [ ] Writer-specific rule: do not change `writerPromptV2.system` bytes in this phase. Add `CREATOR_FRAME` through the user/context payload after HOT serialization, or skip Writer frame until a cache-breaking prompt version is approved.
+- [ ] Non-writer agents may append frames to their prompt builders because they do not share the Writer HOT cache invariant.
+- [ ] Test: Writer system prompt byte-identical; HOT hash unchanged under role-frame additions; non-writer prompt tests updated intentionally.
 
 **Verify:** `pnpm --filter @novel/ai vitest run test/prompts/`
 
@@ -401,7 +466,7 @@ Set A (packet-audit time) only — `realm_regression` / `dead_character_action` 
 - [ ] `packages/ai/test/context/cache-keys.test.ts`:
   - Hot-hash invariant under Warm changes.
   - Warm-hash sensitivity to `tailContentPrev`.
-  - Hot Tier is the FIRST element of serialised system message (read serialised string, assert prefix).
+  - Current Writer serializer puts HOT content first in `serializeContextForWriter()` user payload; assert the serialized context begins with HOT sections and that Writer system prompt remains byte-identical.
 
 **Verify:** `pnpm --filter @novel/ai vitest run test/context/cache-keys.test.ts`
 
@@ -497,16 +562,11 @@ Set A (packet-audit time) only — `realm_regression` / `dead_character_action` 
 
 **Verify:** `pnpm --filter @novel/ai vitest run test/validators/anti-llm-patterns.test.ts`
 
-## 5.6 LLM Validator absorbs cosmetic concerns (Plan 3 §2.1, reference §4)
+## 5.6 Verify cosmetic concern replacement remains active (Plan 3 §2.1, reference §4)
 
-- [ ] `packages/ai/src/agents/llm-validator.ts` — prompt extended to explicitly check:
-  - Cliffhanger strength (replaces removed deterministic `cliffhanger`).
-  - Conflict presence in scene (replaces `conflict_presence`).
-  - Style red flags (replaces `style_red_flags`).
-  - Repetition (replaces `repetition`).
-  - Tone-shift / dialogue-vs-description balance (reference §4).
+- [ ] Confirm Phase 1 LLM Validator replacement checks still exist after adding polish/slot/anti-LLM flows.
+- [ ] Add one regression test that runs the post-Polish content through LLM Validator and still catches cliffhanger/conflict/style/repetition/tone-balance issues.
 - [ ] Output schema unchanged (existing `Issue[]` list).
-- [ ] Tests: golden-file on a sample chapter — issues lined up vs expected.
 
 **Verify:** `pnpm --filter @novel/ai vitest run test/agents/llm-validator.test.ts`
 
@@ -530,6 +590,7 @@ Set A (packet-audit time) only — `realm_regression` / `dead_character_action` 
 
 - [ ] `packages/db/src/schema/batches.ts`:
   ```ts
+  // Optional if completedChapters is not enough for operator-facing resume semantics.
   checkpointChapter: integer('checkpoint_chapter').default(0).notNull(),
   resumedFromChapter: integer('resumed_from_chapter'),
   ```
@@ -541,14 +602,14 @@ Set A (packet-audit time) only — `realm_regression` / `dead_character_action` 
 
 ## 6.2 Batch Resume (Plan 2 §5)
 
-- [ ] `apps/worker/src/services/batch-checkpoint.ts` (new):
-  - After each chapter completes: `UPDATE batches SET checkpoint_chapter = N WHERE id = ?`.
-- [ ] BullMQ idempotency key: `{batchId}:{chapterNumber}`. Existing job at that key returns success synchronously.
-- [ ] `apps/api/src/routes/admin/batches.ts` — new `POST /api/admin/batches/:id/resume`:
-  - Reads `checkpoint_chapter`.
-  - Re-enqueues from `checkpoint_chapter + 1` to batch end.
-  - Sets `batch.resumedFromChapter`.
-- [ ] Test: 5-chapter batch fails at chapter 3 → resume re-runs 4–5 only.
+- [ ] `apps/worker/src/jobs/generate-batch.ts` already resumes from `completedChapters`; keep that as the baseline behavior.
+- [ ] If `checkpointChapter` is added, update `generate-batch.ts` after each completed chapter: `checkpointChapter = startChapter + completed - 1`.
+- [ ] BullMQ idempotency key: `{batchId}:{chapterNumber}` for chapter-level jobs. Existing job at that key returns success synchronously.
+- [ ] `apps/api/src/routes/batches.ts` — extend existing retry route or add `POST /api/stories/:storyId/batches/:batchId/resume`:
+  - Reads `max(completedChapters, checkpointChapter-derived progress)`.
+  - Re-enqueues from the next chapter to batch end.
+  - Sets `batch.resumedFromChapter` if the column exists.
+- [ ] Test: 5-chapter batch fails after chapter 3 completed → resume re-runs 4–5 only.
 
 **Verify:** `pnpm --filter @novel/worker vitest run`
 
@@ -657,7 +718,7 @@ Set A (packet-audit time) only — `realm_regression` / `dead_character_action` 
 | 3 | Hybrid retrieval has fallback; auto-approve is one conditional; tokenizer fallback to heuristic. |
 | 4 | Prompt inserts conditional on data; system prompt unchanged. |
 | 5 | `generationMode` defaults to `single_pass` — slot pipeline unreachable; polish pass behind a flag. |
-| 6 | Batch checkpoint columns nullable; preflight bypass via env var. |
+| 6 | Batch checkpoint code can be bypassed by relying on existing `completedChapters`; preflight bypass via env var. |
 | 7 | Multi-thread schema unused unless saga planner emits multiple threads — single-thread sagas behave as before. |
 
 Each phase is independently reversible. No phase has irreversible data migrations.
@@ -666,7 +727,7 @@ Each phase is independently reversible. No phase has irreversible data migration
 
 ## Per-task open questions (resolved during execution)
 
-- [ ] Final tunings: `LOCKED_FACT_AUDIT_THRESHOLD` (default 0.85), `FLASHBACK_WINDOW` (default 5), `MIN_KEEP` for shrink (default 3), tail-content target word count (default 250, range 200–350).
+- [ ] Final tunings: `FLASHBACK_WINDOW` (default 5), `MIN_KEEP` for shrink (default 3), tail-content target word count (default 250, range 200–350), and locked-fact candidate retrieval topK (hint-only).
 - [ ] POV resolution rule when `entry_state.povCharacter.name` is missing — fall back to `packet.charactersInScene[0]`.
 - [ ] Final calibration of the 16 forbidden phrases for Vietnamese xianxia — operator-tunable list in code.
 - [ ] Slot-based mode A/B vs single-pass — measure subjective quality on a 5-chapter sample before broad rollout.
