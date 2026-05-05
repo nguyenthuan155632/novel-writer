@@ -26,6 +26,7 @@ export function compactCharacter(
     currentBloodlines?: string[] | null;
     faction?: string | null;
     shortTraits?: string[] | null;
+    lastActiveChapter?: number | null;
   },
   opts: { stripOptional?: boolean } = {},
 ): CharacterCompact {
@@ -42,6 +43,7 @@ export function compactCharacter(
     bloodlines: c.currentBloodlines ?? [],
     faction: opts.stripOptional ? undefined : (c.faction ?? undefined),
     shortTraits: traits.slice(0, 5),
+    lastActiveChapter: c.lastActiveChapter ?? undefined,
   };
 }
 

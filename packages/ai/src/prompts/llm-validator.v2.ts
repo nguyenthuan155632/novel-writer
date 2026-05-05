@@ -1,4 +1,5 @@
 import type { GenreDef, PersonalityDef, StoryOptions } from "@novel/core";
+import { MONITOR_FRAME } from "./role-frames.ts";
 import { registerPrompt, type DualPromptTemplate } from "./registry.ts";
 import { renderGenreContract } from "./contracts/genre-contract.ts";
 import { renderPersonalityContract } from "./contracts/personality-contract.ts";
@@ -24,7 +25,9 @@ export const llmValidatorPromptV2: DualPromptTemplate = {
         ? "cảnh giới / sức mạnh lệch tiến độ"
         : "tiến triển sức mạnh/trạng thái lệch tiến độ";
     return {
-      system: `Bạn là biên tập viên kiểm duyệt cho tiểu thuyết ${i.genreDef.viLabel} tiếng Việt.
+      system: `${MONITOR_FRAME}
+
+Bạn là biên tập viên kiểm duyệt cho tiểu thuyết ${i.genreDef.viLabel} tiếng Việt.
 Nhiệm vụ: đánh giá chương "${i.chapterTitle}" (chương ${i.chapterNumber}) theo tiêu chí canon-nhất quán, logic cốt truyện, phong cách viết, bám sát kế hoạch arc/saga, và tuân Genre + Personality Contract.
 
 ${renderGenreContract(i.genreDef, i.storyOptions)}

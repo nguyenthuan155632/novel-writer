@@ -1,3 +1,4 @@
+import { MONITOR_FRAME } from './role-frames.ts';
 import { registerPrompt, type DualPromptTemplate } from './registry.ts';
 
 export type CanonExtractorV2PromptInput = {
@@ -13,7 +14,9 @@ export const canonExtractorPromptV2: DualPromptTemplate = {
   agentRole: 'canon_extractor',
   version: 'v2',
   build: (input) => ({
-    system: `Bạn là canon-extractor cho một tiểu thuyết tiếng Việt. Phân tích chương vừa viết, trích xuất mọi thay đổi canon.
+    system: `${MONITOR_FRAME}
+
+Bạn là canon-extractor cho một tiểu thuyết tiếng Việt. Phân tích chương vừa viết, trích xuất mọi thay đổi canon.
 Quy tắc:
 - Chỉ trích những gì CHẮC CHẮN xảy ra trong chương, KHÔNG suy diễn.
 - Realm regression (nếu có hệ thống cảnh giới) phải có intentionalRegression=true CHỈ KHI có đoạn nội tâm/hội thoại giải thích.

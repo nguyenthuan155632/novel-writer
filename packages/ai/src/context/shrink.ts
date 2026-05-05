@@ -1,5 +1,5 @@
+import { CONTEXT_CONFIG, type ContextConfig } from '@novel/core';
 import { estimateTokensJson } from '@novel/core/utils/tokens';
-import { CONTEXT_CONFIG } from '@novel/core';
 import type {
   ChapterContext,
   CharacterCompact,
@@ -7,75 +7,82 @@ import type {
   ChapterSummaryCompact,
   PendingCanonUpdateCompact,
   TimelineEventCompact,
+  ColdTier,
 } from './types.js';
 
-type ShrinkAction = typeof CONTEXT_CONFIG.SHRINK_ORDER[number];
+type ShrinkAction = ContextConfig['SHRINK_ORDER'][number];
 
+type ShrinkOptions = {
+  order?: readonly ShrinkAction[];
+  retrievedPastChaptersMinGap?: number;
+};
+
+const DEFAULT_ORDER: readonly ShrinkAction[] = [
+  'activeCharactersCompactMode',
+  'retrievedFacts',
+  'recentSummaries',
+];
 const MIN_KEEP = 3;
 const RAISED_FACT_IMPORTANCE: ReadonlySet<string> = new Set(['locked']);
-const RECENT_SUMMARY_MIN_GAP = CONTEXT_CONFIG.RETRIEVED_PAST_CHAPTERS_MIN_GAP + 5;
+const RECENT_SUMMARY_MIN_GAP = 10;
 
-export function shrinkToFit(ctx: ChapterContext, targetBudget: number): ChapterContext {
+export function shrinkToFit(
+  ctx: ChapterContext,
+  targetBudget: number,
+  options: ShrinkOptions = {},
+): ChapterContext {
   let current = structuredClone(ctx);
+  const order = options.order ?? DEFAULT_ORDER;
 
-  for (const action of CONTEXT_CONFIG.SHRINK_ORDER) {
+  if (estimateTokensJson(current) <= targetBudget) return current;
+
+  for (const action of order) {
     if (estimateTokensJson(current) <= targetBudget) break;
-    current = applyShrink(current, action, targetBudget);
+    current = applyShrink(current, action, options);
   }
 
+  if (estimateTokensJson(current) <= targetBudget) return current;
+  current.cold.pendingCanonUpdates = dropOldestPendingCanonUpdates(current.cold.pendingCanonUpdates);
+  if (estimateTokensJson(current) <= targetBudget) return current;
+
+  current.cold.timelineEvents = dropOldestTimelineEvents(current.cold.timelineEvents);
   return current;
 }
 
 function applyShrink(
   ctx: ChapterContext,
   action: ShrinkAction,
-  targetBudget: number,
+  options: ShrinkOptions,
 ): ChapterContext {
   const next = structuredClone(ctx);
 
   switch (action) {
-    case 'retrievedPastChapters':
-      next.cold.retrievedPastChapters = [];
-      break;
+    case 'activeCharactersCompactMode':
+      next.warm.activeCharacters = trimActiveCharacters(next.warm.activeCharacters).map(stripCharacter);
+      return next;
     case 'retrievedFacts':
       next.cold.retrievedFacts = raiseFactThreshold(next.cold.retrievedFacts);
-      if (estimateTokensJson(next) > targetBudget) {
-        next.cold.pendingCanonUpdates = dropOldestPendingCanonUpdates(
-          next.cold.pendingCanonUpdates,
-        );
-      }
-      if (estimateTokensJson(next) > targetBudget) {
-        next.cold.timelineEvents = dropOldestTimelineEvents(next.cold.timelineEvents);
-      }
-      break;
+      return next;
     case 'recentSummaries':
-      next.cold.recentSummaries = increaseRecentSummaryGap(
-        next.cold.recentSummaries,
+      next.cold.recentSummaries = increaseRecentSummaryGap(next.cold.recentSummaries);
+      return next;
+    case 'retrievedPastChapters':
+      next.cold.retrievedPastChapters = tightenRetrievedPastChapters(
+        next.cold,
+        next.meta.chapterNumber,
+        options.retrievedPastChaptersMinGap ??
+          CONTEXT_CONFIG.RETRIEVED_PAST_CHAPTERS_MIN_GAP,
       );
-      break;
-    case 'activeCharactersCompactMode':
-      next.warm.activeCharacters = trimActiveCharacters(
-        next.warm.activeCharacters,
-      ).map(stripCharacter) as CharacterCompact[];
-      break;
+      return next;
   }
-
-  return next;
 }
 
 function trimActiveCharacters(characters: CharacterCompact[]): CharacterCompact[] {
   if (characters.length <= MIN_KEEP) return characters;
 
   return [...characters]
-    .sort((a, b) => getLastActiveChapter(b) - getLastActiveChapter(a))
+    .sort((a, b) => (b.lastActiveChapter ?? 0) - (a.lastActiveChapter ?? 0))
     .slice(0, MIN_KEEP);
-}
-
-function getLastActiveChapter(character: CharacterCompact): number {
-  const realmMatch = character.currentRealm?.match(/(\d+)$/);
-  if (realmMatch) return Number(realmMatch[1]);
-  const idMatch = character.id.match(/(\d+)$/);
-  return idMatch ? Number(idMatch[1]) : 0;
 }
 
 function raiseFactThreshold(facts: CanonFactCompact[]): CanonFactCompact[] {
@@ -95,6 +102,20 @@ function increaseRecentSummaryGap(
     }
   }
   return kept;
+}
+
+function tightenRetrievedPastChapters(
+  cold: ColdTier,
+  chapterNumber: number,
+  baseMinGap: number,
+): ChapterSummaryCompact[] {
+  if (cold.retrievedPastChapters.length === 0) return [];
+
+  const raisedMinGap = Math.max(baseMinGap + 5, baseMinGap * 2);
+  const threshold = chapterNumber - raisedMinGap;
+  return cold.retrievedPastChapters.filter(
+    (summary) => summary.chapterNumber < threshold,
+  );
 }
 
 function dropOldestPendingCanonUpdates(
@@ -118,5 +139,6 @@ function stripCharacter(c: CharacterCompact): CharacterCompact {
     status: c.status,
     bloodlines: [],
     shortTraits: [],
+    lastActiveChapter: c.lastActiveChapter,
   };
 }

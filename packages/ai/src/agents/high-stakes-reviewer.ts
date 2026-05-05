@@ -1,6 +1,6 @@
 import { getDb } from "@novel/db";
 import { highStakesReviews } from "@novel/db/schema";
-import { MODEL_CONFIG } from "@novel/core";
+import { estimateCostUsd, modelFor } from "@novel/core";
 import type { LLMProvider } from "../providers/types.ts";
 import { withCompletionRetryRaw } from "../parse-completion-json.ts";
 import type { Logger } from "./packet-generator.ts";
@@ -15,7 +15,13 @@ export interface HighStakesReviewInput {
   storyId: string;
   chapterId: string;
   chapterNumber: number;
-  triggerReason: "arc_end" | "critical_severity" | "manual";
+  triggerReason:
+    | "arc_boundary"
+    | "arc_climax"
+    | "critical_severity"
+    | "breakthrough_or_death"
+    | "packet_high_stakes"
+    | "manual";
   chapter: { title: string; content: string };
   arcSummary: string;
   bibleCompact: string;
@@ -61,11 +67,12 @@ export class HighStakesReviewerAgent {
       storyOptions: input.storyOptions,
     } as Record<string, unknown>);
 
+    const model = this.deps.model ?? modelFor("high_stakes_reviewer");
     const response = await withCompletionRetryRaw(
       "high_stakes_reviewer",
       async () =>
         this.deps.provider.complete({
-          model: this.deps.model ?? MODEL_CONFIG.routes.high_stakes_reviewer,
+          model,
           messages: [
             { role: "system", content: built.system },
             { role: "user", content: built.user },
@@ -92,9 +99,7 @@ export class HighStakesReviewerAgent {
       throw err;
     }
 
-    const costUsd =
-      (response.usage.inputTokens * 1.25 + response.usage.outputTokens * 10) /
-      1_000_000;
+    const costUsd = estimateCostUsd(model, response.usage);
     const rows = await db
       .insert(highStakesReviews)
       .values({

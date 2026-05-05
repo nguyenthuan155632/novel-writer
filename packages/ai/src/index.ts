@@ -53,6 +53,12 @@ export * from "./schemas/validator.js";
 export * from "./agents/writer.js";
 export * from "./agents/llm-validator.js";
 export * from "./agents/auto-fixer.js";
+export * from "./agents/polish-pass.js";
+export * from "./agents/slot-pipeline/structure-agent.js";
+export * from "./agents/slot-pipeline/character-agent.js";
+export * from "./agents/slot-pipeline/scene-agent.js";
+export * from "./agents/slot-pipeline/synthesis-agent.js";
+export * from "./validators/anti-llm-patterns.js";
 export * from "./validators/deterministic/types.js";
 export * from "./validators/deterministic/runner.js";
 export {
