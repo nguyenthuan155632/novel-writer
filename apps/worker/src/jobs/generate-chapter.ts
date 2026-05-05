@@ -72,6 +72,7 @@ import {
   parseLlmProvider,
   type AgentRole,
   type EffectiveConfig,
+  type EntryState,
 } from "@novel/core";
 import type { GenerateChapterJob } from "../queues.js";
 import type { GenerateChapterJobResult } from "./generate-chapter.types.js";
@@ -271,6 +272,48 @@ function resolveRealmLadder(
   // Only use the hardcoded default for cultivation stories (backward-compat)
   if (genreFamily === "cultivation") return [...DEFAULT_REALM_LADDER];
   return [];
+}
+
+function buildConsistentChronology(ctx: ChapterContext): string[] {
+  const lines: string[] = [];
+
+  if (ctx.meta.sagaProgressPercent != null) {
+    lines.push(`Saga progress ${ctx.meta.sagaProgressPercent}%`);
+  }
+  if (ctx.meta.arcProgressPercent != null) {
+    lines.push(`Arc progress ${ctx.meta.arcProgressPercent}%`);
+  }
+  if (ctx.meta.activeTurningPoint) {
+    lines.push(`Active turning point: ${ctx.meta.activeTurningPoint}`);
+  }
+  if (ctx.cold.recentSummaries[0]) {
+    lines.push(
+      `Most recent prior chapter summary: Ch${ctx.cold.recentSummaries[0].chapterNumber} ${ctx.cold.recentSummaries[0].summary}`,
+    );
+  }
+  if (ctx.cold.timelineEvents[0]) {
+    lines.push(
+      `Latest timeline event anchor: Ch${ctx.cold.timelineEvents[0].chapterNumber} ${ctx.cold.timelineEvents[0].eventText}`,
+    );
+  }
+
+  return lines;
+}
+
+function buildEmotionalArc(entryState?: EntryState): string[] {
+  if (!entryState) return [];
+
+  const lines: string[] = [];
+  if (entryState.povCharacter.emotionalState) {
+    lines.push(`Start from emotional state: ${entryState.povCharacter.emotionalState}`);
+  }
+  if (entryState.povCharacter.immediateGoal) {
+    lines.push(`Tie emotion to immediate goal: ${entryState.povCharacter.immediateGoal}`);
+  }
+  if (entryState.povCharacter.physicalCondition) {
+    lines.push(`Reflect physical condition in emotion: ${entryState.povCharacter.physicalCondition}`);
+  }
+  return lines;
 }
 
 function buildCanonSnapshotFromContext(
@@ -988,6 +1031,10 @@ Trạng thái hiện tại: ${currentRealms || "(chưa xác định)"}`;
       storyId: data.storyId,
       traceId,
       genreDef: domain.genreDef,
+      consistentChronology: buildConsistentChronology(context),
+      entryState: context.warm.entryState,
+      chapterTailBridge: context.warm.tailContentPrev,
+      emotionalArc: buildEmotionalArc(context.warm.entryState),
     });
     accumulateUsage(writerResult.usage, tokenAcc);
     totalCost += estimateCostUsd(writerModel, writerResult.usage);

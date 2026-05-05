@@ -17,16 +17,20 @@ describe('MODEL_CONFIG', () => {
     process.env.WRITER_MODEL = 'custom/model';
     try {
       resetModelRoutesForTests();
-      expect(modelFor('writer')).toBe('google/gemini-2.5-flash');
+      expect(modelFor('writer')).toBe('google/gemini-2.5-pro');
+      expect(modelFor('high_stakes_reviewer')).toBe('google/gemini-2.5-pro');
     } finally {
       if (prev === undefined) delete process.env.WRITER_MODEL;
       else process.env.WRITER_MODEL = prev;
     }
   });
 
-  it('defaults agent routes to google/gemini-2.5-flash', () => {
-    expect(Object.values(MODEL_CONFIG.routes).every((model) => model === 'google/gemini-2.5-flash')).toBe(true);
-    expect(modelFor('writer')).toBe('google/gemini-2.5-flash');
+  it('defaults routes to planned flash/pro split', () => {
+    expect(modelFor('writer')).toBe('google/gemini-2.5-pro');
+    expect(modelFor('high_stakes_reviewer')).toBe('google/gemini-2.5-pro');
+    expect(modelFor('summary_compactor')).toBe('google/gemini-2.5-flash');
+    expect(modelFor('canon_extractor')).toBe('google/gemini-2.5-flash');
+    expect(modelFor('conflict_resolver')).toBe('google/gemini-2.5-flash');
   });
 
   it('updates model routes at runtime', () => {

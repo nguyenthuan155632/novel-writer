@@ -1,4 +1,4 @@
-import { GENERATION_CONFIG, MODEL_CONFIG, type GenreDef } from '@novel/core';
+import { GENERATION_CONFIG, MODEL_CONFIG, type EntryState, type GenreDef } from '@novel/core';
 import type { LLMProvider } from '../providers/types.ts';
 import { writerPromptV2 } from '../prompts/writer.v2.ts';
 
@@ -15,6 +15,10 @@ export interface WriterInput {
   storyId: string;
   traceId: string;
   genreDef: GenreDef;
+  consistentChronology?: string[];
+  entryState?: EntryState;
+  chapterTailBridge?: string;
+  emotionalArc?: string[];
 }
 
 export interface WriterResult {
@@ -31,6 +35,10 @@ export class WriterAgent {
     const built = writerPromptV2.build({
       serializedContext: input.serializedContext,
       genreDef: input.genreDef,
+      consistentChronology: input.consistentChronology,
+      entryState: input.entryState,
+      chapterTailBridge: input.chapterTailBridge,
+      emotionalArc: input.emotionalArc,
     } as unknown as Record<string, unknown>);
 
     const res = await this.deps.provider.complete({
