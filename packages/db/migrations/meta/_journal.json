@@ -89,29 +89,113 @@
     {
       "idx": 12,
       "version": "7",
+      "when": 1779304800000,
+      "tag": "0012_genre_personality",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1779305400000,
+      "tag": "0013_bible_generic_power_system",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
       "when": 1779301200000,
       "tag": "0014_vmlx_provider",
       "breakpoints": true
     },
     {
-      "idx": 13,
+      "idx": 15,
       "version": "7",
       "when": 1779388800000,
       "tag": "0015_realm_ladder",
       "breakpoints": true
     },
     {
-      "idx": 14,
+      "idx": 16,
       "version": "7",
       "when": 1779475200000,
       "tag": "0016_arc_covered_turning_points",
       "breakpoints": true
     },
     {
-      "idx": 15,
+      "idx": 17,
       "version": "7",
       "when": 1777958855970,
       "tag": "0015_phase_2_notebook_llm",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1779475800000,
+      "tag": "0017_deterministic_verifier_model_route",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1779561600000,
+      "tag": "0018_notebook_llm_phase5",
+      "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1779562200000,
+      "tag": "0019_phase6_batch_checkpoint",
+      "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1779648000000,
+      "tag": "0020_phase7_parallel_timeline",
+      "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1779734400000,
+      "tag": "0021_add_tail_content",
+      "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1779820800000,
+      "tag": "0022_add_knowledge_state",
+      "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1779907200000,
+      "tag": "0023_add_last_active_chapter",
+      "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1779993600000,
+      "tag": "0025_add_chapter_packets_entry_state",
+      "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1780080000000,
+      "tag": "0026_add_suggested_resolution",
+      "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "7",
+      "when": 1780166400000,
+      "tag": "0027_add_canon_context_missing_columns",
       "breakpoints": true
     }
   ]

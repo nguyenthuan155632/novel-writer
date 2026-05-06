@@ -19,3 +19,5 @@ Detects >1 realm breakthrough per chapter (cultivation/martial genres only). MAX
 **Source:** `packages/ai/src/validators/deterministic/realm-jump.ts`
 **Config:** [[configs/config-generation]] — MAX_REALM_JUMP_PER_CHAPTER
 **Used by:** [[validators/deterministic-runner]]
+## Check: realm_jump — Recent Change (2026-05-05)
+`realm_jump_excess` now emits at most 1 issue per packet (breakCount moved outside character loop), eliminating duplicate violations when multiple characters break realm in same chapter.

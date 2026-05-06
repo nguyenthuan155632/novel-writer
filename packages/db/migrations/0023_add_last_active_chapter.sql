@@ -1,0 +1,1 @@
+ALTER TABLE "characters" ADD COLUMN "last_active_chapter" integer;

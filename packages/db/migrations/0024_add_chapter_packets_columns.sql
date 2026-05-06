@@ -1,0 +1,10 @@
+ALTER TABLE "chapter_packets" ADD COLUMN "goal" text NOT NULL DEFAULT '';
+ALTER TABLE "chapter_packets" ADD COLUMN "required_events" jsonb DEFAULT '[]'::jsonb NOT NULL;
+ALTER TABLE "chapter_packets" ADD COLUMN "characters_in_scene" jsonb DEFAULT '[]'::jsonb NOT NULL;
+ALTER TABLE "chapter_packets" ADD COLUMN "conflict" text;
+ALTER TABLE "chapter_packets" ADD COLUMN "cliffhanger" text;
+ALTER TABLE "chapter_packets" ADD COLUMN "forbidden_moves" jsonb DEFAULT '[]'::jsonb NOT NULL;
+ALTER TABLE "chapter_packets" ADD COLUMN "high_stakes" boolean DEFAULT false NOT NULL;
+ALTER TABLE "chapter_packets" ADD COLUMN "context_notes" text;
+ALTER TABLE "chapter_packets" ADD COLUMN "entry_state" jsonb;
+ALTER TABLE "chapter_packets" ADD COLUMN "active_location_key" text;

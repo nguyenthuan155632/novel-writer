@@ -47,3 +47,5 @@ This is a non-blocking review. The next chapter in a batch may already be queued
 - [[errors/error-validation-failure]] — critical severity is one trigger cause
 - [[flows/chapter-generation-flow]]
 - [[flows/validation-flow]]
+## Correction (2026-05-06) — "Arc-start chapter" Is Not a Separate Trigger
+The Causes table lists "Arc-start chapter" as a separate trigger. This is not accurate — `shouldRunReviewer()` only fires on `arc_end` (last chapter of arc). Arc-start chapters do not independently trigger the high-stakes review. The 6 actual trigger reasons in the system are: `arc_boundary` (covers arc start/end boundary detection in the worker job), `arc_climax`, `critical_severity`, `breakthrough_or_death`, `packet_high_stakes`, `manual`. Remove "Arc-start chapter" from the Causes table or clarify it only fires as part of arc boundary detection when the preceding arc ended.

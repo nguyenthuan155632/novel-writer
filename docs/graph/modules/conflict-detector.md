@@ -69,3 +69,14 @@ Pure function detecting 7 types of canon conflicts. No LLM calls.
 
 ## Related Flows
 - [[flows/canon-reconciliation-flow]]
+## Fix (2026-05-06)
+Conflict types confirmed from `conflict-detector.ts` source (5 types, matching spec):
+1. `locked_field` — includes characters AND factions
+2. `realm_regression` — character realm downgrade without `intentionalRegression` flag
+3. `duplicate_fact` — duplicate fact text, or duplicate faction name on create, or locked importance overflow (>20 locked facts)
+4. `dead_character_action` — dead character status change or non-status field update
+5. `thread_status_invalid` — reopening a resolved thread
+
+`duplicate_fact` absorbs the former `locked_fact`, `duplicate_faction` cases. `destroyed_faction_action` is handled as `locked_field` (status=destroyed/absorbed → all non-status fields locked).
+## Correction (2026-05-06) — Main Body Still Says 7 Conflict Types
+Both frontmatter blocks at the top of this file (and the un-appended markdown sections) still claim "7 types" and list `locked_fact` and `realm_jump_excess`. The Fix note at the bottom correctly states 5 types. The main body needs full revision: conflict types are `locked_field` (chars+factions), `realm_regression`, `duplicate_fact` (absorbs former locked_fact, duplicate_faction, destroyed_faction_action), `dead_character_action`, `thread_status_invalid`. `realm_jump_excess` is handled by PacketAuditor, not conflict-detector.

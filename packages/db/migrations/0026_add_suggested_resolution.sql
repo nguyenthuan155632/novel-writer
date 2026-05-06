@@ -1,0 +1,1 @@
+ALTER TABLE "pending_canon_updates" ADD COLUMN "suggested_resolution" jsonb;

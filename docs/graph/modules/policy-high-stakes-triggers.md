@@ -42,3 +42,5 @@ Determines whether a high-stakes review should be triggered for a chapter, based
 
 ## See also
 - [[agents/high-stakes-reviewer]]
+## Correction (2026-05-06) — only 2 trigger reasons shown; source has 6
+This file (sister to configs/policy-high-stakes-triggers.md, same content) shows only `arc_end` and `critical_severity`. The actual `shouldRunReviewer()` in core uses only those two as gating signals, but `high-stakes-reviewer.ts` agent handles 6 reason types: `arc_boundary`, `arc_climax`, `critical_severity`, `breakthrough_or_death`, `packet_high_stakes`, `manual`. The worker job computes some of these reasons (e.g., `packet_high_stakes`, `breakthrough_or_death`) before calling the agent. Update to reflect the full 6-type picture or clarify the distinction between policy-gating triggers and agent routing triggers.

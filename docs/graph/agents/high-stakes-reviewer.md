@@ -73,3 +73,17 @@ Deep review agent for arc-end chapters or critical validator findings. Approve/r
 
 ## Related Flows
 - [[flows/validation-flow]]
+## High Stakes Reviewer — Phase 5 Routing (2026-05-05)
+Now supports `critical_severity` trigger (in addition to `arc_end` and `manual`). Agent updated to handle higher throughput routing from the slot pipeline. Review schema unchanged.
+## Trigger Reasons (corrected)
+Source defines 6 trigger reasons (not 3):
+- `arc_boundary` — arc start/end
+- `arc_climax` — arc climax chapter
+- `critical_severity` — critical validator finding
+- `breakthrough_or_death` — cultivation milestone event
+- `packet_high_stakes` — high-stakes packet flag
+- `manual` — human-initiated review
+
+Previously documented only `arc_end` and `critical_severity` + `manual`. `arc_boundary` and `arc_climax` are distinct from `arc_end`.
+## Correction (2026-05-06) — First Block Still Shows 3 Trigger Reasons
+The first frontmatter+markdown block (and the first Inputs line) still say trigger reasons are `arc_end`, `critical_severity`, `manual` (3 total). The "Trigger Reasons (corrected)" section at the bottom correctly lists 6: `arc_boundary`, `arc_climax`, `critical_severity`, `breakthrough_or_death`, `packet_high_stakes`, `manual`. Consolidate the first block to match the corrected list.

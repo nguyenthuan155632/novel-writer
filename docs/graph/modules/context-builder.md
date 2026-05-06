@@ -161,3 +161,5 @@ Now includes these previously-missing sections:
 - Base timeline events without `threadId` still always pass through
 - `serializeContextForWriter()` now emits `# PARALLEL THREADS` with active/closed status and chapter window
 - `writerPromptV2` now supports optional `<parallel_threads>` XML block so side-thread constraints survive prompt composition
+## Correction (2026-05-06) — serializeContextForWriter() Is Not in context-builder
+The "Recent Changes" section in this file (modules/context-builder.md) contains a subsection "serializeContextForWriter() Improvements" that credits improvements to this module. This is factually wrong — `serializeContextForWriter()` lives in `apps/worker/src/jobs/generate-chapter.ts` (line 104+), not in `packages/ai/src/context/builder.ts` or any context sub-system module. The improvements described are correct (genre contract, personality contract, story options, story progress, known factions, timeline events, character traits+bloodlines), but they were implemented in the generate-chapter job file. Move the credit to [[jobs/job-generate-chapter]] when next revising this file.

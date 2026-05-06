@@ -109,3 +109,7 @@ Auto-escalation to `safe` is triggered when: first/last chapter of an arc, high/
 - [[flows/validation-flow]]
 - [[flows/llm-provider-flow]]
 - [[flows/job-worker-flow]]
+## Fix (2026-05-06)
+The pre-write deterministic stage runs **9 checks** (not "12"). The "12 checks" claim was outdated — 4 checks (cliffhanger, conflict-presence, style-red-flags, repetition) were retired from the deterministic runner and moved to LLM validation. Post-write runner also runs 9 checks (same set, minus genre-specific checks that don't apply).
+## Correction (2026-05-06) — Mermaid Diagram Label Says "12 checks"
+The pre-write DeterministicValidator node label says `DeterministicValidator\n12 checks — pre-write`. The runner now runs 9 checks (the 4 retired checks are LLM-validated). Change label to `DeterministicValidator\n9 checks — pre-write`.

@@ -1,0 +1,1 @@
+ALTER TABLE "characters" ADD COLUMN "knowledge_state" jsonb DEFAULT '{}'::jsonb NOT NULL;

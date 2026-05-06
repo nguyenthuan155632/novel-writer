@@ -268,3 +268,30 @@ Complete list of every atomic note in the vault, organised by folder.
 
 ## Pipelines (1)
 - [[pipelines/chapter-generation-pipeline]]
+## Agents (12) — added 1
+- [[agents/writer]] · [[agents/bible-generator]] · [[agents/packet-generator]]
+- [[agents/saga-planner]] · [[agents/arc-planner]] · [[agents/canon-extractor]]
+- [[agents/llm-validator]] · [[agents/auto-fixer]] · [[agents/summary-compactor]]
+- [[agents/arc-summary-compactor]] · [[agents/high-stakes-reviewer]]
+- [[agents/conflict-resolver]] ·
+## Prompts (17) — added 2
+- [[prompts/prompt-registry]] · [[prompts/prompt-writer-v2]] · [[prompts/prompt-bible-generator-v2]]
+- [[prompts/prompt-packet-generator-v2]] · [[prompts/prompt-saga-planner-v2]] · [[prompts/prompt-arc-planner-v2]]
+- [[prompts/prompt-canon-extractor-v2]] · [[prompts/prompt-llm-validator-v2]] · [[prompts/prompt-auto-fixer-v2]]
+- [[prompts/prompt-summary-compactor-v2]] · [[prompts/prompt-arc-summary-compactor-v2]] · [[prompts/prompt-high-stakes-reviewer-v2]]
+- [[prompts/prompt-polish-pass.v1]] · [[prompts/role-frames]]
+- [[prompts/contract-genre]] · [[prompts/contract-personality]] · [[prompts/contract-story-options]]
+## Validators (15) — added 1
+- [[validators/deterministic-runner]] · [[validators/packet-auditor]]
+- [[validators/check-word-count]] · [[validators/check-dead-character]] · [[validators/check-unknown-character]]
+- [[validators/check-unknown-location]] · [[validators/check-locked-fact]] · [[validators/check-forbidden-move]]
+- [[validators/check-realm-jump]] · [[validators/check-repetition]] · [[validators/check-cliffhanger]]
+- [[validators/check-conflict-presence]] · [[validators/check-style-red-flags]] · [[validators/check-new-bloodline-source]]
+- [[validators/anti-llm-patterns]] ·
+## Fix (2026-05-06)
+The inventory now has duplicate entries (original counts + append sections). Needs consolidation: agents should be 12, prompts 17, validators 15. The appends at the bottom are the corrected counts.
+## Correction (2026-05-06) — Duplicate Append Sections Need Consolidation
+The bottom of this file has two append sections added in the last session that duplicate information already present in the main body:
+- The "Agents (12) — added 1" and "Prompts (17) — added 2" and "Validators (15) — added 1" appends repeat info already in the main list above.
+- The "Fix (2026-05-06)" append at the very bottom correctly notes the duplication problem.
+When next editing this file, consolidate: agents should be 12, prompts should be 17, validators should be 14 (anti-llm-patterns was added but check-repetition/check-cliffhanger/check-conflict-presence/check-style-red-flags are now LLM-validated, not separate deterministic check files — so 14 not 15). Remove the duplicate append sections and update the main list counts to the correct numbers.

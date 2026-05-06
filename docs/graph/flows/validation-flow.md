@@ -100,3 +100,27 @@ Temperature: 0.1
 
 - [[flows/chapter-generation-flow]]
 - [[flows/llm-provider-flow]]
+## Fix (2026-05-06)
+The deterministic runner now runs **8 checks** (not 12). The following were retired from the runner and migrated to `llm-validator.v2.ts`:
+- `cliffhanger` (low)
+- `conflict-presence` (low)
+- `style-red-flags` (medium)
+- `repetition` (low)
+
+Current `buildChecks()` order:
+1. `dead-character-check` (critical)
+2. `realm-jump-check` (critical, cultivation only)
+3. `new-bloodline-source-check` (medium, cultivation only)
+4. `locked-fact-check` (high)
+5. `forbidden-move-check` (high)
+6. `word-count-check` (high)
+7. `unknown-character-check` (medium)
+8. `unknown-location-check` (medium)
+9. `unknown-faction-check` (medium)
+## Fix (2026-05-06)
+Validation flow check table is now stale — only 9 checks in the deterministic runner (4 retired to LLM validator). Updated table: dead-character (critical), realm-jump (critical, cultivation only), new-bloodline-source (medium, cultivation only), locked-fact (critical), forbidden-move (high), word-count (high), unknown-character (medium), unknown-location (medium), unknown-faction (medium). Cliffhanger, conflict-presence, style-red-flags, repetition removed from runner.
+## Correction (2026-05-06) — Mermaid Diagram Still Shows 12 Checks
+The mermaid diagram lists C1-C12 with all 12 check names including the 4 retired ones (cliffhanger, conflict-presence, style-red-flags, repetition). The corrected set is 9 checks in this order: dead-character, realm-jump, new-bloodline-source, locked-fact, forbidden-move, word-count, unknown-character, unknown-location, unknown-faction. Diagram needs redrawing to reflect 9-node version.
+
+## Correction (2026-05-06) — Table Severity Stale
+The Stage 1 table still shows `locked-fact` as high and `unknown-faction` as missing. Correct severities: locked-fact=critical, unknown-faction=low. Unknown-faction was added post-Phase 1 and is NOT cultivation-specific.

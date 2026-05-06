@@ -83,3 +83,25 @@ Writes to:
 ## Related Flows
 - [[flows/canon-reconciliation-flow]]
 - [[flows/chapter-generation-flow]]
+## Phase 3 Additions (2026-05-05)
+
+### Hybrid Retrieval
+`buildContext()` now calls `getTopKCanonFactsHybrid()` (not plain vector search). Hybrid retrieval:
+1. **Keyword branch** — full-text match on `topic` + `fact` text
+2. **Vector branch** — pgvector cosine similarity
+3. **Score fusion** — `loc_boost` adds weight for location-key matches
+
+All branches apply: `story_id` filter, TTL filter (`validUntilChapter`), visibility filter (`visibility='public' OR knownBy contains activeCharacter.name`), and importance threshold.
+
+### Auto-Approve
+In `auto` or `review` merger mode, rows with `importance <= LOW_IMPORTANCE_THRESHOLD` and no conflicts are applied directly to DB (bypass `pending_canon_updates`). Logged with `canon_merger_auto_apply` metadata.
+
+### ConflictResolverAgent Integration
+Before inserting conflict rows, `merge()` calls `ConflictResolverAgent` to pre-compute `suggestedResolution` on the row. Skipped for `locked_importance`, `locked_field`, and `locked_fact` conflict types.
+
+### Critical Conflict Types
+`realm_regression`, `dead_character_action`, `locked_field` conflicts → chapter pauses with `paused_pending_updates` status regardless of merger mode.
+## Fix (2026-05-06)
+"LOW_IMPORTANCE_THRESHOLD" was an invented placeholder name — actual threshold is defined in `packages/ai/src/reconciliation/canon-merger.ts` as inline logic (not a named constant). Auto-approve applies to rows where `conflictStatus=none AND importance<=some_threshold` — exact threshold value is in the source.
+## Correction (2026-05-06) — Auto-Approve Wording
+The "Phase 3 Additions" section above says `importance <= LOW_IMPORTANCE_THRESHOLD`. This is inaccurate — there is no named constant `LOW_IMPORTANCE_THRESHOLD`. The actual auto-approve logic is an inline check: `importance === 'low'` (the `importance` field is an enum value, not a numeric score). Rows with `conflictStatus='none'` AND `importance='low'` are applied directly to DB. The Fix note at the bottom of this file already correctly notes the absence of a named constant.

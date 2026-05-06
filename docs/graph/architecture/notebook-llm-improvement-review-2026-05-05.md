@@ -40,3 +40,18 @@ Some existing graph notes are stale or duplicated. In particular, flow notes men
 
 - Hybrid RAG `loc_boost` must apply the same `story_id`, TTL, and visibility/POV filters as keyword and vector branches. Location boost is only a score boost for already-allowed facts, not a bypass.
 - Cache invariant language now targets the Writer user/context payload produced by `serializeContextForWriter()`. `writerPromptV2.system` should remain byte-identical under Warm/Cold changes.
+## Implementation Status — All Phases Complete (2026-05-05)
+
+All items from this review have been implemented in commits dffe87d → 517a0fb:
+
+| Item | Resolution |
+|------|-----------|
+| `EntryState` in `@novel/core` | Done — `packages/core/src/types/entry-state.ts` |
+| `activeLocationKey` text semantics | Done — used in hybrid retrieval filtering |
+| `visibility` + `known_by` POV filtering | Done — in `getTopKCanonFacts` TTL filter |
+| `characters.knowledge_state` maintained by CanonMerger | Done — CanonMerger updates it on fact apply/approve |
+| Locked-fact hard-block replaced | Done — `locked_fact` remapped to `duplicate_fact` (no hard block); contradiction requires explicit structured conflict |
+| Cosmetic validators removal | Deferred — `anti-llm-patterns.ts` added (Phase 5), existing cosmetics kept until LLM validator replacement is stable |
+| Batch resume extends existing behavior | Done — uses `completedChapters` in `generate-batch.ts` |
+
+The "Documentation Status" note about stale flow notes has also been addressed: the pre-check stage is now fully integrated (PacketAuditor pre-write, DeterministicRunner post-write).

@@ -39,3 +39,10 @@ Implements `shrinkToFit()` — progressively removes context items in a priority
 
 ## Related flows
 - [[flows/chapter-generation-flow]]
+## Shrink Order (updated 2026-05-05)
+1. `retrievedPastChapters` → cleared to `[]`
+2. `retrievedFacts` → cleared to `[]`
+3. `recentSummaries` → truncated to first 2 entries
+4. `activeCharactersCompactMode` → strips `bloodlines`, `shortTraits`, `currentRealm`, `faction`
+
+Token estimation now uses `gpt-tokenizer` (via `packages/core/src/utils/tokens.ts`) with BPE fallback. Shrink is recursive — reruns after each removal until within budget.

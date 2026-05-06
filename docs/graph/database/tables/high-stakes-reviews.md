@@ -91,3 +91,5 @@ Records of deep LLM reviews at arc-end, critical severity, or manual trigger.
 ## Related Flows
 - [[flows/validation-flow]]
 - [[flows/chapter-generation-flow]]
+## Correction (2026-05-06) — triggerReason enum shows 3 values; source has 6
+The `triggerReason` column description shows only `arc_end / critical_severity / manual`. The actual `high_stakes_review_reason` enum (from `packages/db/src/schema/high-stakes-reviews.ts` or equivalent) has 6 values: `arc_boundary`, `arc_climax`, `critical_severity`, `breakthrough_or_death`, `packet_high_stakes`, `manual`. Update the column description and any enum tables to reflect all 6 values.

@@ -55,3 +55,8 @@ All database retrieval functions for context building — the single authoritati
 
 ## Related flows
 - [[flows/chapter-generation-flow]]
+## Context Retrieval — Recent Additions (2026-05-05)
+- `getTopKCanonFactsHybrid(db, storyId, embedding, query, topK, povCharacter?, minImportance?)` — hybrid keyword+vector retrieval with `loc_boost` score fusion
+- `getTimelineEventsForChapter(db, storyId, chapterNumber, parallelThreads?)` — returns 20 most recent events up to current chapter, thread-scoped events filtered by active parallel threads
+- `getPrevChapterTailContent(db, storyId, chapterNumber)` — retrieves `tail_content` from the previous chapter's summary (for entry continuity)
+- `getPendingCanonUpdatesForStory(db, storyId, limit?)` — returns pending updates with `resolution='pending'`

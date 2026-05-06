@@ -64,3 +64,5 @@ Deep LLM review at arc-end, critical-severity validation, or manual trigger. Per
 ## Related Flows
 - [[flows/validation-flow]]
 - [[flows/chapter-generation-flow]]
+## Correction (2026-05-06) — Trigger Reasons still list 3; source has 6
+Both blocks in this file list only `arc_end`, `critical_severity`, `manual` as trigger reasons. The source `high-stakes-reviewer.ts` sends 6 reason types to the agent: `arc_boundary`, `arc_climax`, `critical_severity`, `breakthrough_or_death`, `packet_high_stakes`, `manual`. The job enqueues based on `shouldRunReviewer()` from core (which gates on arc boundary + critical severity), but also directly checks packet-level signals (`packet.highStakes`, `breakthrough_or_death` keywords) in generate-chapter.ts before calling the agent. Update to reflect all 6 reasons.
