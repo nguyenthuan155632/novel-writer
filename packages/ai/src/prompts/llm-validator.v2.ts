@@ -50,7 +50,25 @@ Kiểm tra:
 11. Repetition — phát hiện lặp từ/cụm từ/ý tưởng trong cùng chương (thay thế cho deterministic repetition check). Lặp nhiều → severity=low.
 12. Tone-shift và dialogue-vs-description balance — tone thay đổi đột ngột không có lý do, hoặc tỷ lệ dialogue/description mất cân đối so với genre. → severity=low hoặc medium.
 
-Trả về JSON theo schema yêu cầu.`,
+Dưới đây là các mã lỗi chuẩn và message tiếng Việt ASCII — dùng khi trả về JSON:
+- genre_drift_modern_trope: "Trope hien dai khong phu hop the gioi"
+- pacing_description_slot_empty: "Slot mo ta trong, thieu chi tiet"
+- pacing_action_slot_empty: "Slot hanh dong trong, thieu canh"
+- pacing_dialogue_slot_empty: "Slot hoi thoai trong, thieu thoai"
+- pacing_cliffhanger_missing: "Thieu cliffhanger cuoi chuong"
+- pacing_filler_chapter: "Chuong dem, khong co tien trien"
+- protagonist_personality_drift: "Nhan vat chinh drift tinh cach"
+- antagonist_personality_drift: "Phan dien drift tinh cach"
+- story_option_comedy_stakes: "Can bang hai kich-stakes chua dung"
+- stakes_too_low: "Stakes qua thap, thieu canh thang"
+- canon_character_appearance: "Nhan vat xuat hien khong hop le"
+- style_prose_overloaded: "Prose qua tai, can rut gon"
+- style_purple_prose: "Purple prose, viet qua cau ky"
+- style_repetition: "Lap tu/cum tu trong chuong"
+- style_exposition_dump: "Exposition dump, don thong tin qua nhieu"
+- content_slot_unfilled: "Slot noi dung chua duoc dien"
+
+Trả về JSON theo schema yêu cầu. Tất cả code và message PHẢI là tiếng Việt ASCII. Không trả về tiếng Anh.`,
       user: `--- CANON CONTEXT ---\n${i.serializedContext}\n\n--- CHAPTER CONTENT ---\n${i.chapterContent}`,
     };
   },

@@ -108,32 +108,6 @@ Use vanilla CSS (in `globals.css` or component-level `.css` files). Do not intro
 - Every context build → `context_packets` table
 - Set `LOG_LLM_PROMPTS=1` in the worker env for verbose prompt logging
 
-## Local Working Protocol: Obsidian Graph First
-
-You have access to Obsidian through the `mcp-obsidian` MCP server.
-
-Before doing any non-trivial coding task, architecture task, debugging task, refactor, database change, worker change, AI provider change, validation change, or prompt change:
-
-1. Search Obsidian first.
-2. Use search terms based on the current task.
-3. Read the most relevant Obsidian notes before planning.
-4. In your plan, mention:
-   - Obsidian notes consulted
-   - relevant architecture/domain constraints found
-   - whether documentation is missing or outdated
-5. Only then inspect or modify source code.
-
-After completing work:
-1. If architecture, flow, schema, domain behavior, config, validation, or error handling changed, update the relevant Obsidian notes.
-2. If no relevant note exists, create one.
-3. In the final response, include:
-   - Obsidian notes read
-   - Obsidian notes updated
-   - source files changed
-
-Do not copy secrets into Obsidian.
-Document env var names only, never values.
-
 ## Environment Variables
 
 Copy `.env.example` → `.env`. Key vars:
@@ -208,3 +182,67 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 ---
 
 **These guidelines are working if:** fewer unnecessary changes in diffs, fewer rewrites due to overcomplication, and clarifying questions come before implementation rather than after mistakes.
+
+<!-- gitnexus:start -->
+# GitNexus — Code Intelligence
+
+This project is indexed by GitNexus as **novel-writer** (6833 symbols, 9651 relationships, 222 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+
+> If any GitNexus tool warns the index is stale, run `npx gitnexus analyze` in terminal first.
+
+## Always Do
+
+- **MUST run impact analysis before editing any symbol.** Before modifying a function, class, or method, run `gitnexus_impact({target: "symbolName", direction: "upstream"})` and report the blast radius (direct callers, affected processes, risk level) to the user.
+- **MUST run `gitnexus_detect_changes()` before committing** to verify your changes only affect expected symbols and execution flows.
+- **MUST warn the user** if impact analysis returns HIGH or CRITICAL risk before proceeding with edits.
+- When exploring unfamiliar code, use `gitnexus_query({query: "concept"})` to find execution flows instead of grepping. It returns process-grouped results ranked by relevance.
+- When you need full context on a specific symbol — callers, callees, which execution flows it participates in — use `gitnexus_context({name: "symbolName"})`.
+
+## Never Do
+
+- NEVER edit a function, class, or method without first running `gitnexus_impact` on it.
+- NEVER ignore HIGH or CRITICAL risk warnings from impact analysis.
+- NEVER rename symbols with find-and-replace — use `gitnexus_rename` which understands the call graph.
+- NEVER commit changes without running `gitnexus_detect_changes()` to check affected scope.
+
+## Resources
+
+| Resource | Use for |
+|----------|---------|
+| `gitnexus://repo/novel-writer/context` | Codebase overview, check index freshness |
+| `gitnexus://repo/novel-writer/clusters` | All functional areas |
+| `gitnexus://repo/novel-writer/processes` | All execution flows |
+| `gitnexus://repo/novel-writer/process/{name}` | Step-by-step execution trace |
+
+## CLI
+
+| Task | Read this skill file |
+|------|---------------------|
+| Understand architecture / "How does X work?" | `.claude/skills/gitnexus/gitnexus-exploring/SKILL.md` |
+| Blast radius / "What breaks if I change X?" | `.claude/skills/gitnexus/gitnexus-impact-analysis/SKILL.md` |
+| Trace bugs / "Why is X failing?" | `.claude/skills/gitnexus/gitnexus-debugging/SKILL.md` |
+| Rename / extract / split / refactor | `.claude/skills/gitnexus/gitnexus-refactoring/SKILL.md` |
+| Tools, resources, schema reference | `.claude/skills/gitnexus/gitnexus-guide/SKILL.md` |
+| Index, status, clean, wiki CLI commands | `.claude/skills/gitnexus/gitnexus-cli/SKILL.md` |
+| Work in the Api area (67 symbols) | `.claude/skills/generated/api/SKILL.md` |
+| Work in the Routes area (66 symbols) | `.claude/skills/generated/routes/SKILL.md` |
+| Work in the Services area (56 symbols) | `.claude/skills/generated/services/SKILL.md` |
+| Work in the Agents area (51 symbols) | `.claude/skills/generated/agents/SKILL.md` |
+| Work in the Context area (45 symbols) | `.claude/skills/generated/context/SKILL.md` |
+| Work in the Jobs area (43 symbols) | `.claude/skills/generated/jobs/SKILL.md` |
+| Work in the Providers area (30 symbols) | `.claude/skills/generated/providers/SKILL.md` |
+| Work in the Validators area (14 symbols) | `.claude/skills/generated/validators/SKILL.md` |
+| Work in the Contracts area (13 symbols) | `.claude/skills/generated/contracts/SKILL.md` |
+| Work in the Notebooklm-export area (8 symbols) | `.claude/skills/generated/notebooklm-export/SKILL.md` |
+| Work in the [chapterNumber] area (8 symbols) | `.claude/skills/generated/chapternumber/SKILL.md` |
+| Work in the Config area (7 symbols) | `.claude/skills/generated/config/SKILL.md` |
+| Work in the Bible area (6 symbols) | `.claude/skills/generated/bible/SKILL.md` |
+| Work in the Chapters area (5 symbols) | `.claude/skills/generated/chapters/SKILL.md` |
+| Work in the Settings area (5 symbols) | `.claude/skills/generated/settings/SKILL.md` |
+| Work in the Admin area (5 symbols) | `.claude/skills/generated/admin/SKILL.md` |
+| Work in the Plugins area (4 symbols) | `.claude/skills/generated/plugins/SKILL.md` |
+| Work in the Cluster_7 area (4 symbols) | `.claude/skills/generated/cluster-7/SKILL.md` |
+| Work in the App area (4 symbols) | `.claude/skills/generated/app/SKILL.md` |
+| Work in the Prompts area (4 symbols) | `.claude/skills/generated/prompts/SKILL.md` |
+
+<!-- gitnexus:end -->
