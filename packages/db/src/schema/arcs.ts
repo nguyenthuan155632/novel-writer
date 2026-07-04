@@ -44,6 +44,7 @@ export const arcs = pgTable("arcs", {
     .notNull(),
   rollingSummary: text("rolling_summary"),
   summaryVersion: integer("summary_version").default(0).notNull(),
+  lastCompactedChapter: integer("last_compacted_chapter"),
   plantedSeedIds: jsonb("planted_seed_ids")
     .$type<string[]>()
     .default([])

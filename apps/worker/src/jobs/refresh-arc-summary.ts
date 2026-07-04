@@ -1,6 +1,6 @@
 import { getDb } from '@novel/db';
 import { arcs, chapters, chapterSummaries, sagas } from '@novel/db/schema';
-import { eq, and, desc, gte, lte, sql, or } from 'drizzle-orm';
+import { eq, and, asc, gte, lte, sql, or } from 'drizzle-orm';
 import type { Logger } from 'pino';
 import { ArcSummaryCompactorAgent } from '@novel/ai';
 import { CONTEXT_CONFIG, shouldRefreshRollingSummary, type LlmProviderId, type ModelRoutes } from '@novel/core';
@@ -27,21 +27,22 @@ export async function runRefreshArcSummaryJob(data: RefreshArcSummaryJobData, ct
     return { status: 'skipped' as const };
   }
 
+  const sinceChapter = arc.lastCompactedChapter ?? (arc.startChapter ?? 0) - 1;
   const summaries = await db
     .select({ chapterNumber: chapterSummaries.chapterNumber, summary: chapterSummaries.summary })
     .from(chapterSummaries)
     .innerJoin(chapters, eq(chapterSummaries.chapterId, chapters.id))
     .where(and(
       eq(chapters.storyId, storyId),
-      gte(chapters.chapterNumber, arc.startChapter ?? 0),
+      gte(chapters.chapterNumber, Math.max(arc.startChapter ?? 0, sinceChapter + 1)),
       lte(chapters.chapterNumber, arc.endChapter ?? 999999),
       or(eq(chapters.status, 'completed'), eq(chapters.status, 'paused_pending_updates')),
     ))
-    .orderBy(desc(chapterSummaries.chapterNumber))
+    .orderBy(asc(chapterSummaries.chapterNumber))
     .limit(50);
 
   if (summaries.length === 0) {
-    log.info('no completed chapters in arc; noop');
+    log.info('no new completed chapters since last compaction; noop');
     return { status: 'skipped' as const };
   }
 
@@ -55,14 +56,17 @@ export async function runRefreshArcSummaryJob(data: RefreshArcSummaryJobData, ct
   const out = await agent.compact({
     storyId,
     arcTitle: arc.title,
-    perChapterSummaries: summaries.reverse().map((s) => ({
+    previousRollingSummary: arc.rollingSummary ?? undefined,
+    perChapterSummaries: summaries.map((s) => ({
       chapterNumber: s.chapterNumber,
       summary: s.summary ?? '',
     })),
   });
 
+  const maxCompacted = summaries[summaries.length - 1]!.chapterNumber;
   await db.update(arcs).set({
     rollingSummary: out.summary,
+    lastCompactedChapter: maxCompacted,
     summaryVersion: sql`${arcs.summaryVersion} + 1`,
     summaryUpdatedAt: new Date(),
   }).where(eq(arcs.id, arcId));
