@@ -11,12 +11,12 @@ const dormant: CharacterCompact[] = [
 ];
 
 describe('mergeRecalledCharacters', () => {
-  it('appends dormant characters, dedupes by id, stamps lastActiveChapter', () => {
+  it('appends dormant characters, dedupes by id, stamps packet-present characters as current', () => {
     const merged = mergeRecalledCharacters(active, dormant, 300);
     expect(merged).toHaveLength(2);
     const han = merged.find((c) => c.id === 'b')!;
     expect(han.lastActiveChapter).toBe(300);
-    // already-active entry is untouched
-    expect(merged.find((c) => c.id === 'a')!.lastActiveChapter).toBe(299);
+    // already-active but packet-present entries are also current for shrink ordering.
+    expect(merged.find((c) => c.id === 'a')!.lastActiveChapter).toBe(300);
   });
 });

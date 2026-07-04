@@ -208,4 +208,35 @@ describe("buildContext progress meta", () => {
     expect(result.meta.arcPhase).toBe("setup");
     expect(result.meta.activeTurningPoint).toBe("TP1");
   });
+
+  it("uses completion state to choose the active turning point", async () => {
+    const retrieval = await import("../../src/context/retrieval.js");
+    vi.mocked(retrieval.getSagaForChapter).mockResolvedValueOnce({
+      id: "saga-1",
+      storyId: "story-1",
+      premise: "",
+      startChapter: 1,
+      endChapter: 40,
+      expectedTurningPoints: ["TP1", "TP2", "TP3", "TP4"],
+      completedTurningPoints: [0, 1, 2],
+      rollingSummary: null,
+    } as any);
+    vi.mocked(retrieval.getArcById).mockResolvedValueOnce({
+      id: "arc-1",
+      storyId: "story-1",
+      sagaId: "saga-1",
+      premise: "",
+      startChapter: 1,
+      endChapter: 10,
+      mainConflict: null,
+      expectedChanges: [],
+      expectedPowerChanges: [],
+      expectedCharacterChanges: [],
+      rollingSummary: null,
+    } as any);
+
+    const result = await buildContext({ ...baseDeps, chapterNumber: 5 });
+
+    expect(result.meta.activeTurningPoint).toBe("TP4");
+  });
 });

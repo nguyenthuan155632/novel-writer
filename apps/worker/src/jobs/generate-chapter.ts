@@ -1019,12 +1019,35 @@ Trạng thái hiện tại: ${currentRealms || "(chưa xác định)"}`;
       }
     }
 
+    const packetHighStakes =
+      (arc as { phase?: string | null } | undefined)?.phase === "climax" ||
+      isFirstChapterOfArc(arc, data.chapterNumber) ||
+      isLastChapterOfArc(arc, data.chapterNumber) ||
+      packetResult.packet.requiredEvents.some((event) =>
+        /đột phá|đột phá cảnh giới|breakthrough|character death|chết|tử trận|hi sinh/i.test(event.description),
+      );
+
     if (auditResult.requiresRegenerate) {
       log.error(
         { issues: auditResult.issues, attemptCount },
         "packet audit failed after all retries — operator review required (safe-mode escalation)",
       );
       if (shouldPauseOnAuditFailure(mode, auditResult.requiresRegenerate)) {
+        await db.insert(chapterPackets).values({
+          storyId: data.storyId,
+          chapterId,
+          arcId: resolvedArcId,
+          chapterNumber: data.chapterNumber,
+          goal: packetResult.packet.goal,
+          requiredEvents: packetResult.packet.requiredEvents.map(
+            (e) => e.description,
+          ),
+          charactersInScene: packetResult.packet.charactersPresent,
+          conflict: packetResult.packet.conflict,
+          cliffhanger: packetResult.packet.cliffhanger,
+          forbiddenMoves: packetResult.packet.forbiddenMoves,
+          highStakes: packetHighStakes,
+        });
         await db
           .update(chapters)
           .set({ status: "paused_pending_updates", packetAuditStatus: "failed", updatedAt: new Date() })
@@ -1039,14 +1062,6 @@ Trạng thái hiện tại: ${currentRealms || "(chưa xác định)"}`;
         };
       }
     }
-
-    const packetHighStakes =
-      (arc as { phase?: string | null } | undefined)?.phase === "climax" ||
-      isFirstChapterOfArc(arc, data.chapterNumber) ||
-      isLastChapterOfArc(arc, data.chapterNumber) ||
-      packetResult.packet.requiredEvents.some((event) =>
-        /đột phá|đột phá cảnh giới|breakthrough|character death|chết|tử trận|hi sinh/i.test(event.description),
-      );
 
     await db.insert(chapterPackets).values({
       storyId: data.storyId,
@@ -1551,27 +1566,20 @@ Trạng thái hiện tại: ${currentRealms || "(chưa xác định)"}`;
     accumulateUsage(extractionResult.usage, tokenAcc);
     totalCost += estimateCostUsd(canonExtractorModel, extractionResult.usage);
 
+    let completedTurningPointsUpdate: number[] | null = null;
+    let completedChangesUpdate: number[] | null = null;
+
     const newTpDone = extractionResult.output.turningPointsCompleted.filter(
       (i) => Array.isArray(saga?.expectedTurningPoints) && i < (saga.expectedTurningPoints as string[]).length,
     );
     if (saga && newTpDone.length > 0) {
       const merged = Array.from(new Set([...((saga.completedTurningPoints as number[]) ?? []), ...newTpDone])).sort((a, b) => a - b);
-      try {
-        await db.update(sagas).set({ completedTurningPoints: merged, updatedAt: new Date() }).where(eq(sagas.id, saga.id));
-        log.info({ completedTurningPoints: merged }, "saga turning-point progress updated");
-      } catch (err) {
-        log.warn({ err }, "failed to persist saga turning-point progress; continuing");
-      }
+      completedTurningPointsUpdate = merged;
     }
     const newChangesDone = extractionResult.output.arcChangesCompleted.filter((i) => i < arcExpectedChanges.length);
     if (arc && newChangesDone.length > 0) {
       const merged = Array.from(new Set([...((arc.completedChanges as number[]) ?? []), ...newChangesDone])).sort((a, b) => a - b);
-      try {
-        await db.update(arcs).set({ completedChanges: merged }).where(eq(arcs.id, arc.id));
-        log.info({ completedChanges: merged }, "arc expected-change progress updated");
-      } catch (err) {
-        log.warn({ err }, "failed to persist arc expected-change progress; continuing");
-      }
+      completedChangesUpdate = merged;
     }
 
     const mergerRows = extractorOutputToRows(extractionResult.output);
@@ -1679,6 +1687,35 @@ Trạng thái hiện tại: ${currentRealms || "(chưa xác định)"}`;
         updatedAt: new Date(),
       })
       .where(eq(chapters.id, chapterId));
+
+    if (saga && completedTurningPointsUpdate) {
+      try {
+        await db
+          .update(sagas)
+          .set({ completedTurningPoints: completedTurningPointsUpdate, updatedAt: new Date() })
+          .where(eq(sagas.id, saga.id));
+        log.info(
+          { completedTurningPoints: completedTurningPointsUpdate },
+          "saga turning-point progress updated",
+        );
+      } catch (err) {
+        log.warn({ err }, "failed to persist saga turning-point progress; continuing");
+      }
+    }
+    if (arc && completedChangesUpdate) {
+      try {
+        await db
+          .update(arcs)
+          .set({ completedChanges: completedChangesUpdate })
+          .where(eq(arcs.id, arc.id));
+        log.info(
+          { completedChanges: completedChangesUpdate },
+          "arc expected-change progress updated",
+        );
+      } catch (err) {
+        log.warn({ err }, "failed to persist arc expected-change progress; continuing");
+      }
+    }
 
     if (
       (finalStatus === "completed" ||

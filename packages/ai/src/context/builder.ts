@@ -44,6 +44,7 @@ import { renderGenreContract } from "../prompts/contracts/genre-contract.js";
 import { renderPersonalityContract } from "../prompts/contracts/personality-contract.js";
 import { buildStoryOptionsBlock } from "../prompts/contracts/story-options-block.js";
 import { computeProgressWindow, progressPhaseFor } from "./progress.js";
+import { computeTurningPointStatuses } from "./turning-points.js";
 
 export {
   computeProgressPercent,
@@ -303,11 +304,16 @@ export async function buildContext(
       sagaProgress.endChapter - sagaProgress.startChapter + 1,
     );
     const sagaPosition = chapterNumber - sagaProgress.startChapter + 1;
-    const idx = Math.min(
-      tps.length - 1,
-      Math.max(0, Math.floor((sagaPosition - 1) / (sagaSpan / tps.length))),
-    );
-    activeTurningPoint = tps[idx] ?? null;
+    const statuses = computeTurningPointStatuses({
+      turningPoints: tps,
+      completedIndices: (saga.completedTurningPoints as number[]) ?? [],
+      sagaPosition,
+      sagaSpan,
+    });
+    activeTurningPoint =
+      statuses.find((s) => s.state === "current")?.text ??
+      statuses.find((s) => s.state === "overdue")?.text ??
+      null;
   }
 
   let ctx: ChapterContext = {
@@ -353,11 +359,15 @@ export function mergeRecalledCharacters(
   recalled: CharacterCompact[],
   chapterNumber: number,
 ): CharacterCompact[] {
+  const recalledIds = new Set(recalled.map((c) => c.id));
+  const stampedActive = active.map((c) =>
+    recalledIds.has(c.id) ? { ...c, lastActiveChapter: chapterNumber } : c,
+  );
   const seen = new Set(active.map((c) => c.id));
   const extras = recalled
     .filter((c) => !seen.has(c.id))
     .map((c) => ({ ...c, lastActiveChapter: chapterNumber }));
-  return [...active, ...extras];
+  return [...stampedActive, ...extras];
 }
 
 function buildHotTier(
