@@ -8,11 +8,13 @@ export type CanonExtractorV2PromptInput = {
   canonSnapshot: string;
   plantedSeeds: { id: string; seedText: string; payoffDescription: string; status: string }[];
   recentSummary: string;
+  sagaTurningPoints?: { index: number; text: string; completed: boolean }[];
+  arcExpectedChanges?: { index: number; text: string; completed: boolean }[];
 };
 
 export const canonExtractorPromptV2: DualPromptTemplate = {
   agentRole: 'canon_extractor',
-  version: 'v2',
+  version: 'v2.1',
   build: (input) => ({
     system: `${MONITOR_FRAME}
 
@@ -45,6 +47,26 @@ Quy tắc:
       `# TÓM TẮT CHƯƠNG TRƯỚC`,
       input.recentSummary,
       '',
+      ...(Array.isArray(input.sagaTurningPoints) && (input.sagaTurningPoints as unknown[]).length > 0
+        ? [
+            '# TURNING POINTS CỦA SAGA (đối chiếu với nội dung chương)',
+            ...(input.sagaTurningPoints as { index: number; text: string; completed: boolean }[]).map(
+              (tp) => `${tp.index}. [${tp.completed ? 'đã xảy ra' : 'chưa'}] ${tp.text}`,
+            ),
+            'Nếu chương này khiến một turning point CHƯA xảy ra trở thành ĐÃ XẢY RA, ghi index vào turningPointsCompleted.',
+            '',
+          ]
+        : []),
+      ...(Array.isArray(input.arcExpectedChanges) && (input.arcExpectedChanges as unknown[]).length > 0
+        ? [
+            '# EXPECTED CHANGES CỦA ARC',
+            ...(input.arcExpectedChanges as { index: number; text: string; completed: boolean }[]).map(
+              (c) => `${c.index}. [${c.completed ? 'đã xảy ra' : 'chưa'}] ${c.text}`,
+            ),
+            'Nếu chương này hoàn thành một expected change, ghi index vào arcChangesCompleted.',
+            '',
+          ]
+        : []),
       `Trích xuất canon changes. Trả JSON theo ExtractorOutput schema.`,
     ].filter(Boolean).join('\n'),
   }),

@@ -26,6 +26,10 @@ export const arcs = pgTable("arcs", {
     .$type<string[]>()
     .default([])
     .notNull(),
+  completedChanges: jsonb("completed_changes")
+    .$type<number[]>()
+    .default([])
+    .notNull(),
   seedsToResolveInArc: jsonb("seeds_to_resolve_in_arc")
     .$type<string[]>()
     .default([])

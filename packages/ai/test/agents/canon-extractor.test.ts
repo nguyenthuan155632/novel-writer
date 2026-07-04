@@ -57,7 +57,7 @@ describe('CanonExtractor', () => {
     expect(r.output.newCanonFacts[0]!.fact).toBe('Lam Trach đột phá nguyên anh');
     expect(r.output.threadUpdates).toHaveLength(1);
     expect(r.output.newTimelineEvents).toHaveLength(1);
-    expect(r.promptVersion).toBe('v2');
+    expect(r.promptVersion).toBe('v2.1');
   });
 
   it('throws on schema-invalid JSON', async () => {

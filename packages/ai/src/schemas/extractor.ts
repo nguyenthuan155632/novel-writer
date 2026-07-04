@@ -81,6 +81,18 @@ export const FactionUpdateSchema = z.object({
   }).partial(),
 });
 
+/** Indices into a plan list (turning points / expected changes). Dedup, drop negatives/non-ints. */
+export const planIndexArray = z
+  .array(z.unknown())
+  .default([])
+  .transform((vals) => {
+    const out: number[] = [];
+    for (const v of vals) {
+      if (typeof v === 'number' && Number.isInteger(v) && v >= 0 && !out.includes(v)) out.push(v);
+    }
+    return out;
+  });
+
 export const ExtractorOutputSchema = z.object({
   characterUpdates: z.array(CharacterUpdateSchema).max(20),
   newCanonFacts: z.array(CanonFactProposalSchema).max(15),
@@ -101,6 +113,8 @@ export const ExtractorOutputSchema = z.object({
       }
       return out;
     }),
+  turningPointsCompleted: planIndexArray,
+  arcChangesCompleted: planIndexArray,
 });
 
 export type ExtractorOutput = z.infer<typeof ExtractorOutputSchema>;
@@ -200,6 +214,14 @@ export const EXTRACTOR_JSON_SCHEMA: JsonSchema = {
     seedsResolvedThisChapter: {
       type: 'array',
       items: { type: 'string' },
+    },
+    turningPointsCompleted: {
+      type: 'array',
+      items: { type: 'integer', minimum: 0 },
+    },
+    arcChangesCompleted: {
+      type: 'array',
+      items: { type: 'integer', minimum: 0 },
     },
   },
   // factionUpdates is optional in the wire schema (defaults to []) for backward compatibility.
