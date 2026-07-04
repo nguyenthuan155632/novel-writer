@@ -186,7 +186,7 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **novel-writer** (6833 symbols, 9651 relationships, 222 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **novel-writer** (4406 symbols, 7298 relationships, 202 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > If any GitNexus tool warns the index is stale, run `npx gitnexus analyze` in terminal first.
 
@@ -224,25 +224,5 @@ This project is indexed by GitNexus as **novel-writer** (6833 symbols, 9651 rela
 | Rename / extract / split / refactor | `.claude/skills/gitnexus/gitnexus-refactoring/SKILL.md` |
 | Tools, resources, schema reference | `.claude/skills/gitnexus/gitnexus-guide/SKILL.md` |
 | Index, status, clean, wiki CLI commands | `.claude/skills/gitnexus/gitnexus-cli/SKILL.md` |
-| Work in the Api area (67 symbols) | `.claude/skills/generated/api/SKILL.md` |
-| Work in the Routes area (66 symbols) | `.claude/skills/generated/routes/SKILL.md` |
-| Work in the Services area (56 symbols) | `.claude/skills/generated/services/SKILL.md` |
-| Work in the Agents area (51 symbols) | `.claude/skills/generated/agents/SKILL.md` |
-| Work in the Context area (45 symbols) | `.claude/skills/generated/context/SKILL.md` |
-| Work in the Jobs area (43 symbols) | `.claude/skills/generated/jobs/SKILL.md` |
-| Work in the Providers area (30 symbols) | `.claude/skills/generated/providers/SKILL.md` |
-| Work in the Validators area (14 symbols) | `.claude/skills/generated/validators/SKILL.md` |
-| Work in the Contracts area (13 symbols) | `.claude/skills/generated/contracts/SKILL.md` |
-| Work in the Notebooklm-export area (8 symbols) | `.claude/skills/generated/notebooklm-export/SKILL.md` |
-| Work in the [chapterNumber] area (8 symbols) | `.claude/skills/generated/chapternumber/SKILL.md` |
-| Work in the Config area (7 symbols) | `.claude/skills/generated/config/SKILL.md` |
-| Work in the Bible area (6 symbols) | `.claude/skills/generated/bible/SKILL.md` |
-| Work in the Chapters area (5 symbols) | `.claude/skills/generated/chapters/SKILL.md` |
-| Work in the Settings area (5 symbols) | `.claude/skills/generated/settings/SKILL.md` |
-| Work in the Admin area (5 symbols) | `.claude/skills/generated/admin/SKILL.md` |
-| Work in the Plugins area (4 symbols) | `.claude/skills/generated/plugins/SKILL.md` |
-| Work in the Cluster_7 area (4 symbols) | `.claude/skills/generated/cluster-7/SKILL.md` |
-| Work in the App area (4 symbols) | `.claude/skills/generated/app/SKILL.md` |
-| Work in the Prompts area (4 symbols) | `.claude/skills/generated/prompts/SKILL.md` |
 
 <!-- gitnexus:end -->
