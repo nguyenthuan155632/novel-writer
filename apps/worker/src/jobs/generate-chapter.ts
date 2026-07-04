@@ -1556,14 +1556,22 @@ Trạng thái hiện tại: ${currentRealms || "(chưa xác định)"}`;
     );
     if (saga && newTpDone.length > 0) {
       const merged = Array.from(new Set([...((saga.completedTurningPoints as number[]) ?? []), ...newTpDone])).sort((a, b) => a - b);
-      await db.update(sagas).set({ completedTurningPoints: merged, updatedAt: new Date() }).where(eq(sagas.id, saga.id));
-      log.info({ completedTurningPoints: merged }, "saga turning-point progress updated");
+      try {
+        await db.update(sagas).set({ completedTurningPoints: merged, updatedAt: new Date() }).where(eq(sagas.id, saga.id));
+        log.info({ completedTurningPoints: merged }, "saga turning-point progress updated");
+      } catch (err) {
+        log.warn({ err }, "failed to persist saga turning-point progress; continuing");
+      }
     }
     const newChangesDone = extractionResult.output.arcChangesCompleted.filter((i) => i < arcExpectedChanges.length);
     if (arc && newChangesDone.length > 0) {
       const merged = Array.from(new Set([...((arc.completedChanges as number[]) ?? []), ...newChangesDone])).sort((a, b) => a - b);
-      await db.update(arcs).set({ completedChanges: merged }).where(eq(arcs.id, arc.id));
-      log.info({ completedChanges: merged }, "arc expected-change progress updated");
+      try {
+        await db.update(arcs).set({ completedChanges: merged }).where(eq(arcs.id, arc.id));
+        log.info({ completedChanges: merged }, "arc expected-change progress updated");
+      } catch (err) {
+        log.warn({ err }, "failed to persist arc expected-change progress; continuing");
+      }
     }
 
     const mergerRows = extractorOutputToRows(extractionResult.output);
