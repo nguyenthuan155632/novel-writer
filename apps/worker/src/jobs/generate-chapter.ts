@@ -107,6 +107,11 @@ export interface GenerateChapterDeps {
   effectiveConfig?: EffectiveConfig;
 }
 
+/** §1.8 escalation: a packet that still fails audit after retries must not be written unattended. */
+export function shouldPauseOnAuditFailure(mode: string, requiresRegenerate: boolean): boolean {
+  return requiresRegenerate && mode !== "safe";
+}
+
 export function serializeContextForWriter(
   ctx: ChapterContext,
   opts?: { realmLadder?: readonly string[] },
@@ -1019,7 +1024,20 @@ Trạng thái hiện tại: ${currentRealms || "(chưa xác định)"}`;
         { issues: auditResult.issues, attemptCount },
         "packet audit failed after all retries — operator review required (safe-mode escalation)",
       );
-      // TODO: enqueue safe-mode re-queue when mode escalation API is available
+      if (shouldPauseOnAuditFailure(mode, auditResult.requiresRegenerate)) {
+        await db
+          .update(chapters)
+          .set({ status: "paused_pending_updates", packetAuditStatus: "failed", updatedAt: new Date() })
+          .where(eq(chapters.id, chapterId));
+        return {
+          chapterId,
+          status: "paused_pending_updates",
+          attempts: attemptCount,
+          totalTokens: tokenAcc.inputTokens + tokenAcc.outputTokens,
+          totalCostUsd: totalCost,
+          durationMs: Date.now() - start,
+        };
+      }
     }
 
     const packetHighStakes =
