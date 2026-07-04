@@ -46,6 +46,7 @@ export * from "./context/past-reference.js";
 export * from "./context/shrink.js";
 export * from "./context/retrieval.js";
 export * from "./context/progress.js";
+export * from "./context/threads.js";
 export * from "./context/builder.js";
 export * from "./reconciliation/conflict-detector.js";
 export * from "./reconciliation/canon-merger.js";

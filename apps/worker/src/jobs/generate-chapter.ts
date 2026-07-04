@@ -45,6 +45,7 @@ import {
   getActiveCharacters,
   getOpenThreadsForStory,
   getSeedsDueForChapter,
+  isThreadOverdue,
   getRecentSummaries,
   getStoryTargetChapterCount,
   getLockedCanonFactCandidates,
@@ -781,9 +782,8 @@ export async function executeGenerateChapterPipeline(
     if (!bible)
       throw new Error(`No story bible found for story ${data.storyId}`);
 
-    const overdueThreads = openThreads.filter(
-      (t) =>
-        t.state !== "resolved" && t.introducedChapter < data.chapterNumber - 10,
+    const overdueThreads = openThreads.filter((t) =>
+      isThreadOverdue(t, data.chapterNumber),
     );
 
     const [saga, storyTargetChapterCount] = await Promise.all([
