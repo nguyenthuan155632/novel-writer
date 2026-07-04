@@ -20,6 +20,7 @@ vi.mock("../../src/context/retrieval.js", () => ({
   getSagaForChapter: vi.fn().mockResolvedValue(null),
   getArcById: vi.fn().mockResolvedValue(null),
   getActiveCharacters: vi.fn().mockResolvedValue([] as CharacterCompact[]),
+  getCharactersByNames: vi.fn().mockResolvedValue([] as CharacterCompact[]),
   getOpenThreadsForStory: vi.fn().mockResolvedValue([] as ThreadCompact[]),
   getPlantedSeedsForStory: vi.fn().mockResolvedValue([] as SeedCompact[]),
   getSeedsDueForChapter: vi.fn().mockResolvedValue([] as SeedCompact[]),

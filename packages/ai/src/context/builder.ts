@@ -17,6 +17,7 @@ import type {
   SeedCompact,
   CanonFactCompact,
   TimelineEventCompact,
+  CharacterCompact,
 } from "./types.js";
 import { computeHotHash, computeWarmHash } from "./cache-keys.js";
 import {
@@ -24,6 +25,7 @@ import {
   getSagaForChapter,
   getArcById,
   getActiveCharacters,
+  getCharactersByNames,
   getOpenThreadsForStory,
   getSeedsDueForChapter,
   getRecentSummaries,
@@ -129,6 +131,17 @@ export async function buildContext(
     getPrevChapterTailContent(db, storyId, chapterNumber),
   ]);
 
+  const recalledCharacters = await getCharactersByNames(
+    db,
+    storyId,
+    packet.charactersPresent ?? [],
+  );
+  const mergedCharacters = mergeRecalledCharacters(
+    characters,
+    recalledCharacters,
+    chapterNumber,
+  );
+
   const arcSeeds = filterArcSeeds(allSeeds, chapterNumber);
 
   const sagaPlanText = [
@@ -174,7 +187,7 @@ export async function buildContext(
   const warm: WarmTier = {
     sagaSummary: sagaPlanText,
     arcSummary: arcPlanText,
-    activeCharacters: characters,
+    activeCharacters: mergedCharacters,
     arcOpenThreads: threads,
     arcPlantedSeeds: arcSeeds,
     parallelThreads: Array.isArray(saga?.parallelThreads)
@@ -327,6 +340,18 @@ export async function buildContext(
   ctx.meta.warmHash = computeWarmHash(ctx.warm);
 
   return ctx;
+}
+
+export function mergeRecalledCharacters(
+  active: CharacterCompact[],
+  recalled: CharacterCompact[],
+  chapterNumber: number,
+): CharacterCompact[] {
+  const seen = new Set(active.map((c) => c.id));
+  const extras = recalled
+    .filter((c) => !seen.has(c.id))
+    .map((c) => ({ ...c, lastActiveChapter: chapterNumber }));
+  return [...active, ...extras];
 }
 
 function buildHotTier(

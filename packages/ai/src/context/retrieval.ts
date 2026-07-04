@@ -1,4 +1,4 @@
-import { eq, and, gte, lte, desc, lt, sql } from "drizzle-orm";
+import { eq, and, gte, lte, desc, lt, sql, inArray } from "drizzle-orm";
 import {
   chapters,
   storyBibles,
@@ -120,6 +120,19 @@ export async function getActiveCharacters(
       ),
     )
     .orderBy(desc(characters.lastActiveChapter));
+  return rows.map((c) => compactCharacter(c));
+}
+
+export async function getCharactersByNames(
+  db: Db,
+  storyId: string,
+  names: string[],
+): Promise<CharacterCompact[]> {
+  if (names.length === 0) return [];
+  const rows = await db
+    .select()
+    .from(characters)
+    .where(and(eq(characters.storyId, storyId), inArray(characters.name, names)));
   return rows.map((c) => compactCharacter(c));
 }
 
