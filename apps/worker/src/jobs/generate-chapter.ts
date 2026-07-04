@@ -75,10 +75,12 @@ import {
 } from "@novel/ai/llm-call-logger";
 import type { LLMProvider, CompletionUsage } from "@novel/ai/providers/types";
 import {
+  CONTEXT_CONFIG,
   estimateCostUsd,
   estimateTokensJson,
   modelFor,
   parseLlmProvider,
+  shouldRefreshRollingSummary,
   shouldRunReviewer,
   type AgentRole,
   type EffectiveConfig,
@@ -776,7 +778,7 @@ export async function executeGenerateChapterPipeline(
       db,
       data.storyId,
       data.chapterNumber,
-      5,
+      CONTEXT_CONFIG.RECENT_CHAPTER_SUMMARIES_COUNT,
     );
 
     if (!bible)
@@ -1629,19 +1631,27 @@ Trạng thái hiện tại: ${currentRealms || "(chưa xác định)"}`;
         finalStatus === "paused_pending_updates") &&
       resolvedArcId
     ) {
-      try {
-        const refreshJobId = await enqueueRefreshArcSummary({
-          storyId: data.storyId,
-          arcId: resolvedArcId,
-          traceId: data.traceId,
-          llmProvider: data.llmProvider,
-          modelRoutes: data.modelRoutes,
-        });
-        log.info({ refreshJobId }, "enqueued arc summary refresh");
-      } catch (enqueueErr) {
-        log.warn({ err: enqueueErr }, "failed to enqueue arc summary refresh");
+      const arcRefreshDue = shouldRefreshRollingSummary({
+        chapterNumber: data.chapterNumber,
+        startChapter: arc?.startChapter ?? null,
+        endChapter: arc?.endChapter ?? null,
+        everyN: CONTEXT_CONFIG.ARC_ROLLING_SUMMARY_REFRESH_EVERY_N_CHAPTERS,
+      });
+      if (arcRefreshDue) {
+        try {
+          const refreshJobId = await enqueueRefreshArcSummary({
+            storyId: data.storyId,
+            arcId: resolvedArcId,
+            traceId: data.traceId,
+            triggerChapterNumber: data.chapterNumber,
+            llmProvider: data.llmProvider,
+            modelRoutes: data.modelRoutes,
+          });
+          log.info({ refreshJobId }, "enqueued arc summary refresh");
+        } catch (enqueueErr) {
+          log.warn({ err: enqueueErr }, "failed to enqueue arc summary refresh");
+        }
       }
-
     }
 
     log.info(

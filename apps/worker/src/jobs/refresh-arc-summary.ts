@@ -1,9 +1,9 @@
 import { getDb } from '@novel/db';
-import { arcs, chapters, chapterSummaries } from '@novel/db/schema';
+import { arcs, chapters, chapterSummaries, sagas } from '@novel/db/schema';
 import { eq, and, desc, gte, lte, sql, or } from 'drizzle-orm';
 import type { Logger } from 'pino';
 import { ArcSummaryCompactorAgent } from '@novel/ai';
-import type { LlmProviderId, ModelRoutes } from '@novel/core';
+import { CONTEXT_CONFIG, shouldRefreshRollingSummary, type LlmProviderId, type ModelRoutes } from '@novel/core';
 import { buildLoggedWorkerProvider } from './provider.js';
 import { enqueueRefreshSagaSummary } from '../services/queue-publisher.js';
 
@@ -11,6 +11,7 @@ export interface RefreshArcSummaryJobData {
   storyId: string;
   arcId: string;
   traceId: string;
+  triggerChapterNumber?: number;
   llmProvider?: LlmProviderId;
   modelRoutes?: Partial<ModelRoutes>;
 }
@@ -66,7 +67,20 @@ export async function runRefreshArcSummaryJob(data: RefreshArcSummaryJobData, ct
     summaryUpdatedAt: new Date(),
   }).where(eq(arcs.id, arcId));
 
-  if (arc.sagaId) {
+  const [sagaRow] = arc.sagaId
+    ? await db.select({ startChapter: sagas.startChapter, endChapter: sagas.endChapter })
+        .from(sagas).where(eq(sagas.id, arc.sagaId)).limit(1)
+    : [];
+  const sagaRefreshDue =
+    arc.sagaId != null &&
+    (data.triggerChapterNumber == null ||
+      shouldRefreshRollingSummary({
+        chapterNumber: data.triggerChapterNumber,
+        startChapter: sagaRow?.startChapter ?? null,
+        endChapter: sagaRow?.endChapter ?? null,
+        everyN: CONTEXT_CONFIG.SAGA_ROLLING_SUMMARY_REFRESH_EVERY_N_CHAPTERS,
+      }));
+  if (arc.sagaId && sagaRefreshDue) {
     try {
       const sagaJobId = await enqueueRefreshSagaSummary({
         storyId,
