@@ -1,0 +1,1 @@
+ALTER TABLE "arcs" ADD COLUMN "last_compacted_chapter" integer;
