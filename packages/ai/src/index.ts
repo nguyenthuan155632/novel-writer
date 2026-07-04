@@ -48,6 +48,7 @@ export * from "./context/retrieval.js";
 export * from "./context/progress.js";
 export * from "./context/threads.js";
 export * from "./context/builder.js";
+export * from "./context/turning-points.js";
 export * from "./reconciliation/conflict-detector.js";
 export * from "./reconciliation/canon-merger.js";
 export * from "./schemas/validator.js";

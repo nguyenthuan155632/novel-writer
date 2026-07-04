@@ -5,6 +5,8 @@ import {
   chapterSummaries,
   contextPackets,
   validations,
+  sagas,
+  arcs,
 } from "@novel/db/schema";
 import type { Db } from "@novel/db";
 import type { Logger } from "pino";
@@ -32,6 +34,7 @@ import {
   type DeterministicValidatorResult,
   buildContext,
   computeProgressWindow,
+  computeTurningPointStatuses,
   type ChapterContext,
   type CheckInput,
   CanonMerger,
@@ -826,6 +829,7 @@ export async function executeGenerateChapterPipeline(
       fallbackSource: "story_target_fallback",
     });
 
+    let tpStatuses: ReturnType<typeof computeTurningPointStatuses> = [];
     if (
       sagaProgress &&
       Array.isArray(saga?.expectedTurningPoints) &&
@@ -837,27 +841,29 @@ export async function executeGenerateChapterPipeline(
       );
       const sagaPosition = data.chapterNumber - sagaProgress.startChapter + 1;
       const tps = saga.expectedTurningPoints as string[];
-      const expectedTpIndex = Math.min(
-        tps.length - 1,
-        Math.floor((sagaPosition - 1) / (sagaSpan / tps.length)),
-      );
-      const tpList = tps
-        .map((tp, i) => {
-          const marker =
-            i < expectedTpIndex
-              ? "[trễ tiến độ]"
-              : i === expectedTpIndex
-                ? "[đang diễn ra]"
-                : "[sắp tới]";
-          return `${i + 1}. ${marker} ${tp}`;
-        })
+      tpStatuses = computeTurningPointStatuses({
+        turningPoints: tps,
+        completedIndices: (saga.completedTurningPoints as number[]) ?? [],
+        sagaPosition,
+        sagaSpan,
+      });
+      const markerFor = {
+        done: "[đã xảy ra]",
+        overdue: "[trễ tiến độ]",
+        current: "[đang diễn ra]",
+        upcoming: "[sắp tới]",
+      } as const;
+      const tpList = tpStatuses
+        .map((s) => `${s.index + 1}. ${markerFor[s.state]} ${s.text}`)
         .join("\n");
       pacingHint += `\n\n# SAGA PACING (saga ${sagaProgress.range} ≈ ${sagaProgress.percent}%, source=${sagaProgress.source})
 Đối chiếu với # 5 CHƯƠNG GẦN NHẤT: nếu turning point được đánh dấu [trễ tiến độ] mà chưa thấy trong các chương đó, chương này nên đẩy nó xảy ra để truyện bắt kịp nhịp saga.
 Turning points của saga:
 ${tpList}`;
 
-      const overdueTps = tps.slice(0, expectedTpIndex);
+      const overdueTps = tpStatuses
+        .filter((s) => s.state === "overdue")
+        .map((s) => s.text);
       if (overdueTps.length > 0) {
         const currentRealms = activeCharacters
           .filter((c) => c.status === "alive" && c.currentRealm)
@@ -884,6 +890,15 @@ Trạng thái hiện tại: ${currentRealms || "(chưa xác định)"}`;
     ]
       .filter(Boolean)
       .join("\n\n");
+
+    const completedChangeIdx = new Set((arc?.completedChanges as number[]) ?? []);
+    const unfinishedChanges = arcExpectedChanges
+      .map((text, index) => ({ text, index }))
+      .filter((c) => !completedChangeIdx.has(c.index));
+    let mandatoryChangesHint = "";
+    if (arcProgress && arcProgress.percent >= 80 && unfinishedChanges.length > 0) {
+      mandatoryChangesHint = `\n\n# EXPECTED CHANGES CHƯA HOÀN THÀNH (arc sắp kết thúc — PHẢI xử lý hoặc thu xếp trước chương cuối arc)\n${unfinishedChanges.map((c) => `  - ${c.text}`).join("\n")}`;
+    }
 
     const packetInput = {
       bibleCompact: bible.compactSummary ?? "",
@@ -916,7 +931,7 @@ Trạng thái hiện tại: ${currentRealms || "(chưa xác định)"}`;
       })),
       forbiddenRules: bible.forbiddenRules,
       chapterNumber: data.chapterNumber,
-      arcGoals: (arc?.mainConflict ?? arc?.premise ?? "") + pacingHint,
+      arcGoals: (arc?.mainConflict ?? arc?.premise ?? "") + pacingHint + mandatoryChangesHint,
       realmLadder: resolveRealmLadder(bible, domain.genreFamily),
     };
 
@@ -930,24 +945,9 @@ Trạng thái hiện tại: ${currentRealms || "(chưa xác định)"}`;
     let packetResult: PacketGenerationResult = undefined!;
     let attemptCount = 0;
 
-    const overdueTurningPoints: string[] =
-      saga?.startChapter != null &&
-      saga?.endChapter != null &&
-      Array.isArray(saga.expectedTurningPoints)
-        ? (() => {
-            const tps = saga.expectedTurningPoints as string[];
-            const sagaSpanLocal = Math.max(
-              1,
-              saga.endChapter! - saga.startChapter! + 1,
-            );
-            const sagaPosLocal = data.chapterNumber - saga.startChapter! + 1;
-            const expectedIdx = Math.min(
-              tps.length - 1,
-              Math.floor((sagaPosLocal - 1) / (sagaSpanLocal / tps.length)),
-            );
-            return tps.slice(0, expectedIdx);
-          })()
-        : [];
+    const overdueTurningPoints: string[] = tpStatuses
+      .filter((s) => s.state === "overdue")
+      .map((s) => s.text);
 
     // §1.8 — two-attempt regenerate loop
     let auditResult: ReturnType<typeof auditPacket> = undefined!;
@@ -1514,11 +1514,39 @@ Trạng thái hiện tại: ${currentRealms || "(chưa xác định)"}`;
           status: s.status,
         })),
         recentSummary: context.cold.recentSummaries[0]?.summary ?? "",
+        sagaTurningPoints: (Array.isArray(saga?.expectedTurningPoints)
+          ? (saga.expectedTurningPoints as string[])
+          : []
+        ).map((text, index) => ({
+          index,
+          text,
+          completed: ((saga?.completedTurningPoints as number[]) ?? []).includes(index),
+        })),
+        arcExpectedChanges: arcExpectedChanges.map((text, index) => ({
+          index,
+          text,
+          completed: ((arc?.completedChanges as number[]) ?? []).includes(index),
+        })),
       },
       { traceId, storyId: data.storyId },
     );
     accumulateUsage(extractionResult.usage, tokenAcc);
     totalCost += estimateCostUsd(canonExtractorModel, extractionResult.usage);
+
+    const newTpDone = extractionResult.output.turningPointsCompleted.filter(
+      (i) => Array.isArray(saga?.expectedTurningPoints) && i < (saga.expectedTurningPoints as string[]).length,
+    );
+    if (saga && newTpDone.length > 0) {
+      const merged = Array.from(new Set([...((saga.completedTurningPoints as number[]) ?? []), ...newTpDone])).sort((a, b) => a - b);
+      await db.update(sagas).set({ completedTurningPoints: merged, updatedAt: new Date() }).where(eq(sagas.id, saga.id));
+      log.info({ completedTurningPoints: merged }, "saga turning-point progress updated");
+    }
+    const newChangesDone = extractionResult.output.arcChangesCompleted.filter((i) => i < arcExpectedChanges.length);
+    if (arc && newChangesDone.length > 0) {
+      const merged = Array.from(new Set([...((arc.completedChanges as number[]) ?? []), ...newChangesDone])).sort((a, b) => a - b);
+      await db.update(arcs).set({ completedChanges: merged }).where(eq(arcs.id, arc.id));
+      log.info({ completedChanges: merged }, "arc expected-change progress updated");
+    }
 
     const mergerRows = extractorOutputToRows(extractionResult.output);
 
