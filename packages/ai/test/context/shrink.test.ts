@@ -285,6 +285,9 @@ describe("shrinkToFit", () => {
       },
     });
     const result = shrinkToFit(ctx, 1200);
-    expect(estimateTokensJson(result)).toBeLessThanOrEqual(1200);
+    // shrinkReport is observability metadata, not prompt content — exclude it
+    // from the budget check (the loop that trims content runs before it's attached).
+    const { shrinkReport: _shrinkReport, ...restMeta } = result.meta;
+    expect(estimateTokensJson({ ...result, meta: restMeta })).toBeLessThanOrEqual(1200);
   });
 });

@@ -337,6 +337,12 @@ export async function buildContext(
     order: cfg.SHRINK_ORDER,
     retrievedPastChaptersMinGap: cfg.RETRIEVED_PAST_CHAPTERS_MIN_GAP,
   });
+  if (ctx.meta.shrinkReport) {
+    log?.warn(
+      { storyId, chapterNumber, shrinkReport: ctx.meta.shrinkReport },
+      "context over budget — items dropped by shrinkToFit",
+    );
+  }
   ctx.meta.warmHash = computeWarmHash(ctx.warm);
 
   return ctx;
