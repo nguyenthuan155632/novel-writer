@@ -11,6 +11,7 @@ export const sagas = pgTable('sagas', {
   endChapter: integer('end_chapter'),
   parentTimelineId: uuid('parent_timeline_id'),
   expectedTurningPoints: jsonb('expected_turning_points').$type<string[]>().default([]).notNull(),
+  completedTurningPoints: jsonb('completed_turning_points').$type<number[]>().default([]).notNull(),
   convergencePoints: jsonb('convergence_points').$type<{ atChapter: number; threadIds: string[]; synopsis: string }[]>().default([]).notNull(),
   parallelThreads: jsonb('parallel_threads').$type<{ id: string; premise: string; startChapter: number; endChapter: number; parentTimelineId: string | null }[]>().default([]).notNull(),
   rollingSummary: text('rolling_summary'),

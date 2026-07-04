@@ -92,6 +92,8 @@ export class CanonMerger {
           fields: (r.payload.fields as Record<string, unknown>) ?? {},
         })),
       seedsResolvedThisChapter: params.seedsResolvedIds,
+      turningPointsCompleted: [],
+      arcChangesCompleted: [],
     };
 
     const conflicts = detectConflicts(extracted, snapshot);

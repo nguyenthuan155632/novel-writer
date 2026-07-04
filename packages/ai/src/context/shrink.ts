@@ -26,6 +26,17 @@ const MIN_KEEP = 3;
 const RAISED_FACT_IMPORTANCE: ReadonlySet<string> = new Set(['locked']);
 const RECENT_SUMMARY_MIN_GAP = 10;
 
+function countItems(ctx: ChapterContext): Record<string, number> {
+  return {
+    retrievedFacts: ctx.cold.retrievedFacts.length,
+    recentSummaries: ctx.cold.recentSummaries.length,
+    retrievedPastChapters: ctx.cold.retrievedPastChapters.length,
+    activeCharacters: ctx.warm.activeCharacters.length,
+    pendingCanonUpdates: ctx.cold.pendingCanonUpdates.length,
+    timelineEvents: ctx.cold.timelineEvents.length,
+  };
+}
+
 export function shrinkToFit(
   ctx: ChapterContext,
   targetBudget: number,
@@ -36,16 +47,31 @@ export function shrinkToFit(
 
   if (estimateTokensJson(current) <= targetBudget) return current;
 
+  const before = countItems(current);
+  const actionsApplied: string[] = [];
+
   for (const action of order) {
     if (estimateTokensJson(current) <= targetBudget) break;
     current = applyShrink(current, action, options);
+    actionsApplied.push(action);
   }
 
-  if (estimateTokensJson(current) <= targetBudget) return current;
-  current.cold.pendingCanonUpdates = dropOldestPendingCanonUpdates(current.cold.pendingCanonUpdates);
-  if (estimateTokensJson(current) <= targetBudget) return current;
+  if (estimateTokensJson(current) > targetBudget) {
+    current.cold.pendingCanonUpdates = dropOldestPendingCanonUpdates(current.cold.pendingCanonUpdates);
+    actionsApplied.push('pendingCanonUpdates');
+  }
+  if (estimateTokensJson(current) > targetBudget) {
+    current.cold.timelineEvents = dropOldestTimelineEvents(current.cold.timelineEvents);
+    actionsApplied.push('timelineEvents');
+  }
 
-  current.cold.timelineEvents = dropOldestTimelineEvents(current.cold.timelineEvents);
+  const after = countItems(current);
+  const dropped: Record<string, number> = {};
+  for (const key of Object.keys(before)) {
+    const delta = (before[key] ?? 0) - (after[key] ?? 0);
+    if (delta > 0) dropped[key] = delta;
+  }
+  current.meta.shrinkReport = { actionsApplied, dropped };
   return current;
 }
 

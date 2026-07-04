@@ -140,6 +140,30 @@ describe('ExtractorOutputSchema', () => {
     expect(() => ExtractorOutputSchema.parse(data)).toThrow();
   });
 
+  it('parses turningPointsCompleted and arcChangesCompleted, defaulting to []', () => {
+    const minimal = ExtractorOutputSchema.parse({
+      characterUpdates: [],
+      newCanonFacts: [],
+      threadUpdates: [],
+      newTimelineEvents: [],
+      seedsResolvedThisChapter: [],
+    });
+    expect(minimal.turningPointsCompleted).toEqual([]);
+    expect(minimal.arcChangesCompleted).toEqual([]);
+
+    const withProgress = ExtractorOutputSchema.parse({
+      characterUpdates: [],
+      newCanonFacts: [],
+      threadUpdates: [],
+      newTimelineEvents: [],
+      seedsResolvedThisChapter: [],
+      turningPointsCompleted: [1, 1, -2, 3],
+      arcChangesCompleted: [0],
+    });
+    expect(withProgress.turningPointsCompleted).toEqual([1, 3]); // dedup + drop negatives
+    expect(withProgress.arcChangesCompleted).toEqual([0]);
+  });
+
   it('drops bad targetId placeholder on faction updates', () => {
     const data = {
       characterUpdates: [],

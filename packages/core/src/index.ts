@@ -22,6 +22,7 @@ export { parseLlmProvider, type LlmProviderId } from './config/llm-provider.ts';
 export { LONG_FORM_CONFIG, type LongFormConfig } from './config/long-form.ts';
 export { resolveEffectiveMode, type Mode, type ModeContext, type ModeEscalationDeps, type ArcBoundary } from './policy/mode-escalation.ts';
 export { checkAgainstCaps } from './policy/budget-guardrails.ts';
+export { shouldRefreshRollingSummary } from './policy/summary-refresh.ts';
 export { shouldRunReviewer, type TriggerContext } from './policy/high-stakes-triggers.ts';
 export { mergeOverrides, getEffectiveConfig, type EffectiveConfig, type ConfigOverrides, type StoryOverridesProvider } from './config/effective.ts';
 export * from './types/canon.ts';

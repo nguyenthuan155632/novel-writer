@@ -1,4 +1,4 @@
-import { eq, and, gte, lte, desc, lt, sql } from "drizzle-orm";
+import { eq, and, gte, lte, desc, lt, sql, inArray } from "drizzle-orm";
 import {
   chapters,
   storyBibles,
@@ -120,6 +120,19 @@ export async function getActiveCharacters(
       ),
     )
     .orderBy(desc(characters.lastActiveChapter));
+  return rows.map((c) => compactCharacter(c));
+}
+
+export async function getCharactersByNames(
+  db: Db,
+  storyId: string,
+  names: string[],
+): Promise<CharacterCompact[]> {
+  if (names.length === 0) return [];
+  const rows = await db
+    .select()
+    .from(characters)
+    .where(and(eq(characters.storyId, storyId), inArray(characters.name, names)));
   return rows.map((c) => compactCharacter(c));
 }
 
@@ -363,6 +376,37 @@ export async function getPastChapterSummaries(
     .orderBy(desc(chapterSummaries.chapterNumber))
     .limit(topK);
   return rows.map((s) => compactSummary(s));
+}
+
+/**
+ * Vector-similarity retrieval of past chapter summaries (embedding written at
+ * chapter completion). Falls back to getPastChapterSummaries at call sites
+ * when no query embedding is available.
+ */
+export async function getPastChapterSummariesByEmbedding(
+  db: Db,
+  storyId: string,
+  currentChapter: number,
+  minGap: number,
+  topK: number,
+  queryEmbedding: number[],
+): Promise<ChapterSummaryCompact[]> {
+  if (queryEmbedding.length === 0) return [];
+  const threshold = currentChapter - minGap;
+  const vectorLiteral = `[${queryEmbedding.map((n) => Number(n)).join(",")}]`;
+  const results = await db.execute(sql`
+    SELECT chapter_number, summary
+    FROM chapter_summaries
+    WHERE story_id = ${storyId}
+      AND chapter_number < ${threshold}
+      AND embedding IS NOT NULL
+    ORDER BY embedding <=> ${sql.raw(`'${vectorLiteral}'::vector`)}
+    LIMIT ${topK}
+  `);
+  const rows = Array.from(results) as { chapter_number: number; summary: string }[];
+  return rows.map((r) =>
+    compactSummary({ chapterNumber: r.chapter_number, summary: r.summary }),
+  );
 }
 
 export async function getTimelineEventsForChapter(

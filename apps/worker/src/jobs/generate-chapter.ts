@@ -5,6 +5,8 @@ import {
   chapterSummaries,
   contextPackets,
   validations,
+  sagas,
+  arcs,
 } from "@novel/db/schema";
 import type { Db } from "@novel/db";
 import type { Logger } from "pino";
@@ -32,6 +34,7 @@ import {
   type DeterministicValidatorResult,
   buildContext,
   computeProgressWindow,
+  computeTurningPointStatuses,
   type ChapterContext,
   type CheckInput,
   CanonMerger,
@@ -45,6 +48,7 @@ import {
   getActiveCharacters,
   getOpenThreadsForStory,
   getSeedsDueForChapter,
+  isThreadOverdue,
   getRecentSummaries,
   getStoryTargetChapterCount,
   getLockedCanonFactCandidates,
@@ -74,10 +78,12 @@ import {
 } from "@novel/ai/llm-call-logger";
 import type { LLMProvider, CompletionUsage } from "@novel/ai/providers/types";
 import {
+  CONTEXT_CONFIG,
   estimateCostUsd,
   estimateTokensJson,
   modelFor,
   parseLlmProvider,
+  shouldRefreshRollingSummary,
   shouldRunReviewer,
   type AgentRole,
   type EffectiveConfig,
@@ -99,6 +105,11 @@ export interface GenerateChapterDeps {
   logger: Logger;
   mode: "safe" | "semi_auto" | "full_auto";
   effectiveConfig?: EffectiveConfig;
+}
+
+/** §1.8 escalation: a packet that still fails audit after retries must not be written unattended. */
+export function shouldPauseOnAuditFailure(mode: string, requiresRegenerate: boolean): boolean {
+  return requiresRegenerate && mode !== "safe";
 }
 
 export function serializeContextForWriter(
@@ -775,15 +786,14 @@ export async function executeGenerateChapterPipeline(
       db,
       data.storyId,
       data.chapterNumber,
-      5,
+      CONTEXT_CONFIG.RECENT_CHAPTER_SUMMARIES_COUNT,
     );
 
     if (!bible)
       throw new Error(`No story bible found for story ${data.storyId}`);
 
-    const overdueThreads = openThreads.filter(
-      (t) =>
-        t.state !== "resolved" && t.introducedChapter < data.chapterNumber - 10,
+    const overdueThreads = openThreads.filter((t) =>
+      isThreadOverdue(t, data.chapterNumber),
     );
 
     const [saga, storyTargetChapterCount] = await Promise.all([
@@ -824,6 +834,7 @@ export async function executeGenerateChapterPipeline(
       fallbackSource: "story_target_fallback",
     });
 
+    let tpStatuses: ReturnType<typeof computeTurningPointStatuses> = [];
     if (
       sagaProgress &&
       Array.isArray(saga?.expectedTurningPoints) &&
@@ -835,27 +846,29 @@ export async function executeGenerateChapterPipeline(
       );
       const sagaPosition = data.chapterNumber - sagaProgress.startChapter + 1;
       const tps = saga.expectedTurningPoints as string[];
-      const expectedTpIndex = Math.min(
-        tps.length - 1,
-        Math.floor((sagaPosition - 1) / (sagaSpan / tps.length)),
-      );
-      const tpList = tps
-        .map((tp, i) => {
-          const marker =
-            i < expectedTpIndex
-              ? "[trễ tiến độ]"
-              : i === expectedTpIndex
-                ? "[đang diễn ra]"
-                : "[sắp tới]";
-          return `${i + 1}. ${marker} ${tp}`;
-        })
+      tpStatuses = computeTurningPointStatuses({
+        turningPoints: tps,
+        completedIndices: (saga.completedTurningPoints as number[]) ?? [],
+        sagaPosition,
+        sagaSpan,
+      });
+      const markerFor = {
+        done: "[đã xảy ra]",
+        overdue: "[trễ tiến độ]",
+        current: "[đang diễn ra]",
+        upcoming: "[sắp tới]",
+      } as const;
+      const tpList = tpStatuses
+        .map((s) => `${s.index + 1}. ${markerFor[s.state]} ${s.text}`)
         .join("\n");
       pacingHint += `\n\n# SAGA PACING (saga ${sagaProgress.range} ≈ ${sagaProgress.percent}%, source=${sagaProgress.source})
 Đối chiếu với # 5 CHƯƠNG GẦN NHẤT: nếu turning point được đánh dấu [trễ tiến độ] mà chưa thấy trong các chương đó, chương này nên đẩy nó xảy ra để truyện bắt kịp nhịp saga.
 Turning points của saga:
 ${tpList}`;
 
-      const overdueTps = tps.slice(0, expectedTpIndex);
+      const overdueTps = tpStatuses
+        .filter((s) => s.state === "overdue")
+        .map((s) => s.text);
       if (overdueTps.length > 0) {
         const currentRealms = activeCharacters
           .filter((c) => c.status === "alive" && c.currentRealm)
@@ -882,6 +895,15 @@ Trạng thái hiện tại: ${currentRealms || "(chưa xác định)"}`;
     ]
       .filter(Boolean)
       .join("\n\n");
+
+    const completedChangeIdx = new Set((arc?.completedChanges as number[]) ?? []);
+    const unfinishedChanges = arcExpectedChanges
+      .map((text, index) => ({ text, index }))
+      .filter((c) => !completedChangeIdx.has(c.index));
+    let mandatoryChangesHint = "";
+    if (arcProgress && arcProgress.percent >= 80 && unfinishedChanges.length > 0) {
+      mandatoryChangesHint = `\n\n# EXPECTED CHANGES CHƯA HOÀN THÀNH (arc sắp kết thúc — PHẢI xử lý hoặc thu xếp trước chương cuối arc)\n${unfinishedChanges.map((c) => `  - ${c.text}`).join("\n")}`;
+    }
 
     const packetInput = {
       bibleCompact: bible.compactSummary ?? "",
@@ -914,7 +936,7 @@ Trạng thái hiện tại: ${currentRealms || "(chưa xác định)"}`;
       })),
       forbiddenRules: bible.forbiddenRules,
       chapterNumber: data.chapterNumber,
-      arcGoals: (arc?.mainConflict ?? arc?.premise ?? "") + pacingHint,
+      arcGoals: (arc?.mainConflict ?? arc?.premise ?? "") + pacingHint + mandatoryChangesHint,
       realmLadder: resolveRealmLadder(bible, domain.genreFamily),
     };
 
@@ -928,24 +950,9 @@ Trạng thái hiện tại: ${currentRealms || "(chưa xác định)"}`;
     let packetResult: PacketGenerationResult = undefined!;
     let attemptCount = 0;
 
-    const overdueTurningPoints: string[] =
-      saga?.startChapter != null &&
-      saga?.endChapter != null &&
-      Array.isArray(saga.expectedTurningPoints)
-        ? (() => {
-            const tps = saga.expectedTurningPoints as string[];
-            const sagaSpanLocal = Math.max(
-              1,
-              saga.endChapter! - saga.startChapter! + 1,
-            );
-            const sagaPosLocal = data.chapterNumber - saga.startChapter! + 1;
-            const expectedIdx = Math.min(
-              tps.length - 1,
-              Math.floor((sagaPosLocal - 1) / (sagaSpanLocal / tps.length)),
-            );
-            return tps.slice(0, expectedIdx);
-          })()
-        : [];
+    const overdueTurningPoints: string[] = tpStatuses
+      .filter((s) => s.state === "overdue")
+      .map((s) => s.text);
 
     // §1.8 — two-attempt regenerate loop
     let auditResult: ReturnType<typeof auditPacket> = undefined!;
@@ -1012,14 +1019,6 @@ Trạng thái hiện tại: ${currentRealms || "(chưa xác định)"}`;
       }
     }
 
-    if (auditResult.requiresRegenerate) {
-      log.error(
-        { issues: auditResult.issues, attemptCount },
-        "packet audit failed after all retries — operator review required (safe-mode escalation)",
-      );
-      // TODO: enqueue safe-mode re-queue when mode escalation API is available
-    }
-
     const packetHighStakes =
       (arc as { phase?: string | null } | undefined)?.phase === "climax" ||
       isFirstChapterOfArc(arc, data.chapterNumber) ||
@@ -1027,6 +1026,42 @@ Trạng thái hiện tại: ${currentRealms || "(chưa xác định)"}`;
       packetResult.packet.requiredEvents.some((event) =>
         /đột phá|đột phá cảnh giới|breakthrough|character death|chết|tử trận|hi sinh/i.test(event.description),
       );
+
+    if (auditResult.requiresRegenerate) {
+      log.error(
+        { issues: auditResult.issues, attemptCount },
+        "packet audit failed after all retries — operator review required (safe-mode escalation)",
+      );
+      if (shouldPauseOnAuditFailure(mode, auditResult.requiresRegenerate)) {
+        await db.insert(chapterPackets).values({
+          storyId: data.storyId,
+          chapterId,
+          arcId: resolvedArcId,
+          chapterNumber: data.chapterNumber,
+          goal: packetResult.packet.goal,
+          requiredEvents: packetResult.packet.requiredEvents.map(
+            (e) => e.description,
+          ),
+          charactersInScene: packetResult.packet.charactersPresent,
+          conflict: packetResult.packet.conflict,
+          cliffhanger: packetResult.packet.cliffhanger,
+          forbiddenMoves: packetResult.packet.forbiddenMoves,
+          highStakes: packetHighStakes,
+        });
+        await db
+          .update(chapters)
+          .set({ status: "paused_pending_updates", packetAuditStatus: "failed", updatedAt: new Date() })
+          .where(eq(chapters.id, chapterId));
+        return {
+          chapterId,
+          status: "paused_pending_updates",
+          attempts: attemptCount,
+          totalTokens: tokenAcc.inputTokens + tokenAcc.outputTokens,
+          totalCostUsd: totalCost,
+          durationMs: Date.now() - start,
+        };
+      }
+    }
 
     await db.insert(chapterPackets).values({
       storyId: data.storyId,
@@ -1512,11 +1547,40 @@ Trạng thái hiện tại: ${currentRealms || "(chưa xác định)"}`;
           status: s.status,
         })),
         recentSummary: context.cold.recentSummaries[0]?.summary ?? "",
+        sagaTurningPoints: (Array.isArray(saga?.expectedTurningPoints)
+          ? (saga.expectedTurningPoints as string[])
+          : []
+        ).map((text, index) => ({
+          index,
+          text,
+          completed: ((saga?.completedTurningPoints as number[]) ?? []).includes(index),
+        })),
+        arcExpectedChanges: arcExpectedChanges.map((text, index) => ({
+          index,
+          text,
+          completed: ((arc?.completedChanges as number[]) ?? []).includes(index),
+        })),
       },
       { traceId, storyId: data.storyId },
     );
     accumulateUsage(extractionResult.usage, tokenAcc);
     totalCost += estimateCostUsd(canonExtractorModel, extractionResult.usage);
+
+    let completedTurningPointsUpdate: number[] | null = null;
+    let completedChangesUpdate: number[] | null = null;
+
+    const newTpDone = extractionResult.output.turningPointsCompleted.filter(
+      (i) => Array.isArray(saga?.expectedTurningPoints) && i < (saga.expectedTurningPoints as string[]).length,
+    );
+    if (saga && newTpDone.length > 0) {
+      const merged = Array.from(new Set([...((saga.completedTurningPoints as number[]) ?? []), ...newTpDone])).sort((a, b) => a - b);
+      completedTurningPointsUpdate = merged;
+    }
+    const newChangesDone = extractionResult.output.arcChangesCompleted.filter((i) => i < arcExpectedChanges.length);
+    if (arc && newChangesDone.length > 0) {
+      const merged = Array.from(new Set([...((arc.completedChanges as number[]) ?? []), ...newChangesDone])).sort((a, b) => a - b);
+      completedChangesUpdate = merged;
+    }
 
     const mergerRows = extractorOutputToRows(extractionResult.output);
 
@@ -1624,24 +1688,61 @@ Trạng thái hiện tại: ${currentRealms || "(chưa xác định)"}`;
       })
       .where(eq(chapters.id, chapterId));
 
+    if (saga && completedTurningPointsUpdate) {
+      try {
+        await db
+          .update(sagas)
+          .set({ completedTurningPoints: completedTurningPointsUpdate, updatedAt: new Date() })
+          .where(eq(sagas.id, saga.id));
+        log.info(
+          { completedTurningPoints: completedTurningPointsUpdate },
+          "saga turning-point progress updated",
+        );
+      } catch (err) {
+        log.warn({ err }, "failed to persist saga turning-point progress; continuing");
+      }
+    }
+    if (arc && completedChangesUpdate) {
+      try {
+        await db
+          .update(arcs)
+          .set({ completedChanges: completedChangesUpdate })
+          .where(eq(arcs.id, arc.id));
+        log.info(
+          { completedChanges: completedChangesUpdate },
+          "arc expected-change progress updated",
+        );
+      } catch (err) {
+        log.warn({ err }, "failed to persist arc expected-change progress; continuing");
+      }
+    }
+
     if (
       (finalStatus === "completed" ||
         finalStatus === "paused_pending_updates") &&
       resolvedArcId
     ) {
-      try {
-        const refreshJobId = await enqueueRefreshArcSummary({
-          storyId: data.storyId,
-          arcId: resolvedArcId,
-          traceId: data.traceId,
-          llmProvider: data.llmProvider,
-          modelRoutes: data.modelRoutes,
-        });
-        log.info({ refreshJobId }, "enqueued arc summary refresh");
-      } catch (enqueueErr) {
-        log.warn({ err: enqueueErr }, "failed to enqueue arc summary refresh");
+      const arcRefreshDue = shouldRefreshRollingSummary({
+        chapterNumber: data.chapterNumber,
+        startChapter: arc?.startChapter ?? null,
+        endChapter: arc?.endChapter ?? null,
+        everyN: CONTEXT_CONFIG.ARC_ROLLING_SUMMARY_REFRESH_EVERY_N_CHAPTERS,
+      });
+      if (arcRefreshDue) {
+        try {
+          const refreshJobId = await enqueueRefreshArcSummary({
+            storyId: data.storyId,
+            arcId: resolvedArcId,
+            traceId: data.traceId,
+            triggerChapterNumber: data.chapterNumber,
+            llmProvider: data.llmProvider,
+            modelRoutes: data.modelRoutes,
+          });
+          log.info({ refreshJobId }, "enqueued arc summary refresh");
+        } catch (enqueueErr) {
+          log.warn({ err: enqueueErr }, "failed to enqueue arc summary refresh");
+        }
       }
-
     }
 
     log.info(

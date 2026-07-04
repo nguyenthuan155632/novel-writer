@@ -1,0 +1,2 @@
+ALTER TABLE "sagas" ADD COLUMN "completed_turning_points" jsonb DEFAULT '[]'::jsonb NOT NULL;--> statement-breakpoint
+ALTER TABLE "arcs" ADD COLUMN "completed_changes" jsonb DEFAULT '[]'::jsonb NOT NULL;

@@ -6,6 +6,7 @@ import { arcSummaryCompactorPromptV2 } from '../prompts/arc-summary-compactor.v2
 export interface ArcSummaryCompactorInput {
   storyId: string;
   arcTitle: string;
+  previousRollingSummary?: string;
   perChapterSummaries: { chapterNumber: number; summary: string }[];
 }
 
@@ -22,6 +23,7 @@ export class ArcSummaryCompactorAgent {
     const log = this.deps.logger.child({ agent: 'arc_summary_compactor', storyId: input.storyId });
     const built = arcSummaryCompactorPromptV2.build({
       arcTitle: input.arcTitle,
+      previousRollingSummary: input.previousRollingSummary,
       perChapterSummaries: input.perChapterSummaries,
     } as Record<string, unknown>);
 

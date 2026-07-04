@@ -18,6 +18,7 @@ export type RefreshArcSummaryJob = {
   storyId: string;
   arcId: string;
   traceId: string;
+  triggerChapterNumber?: number;
   llmProvider?: LlmProviderId;
   modelRoutes?: Partial<ModelRoutes>;
 };

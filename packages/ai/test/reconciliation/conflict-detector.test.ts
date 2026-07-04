@@ -82,6 +82,8 @@ describe("detectConflicts", () => {
       newTimelineEvents: [],
       factionUpdates: [],
       seedsResolvedThisChapter: [],
+      turningPointsCompleted: [],
+      arcChangesCompleted: [],
     };
     const conflicts = detectConflicts(extracted, BASE_SNAPSHOT);
     expect(conflicts).toHaveLength(0);
@@ -102,6 +104,8 @@ describe("detectConflicts", () => {
       newTimelineEvents: [],
       factionUpdates: [],
       seedsResolvedThisChapter: [],
+      turningPointsCompleted: [],
+      arcChangesCompleted: [],
     };
     const conflicts = detectConflicts(extracted, BASE_SNAPSHOT);
     expect(conflicts.length).toBeGreaterThanOrEqual(1);
@@ -123,6 +127,8 @@ describe("detectConflicts", () => {
       newTimelineEvents: [],
       factionUpdates: [],
       seedsResolvedThisChapter: [],
+      turningPointsCompleted: [],
+      arcChangesCompleted: [],
     };
     const conflicts = detectConflicts(extracted, BASE_SNAPSHOT);
     expect(conflicts).toHaveLength(1);
@@ -145,6 +151,8 @@ describe("detectConflicts", () => {
       newTimelineEvents: [],
       factionUpdates: [],
       seedsResolvedThisChapter: [],
+      turningPointsCompleted: [],
+      arcChangesCompleted: [],
     };
     const conflicts = detectConflicts(extracted, BASE_SNAPSHOT);
     expect(conflicts).toHaveLength(0);
@@ -166,6 +174,8 @@ describe("detectConflicts", () => {
       newTimelineEvents: [],
       factionUpdates: [],
       seedsResolvedThisChapter: [],
+      turningPointsCompleted: [],
+      arcChangesCompleted: [],
     };
     const conflicts = detectConflicts(extracted, BASE_SNAPSHOT);
     expect(conflicts).toHaveLength(1);
@@ -187,6 +197,8 @@ describe("detectConflicts", () => {
       newTimelineEvents: [],
       factionUpdates: [],
       seedsResolvedThisChapter: [],
+      turningPointsCompleted: [],
+      arcChangesCompleted: [],
     };
     const conflicts = detectConflicts(extracted, BASE_SNAPSHOT);
     expect(conflicts.some((c) => c.type === "dead_character_action")).toBe(
@@ -209,6 +221,8 @@ describe("detectConflicts", () => {
       newTimelineEvents: [],
       factionUpdates: [],
       seedsResolvedThisChapter: [],
+      turningPointsCompleted: [],
+      arcChangesCompleted: [],
     };
     const conflicts = detectConflicts(extracted, BASE_SNAPSHOT);
     expect(conflicts).toHaveLength(1);
@@ -229,6 +243,8 @@ describe("detectConflicts", () => {
         },
       ],
       seedsResolvedThisChapter: [],
+      turningPointsCompleted: [],
+      arcChangesCompleted: [],
     };
     const conflicts = detectConflicts(extracted, BASE_SNAPSHOT);
     expect(conflicts).toHaveLength(1);
@@ -251,6 +267,8 @@ describe("detectConflicts", () => {
         },
       ],
       seedsResolvedThisChapter: [],
+      turningPointsCompleted: [],
+      arcChangesCompleted: [],
     };
     const conflicts = detectConflicts(extracted, BASE_SNAPSHOT);
     expect(conflicts.some((c) => c.type === "locked_field")).toBe(
@@ -273,6 +291,8 @@ describe("detectConflicts", () => {
         },
       ],
       seedsResolvedThisChapter: [],
+      turningPointsCompleted: [],
+      arcChangesCompleted: [],
     };
     const conflicts = detectConflicts(extracted, BASE_SNAPSHOT);
     expect(
@@ -297,6 +317,8 @@ describe("detectConflicts", () => {
         },
       ],
       seedsResolvedThisChapter: [],
+      turningPointsCompleted: [],
+      arcChangesCompleted: [],
     };
     const conflicts = detectConflicts(extracted, BASE_SNAPSHOT);
     expect(conflicts).toHaveLength(0);
@@ -331,6 +353,8 @@ describe("detectConflicts", () => {
       newTimelineEvents: [],
       factionUpdates: [],
       seedsResolvedThisChapter: [],
+      turningPointsCompleted: [],
+      arcChangesCompleted: [],
     };
     const conflicts = detectConflicts(extracted, snapshot);
     expect(conflicts.length).toBeGreaterThanOrEqual(2);

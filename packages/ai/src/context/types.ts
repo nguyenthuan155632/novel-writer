@@ -143,5 +143,6 @@ export type ChapterContext = {
     arcPhase: "setup" | "development" | "climax_buildup" | "climax" | null;
     activeTurningPoint: string | null;
     targetInputBudget: number;
+    shrinkReport?: { actionsApplied: string[]; dropped: Record<string, number> };
   };
 };

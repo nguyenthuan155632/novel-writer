@@ -47,11 +47,11 @@ docker compose -f docker-compose.dev.yml up -d   # Start Postgres + Redis
 
 The `generate-chapter` BullMQ job orchestrates this sequence:
 
-1. **Plan**: `PacketGenerator` → `PacketAuditor` (canon check) → `DeterministicValidator`
+1. **Plan**: `PacketGenerator` → `PacketAuditor` (canon check) → `DeterministicValidator`. If the auditor still requires regeneration after all retries, non-safe modes pause the chapter (`paused_pending_updates`) for human review instead of writing with a bad packet.
 2. **Write**: `WriterAgent`
 3. **Validate**: `LlmValidatorAgent` → `AutoFixerAgent` (low/medium severity only)
 4. **Memory**: `CanonExtractor` → `CanonMerger` → `SummaryCompactor`
-5. **Async follow-ups**: `RefreshArcSummary`, `HighStakesReview` (queued separately)
+5. **Async follow-ups**: `RefreshArcSummary`, `HighStakesReview` (queued separately). Arc/saga rolling-summary refreshes only fire on the configured every-N-chapters cadence and compact incrementally from `lastCompactedChapter`.
 
 ### 3-Tier Context Cache (`packages/ai/src/context/`)
 

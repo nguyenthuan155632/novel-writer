@@ -17,6 +17,7 @@ import type {
   SeedCompact,
   CanonFactCompact,
   TimelineEventCompact,
+  CharacterCompact,
 } from "./types.js";
 import { computeHotHash, computeWarmHash } from "./cache-keys.js";
 import {
@@ -24,11 +25,13 @@ import {
   getSagaForChapter,
   getArcById,
   getActiveCharacters,
+  getCharactersByNames,
   getOpenThreadsForStory,
   getSeedsDueForChapter,
   getRecentSummaries,
   getTopKCanonFactsHybrid,
   getPastChapterSummaries,
+  getPastChapterSummariesByEmbedding,
   getPlantedSeedsForStory,
   getFactionsForStory,
   getTimelineEventsForChapter,
@@ -41,6 +44,7 @@ import { renderGenreContract } from "../prompts/contracts/genre-contract.js";
 import { renderPersonalityContract } from "../prompts/contracts/personality-contract.js";
 import { buildStoryOptionsBlock } from "../prompts/contracts/story-options-block.js";
 import { computeProgressWindow, progressPhaseFor } from "./progress.js";
+import { computeTurningPointStatuses } from "./turning-points.js";
 
 export {
   computeProgressPercent,
@@ -128,6 +132,17 @@ export async function buildContext(
     getPrevChapterTailContent(db, storyId, chapterNumber),
   ]);
 
+  const recalledCharacters = await getCharactersByNames(
+    db,
+    storyId,
+    packet.charactersPresent ?? [],
+  );
+  const mergedCharacters = mergeRecalledCharacters(
+    characters,
+    recalledCharacters,
+    chapterNumber,
+  );
+
   const arcSeeds = filterArcSeeds(allSeeds, chapterNumber);
 
   const sagaPlanText = [
@@ -173,7 +188,7 @@ export async function buildContext(
   const warm: WarmTier = {
     sagaSummary: sagaPlanText,
     arcSummary: arcPlanText,
-    activeCharacters: characters,
+    activeCharacters: mergedCharacters,
     arcOpenThreads: threads,
     arcPlantedSeeds: arcSeeds,
     parallelThreads: Array.isArray(saga?.parallelThreads)
@@ -196,21 +211,23 @@ export async function buildContext(
   const goalText = packet.goal;
   const povName = packet.entryState?.povCharacter.name;
   const povId = povName
-    ? (characters.find((c) => c.name === povName)?.id ?? null)
+    ? (mergedCharacters.find((c) => c.name === povName)?.id ?? null)
     : null;
   const activeLocationKey = packet.entryState?.locationId ?? null;
   const characterNames = packet.charactersPresent ?? [];
 
   let retrievedFacts: CanonFactCompact[] = [];
+  let goalEmbedding: number[] = [];
   try {
     const embResp = await embeddingService.embed({
       input: goalText,
       traceId,
     });
+    goalEmbedding = embResp.vector;
     retrievedFacts = await getTopKCanonFactsHybrid(
       db,
       storyId,
-      embResp.vector,
+      goalEmbedding,
       characterNames,
       chapterNumber,
       povId,
@@ -224,13 +241,23 @@ export async function buildContext(
     );
   }
 
-  const pastChapterSummaries = await getPastChapterSummaries(
+  let pastChapterSummaries = await getPastChapterSummariesByEmbedding(
     db,
     storyId,
     chapterNumber,
     cfg.RETRIEVED_PAST_CHAPTERS_MIN_GAP,
     cfg.RETRIEVED_PAST_CHAPTERS_TOP_K,
+    goalEmbedding,
   );
+  if (pastChapterSummaries.length === 0) {
+    pastChapterSummaries = await getPastChapterSummaries(
+      db,
+      storyId,
+      chapterNumber,
+      cfg.RETRIEVED_PAST_CHAPTERS_MIN_GAP,
+      cfg.RETRIEVED_PAST_CHAPTERS_TOP_K,
+    );
+  }
 
   const cold: ColdTier = {
     recentSummaries,
@@ -277,11 +304,16 @@ export async function buildContext(
       sagaProgress.endChapter - sagaProgress.startChapter + 1,
     );
     const sagaPosition = chapterNumber - sagaProgress.startChapter + 1;
-    const idx = Math.min(
-      tps.length - 1,
-      Math.max(0, Math.floor((sagaPosition - 1) / (sagaSpan / tps.length))),
-    );
-    activeTurningPoint = tps[idx] ?? null;
+    const statuses = computeTurningPointStatuses({
+      turningPoints: tps,
+      completedIndices: (saga.completedTurningPoints as number[]) ?? [],
+      sagaPosition,
+      sagaSpan,
+    });
+    activeTurningPoint =
+      statuses.find((s) => s.state === "current")?.text ??
+      statuses.find((s) => s.state === "overdue")?.text ??
+      null;
   }
 
   let ctx: ChapterContext = {
@@ -311,9 +343,31 @@ export async function buildContext(
     order: cfg.SHRINK_ORDER,
     retrievedPastChaptersMinGap: cfg.RETRIEVED_PAST_CHAPTERS_MIN_GAP,
   });
+  if (ctx.meta.shrinkReport) {
+    log?.warn(
+      { storyId, chapterNumber, shrinkReport: ctx.meta.shrinkReport },
+      "context over budget — items dropped by shrinkToFit",
+    );
+  }
   ctx.meta.warmHash = computeWarmHash(ctx.warm);
 
   return ctx;
+}
+
+export function mergeRecalledCharacters(
+  active: CharacterCompact[],
+  recalled: CharacterCompact[],
+  chapterNumber: number,
+): CharacterCompact[] {
+  const recalledIds = new Set(recalled.map((c) => c.id));
+  const stampedActive = active.map((c) =>
+    recalledIds.has(c.id) ? { ...c, lastActiveChapter: chapterNumber } : c,
+  );
+  const seen = new Set(active.map((c) => c.id));
+  const extras = recalled
+    .filter((c) => !seen.has(c.id))
+    .map((c) => ({ ...c, lastActiveChapter: chapterNumber }));
+  return [...stampedActive, ...extras];
 }
 
 function buildHotTier(
