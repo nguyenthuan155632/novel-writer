@@ -210,7 +210,7 @@ export async function buildContext(
   const goalText = packet.goal;
   const povName = packet.entryState?.povCharacter.name;
   const povId = povName
-    ? (characters.find((c) => c.name === povName)?.id ?? null)
+    ? (mergedCharacters.find((c) => c.name === povName)?.id ?? null)
     : null;
   const activeLocationKey = packet.entryState?.locationId ?? null;
   const characterNames = packet.charactersPresent ?? [];
