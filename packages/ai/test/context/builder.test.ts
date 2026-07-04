@@ -25,7 +25,11 @@ vi.mock("../../src/context/retrieval.js", () => ({
   getSeedsDueForChapter: vi.fn().mockResolvedValue([] as SeedCompact[]),
   getRecentSummaries: vi.fn().mockResolvedValue([] as ChapterSummaryCompact[]),
   getTopKCanonFacts: vi.fn().mockResolvedValue([] as CanonFactCompact[]),
+  getTopKCanonFactsHybrid: vi.fn().mockResolvedValue([] as CanonFactCompact[]),
   getPastChapterSummaries: vi
+    .fn()
+    .mockResolvedValue([] as ChapterSummaryCompact[]),
+  getPastChapterSummariesByEmbedding: vi
     .fn()
     .mockResolvedValue([] as ChapterSummaryCompact[]),
   getFactionsForStory: vi.fn().mockResolvedValue([] as FactionCompact[]),

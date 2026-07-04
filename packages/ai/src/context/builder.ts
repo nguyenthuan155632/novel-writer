@@ -29,6 +29,7 @@ import {
   getRecentSummaries,
   getTopKCanonFactsHybrid,
   getPastChapterSummaries,
+  getPastChapterSummariesByEmbedding,
   getPlantedSeedsForStory,
   getFactionsForStory,
   getTimelineEventsForChapter,
@@ -202,15 +203,17 @@ export async function buildContext(
   const characterNames = packet.charactersPresent ?? [];
 
   let retrievedFacts: CanonFactCompact[] = [];
+  let goalEmbedding: number[] = [];
   try {
     const embResp = await embeddingService.embed({
       input: goalText,
       traceId,
     });
+    goalEmbedding = embResp.vector;
     retrievedFacts = await getTopKCanonFactsHybrid(
       db,
       storyId,
-      embResp.vector,
+      goalEmbedding,
       characterNames,
       chapterNumber,
       povId,
@@ -224,13 +227,23 @@ export async function buildContext(
     );
   }
 
-  const pastChapterSummaries = await getPastChapterSummaries(
+  let pastChapterSummaries = await getPastChapterSummariesByEmbedding(
     db,
     storyId,
     chapterNumber,
     cfg.RETRIEVED_PAST_CHAPTERS_MIN_GAP,
     cfg.RETRIEVED_PAST_CHAPTERS_TOP_K,
+    goalEmbedding,
   );
+  if (pastChapterSummaries.length === 0) {
+    pastChapterSummaries = await getPastChapterSummaries(
+      db,
+      storyId,
+      chapterNumber,
+      cfg.RETRIEVED_PAST_CHAPTERS_MIN_GAP,
+      cfg.RETRIEVED_PAST_CHAPTERS_TOP_K,
+    );
+  }
 
   const cold: ColdTier = {
     recentSummaries,
