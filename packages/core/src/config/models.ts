@@ -78,6 +78,54 @@ export const MODEL_CONFIG = {
     "glm-5.1": { input: 1.05, cachedInput: 0.525, output: 3.5 },
     // Grok
     "x-ai/grok-3-mini": { input: 0.3, cachedInput: 0.075, output: 0.5 },
+    // ClinePass reference pricing
+    "cline-pass/glm-5.2": { input: 1.4, cachedInput: 0.26, output: 4.4 },
+    "cline-pass/kimi-k2.7-code": {
+      input: 0.95,
+      cachedInput: 0.19,
+      output: 4.0,
+    },
+    "cline-pass/kimi-k2.6": {
+      input: 0.95,
+      cachedInput: 0.16,
+      output: 4.0,
+    },
+    "cline-pass/deepseek-v4-pro": {
+      input: 1.74,
+      cachedInput: 0.0145,
+      output: 3.48,
+    },
+    "cline-pass/deepseek-v4-flash": {
+      input: 0.14,
+      cachedInput: 0.0028,
+      output: 0.28,
+    },
+    "cline-pass/mimo-v2.5": {
+      input: 0.14,
+      cachedInput: 0.0028,
+      output: 0.28,
+    },
+    "cline-pass/mimo-v2.5-pro": {
+      input: 1.74,
+      cachedInput: 0.0145,
+      output: 3.48,
+    },
+    "cline-pass/minimax-m3": {
+      input: 0.3,
+      cachedInput: 0.06,
+      output: 1.2,
+    },
+    "cline-pass/qwen3.7-max": {
+      input: 2.5,
+      cachedInput: 0.5,
+      output: 7.5,
+    },
+    // Uses the <= 256K-token tier; pricingFor() has no context-length input.
+    "cline-pass/qwen3.7-plus": {
+      input: 0.4,
+      cachedInput: 0.04,
+      output: 1.6,
+    },
     // Ollama
     "gemma4:e2b": { input: 0.0, cachedInput: 0, output: 0.0 },
     "gemma4:e4b": { input: 0.0, cachedInput: 0, output: 0.0 },
@@ -218,6 +266,17 @@ export const MODEL_HINTS = [
   "glm-5.1",
   // Grok
   "x-ai/grok-3-mini",
+  // ClinePass
+  "cline-pass/glm-5.2",
+  "cline-pass/kimi-k2.7-code",
+  "cline-pass/kimi-k2.6",
+  "cline-pass/deepseek-v4-pro",
+  "cline-pass/deepseek-v4-flash",
+  "cline-pass/mimo-v2.5",
+  "cline-pass/mimo-v2.5-pro",
+  "cline-pass/minimax-m3",
+  "cline-pass/qwen3.7-max",
+  "cline-pass/qwen3.7-plus",
   // Ollama
   "gemma4:e2b",
   "gemma4:e4b",

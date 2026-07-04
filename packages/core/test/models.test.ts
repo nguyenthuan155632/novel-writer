@@ -3,6 +3,7 @@ import {
   getModelStatus,
   MODEL_CONFIG,
   modelFor,
+  pricingFor,
   resetModelRoutesForTests,
   setModelRoutes,
 } from '../src/config/models.ts';
@@ -51,5 +52,32 @@ describe('MODEL_CONFIG', () => {
     expect(status.options.map((option) => option.role)).toContain('writer');
     expect(status.hints).toContain('google/gemini-2.5-flash');
     expect(status.hints).toContain('google/gemini-2.5-pro');
+  });
+
+  it('exposes ClinePass model hints and reference pricing', () => {
+    const status = getModelStatus();
+
+    expect(status.hints).toEqual(expect.arrayContaining([
+      'cline-pass/glm-5.2',
+      'cline-pass/kimi-k2.7-code',
+      'cline-pass/kimi-k2.6',
+      'cline-pass/deepseek-v4-pro',
+      'cline-pass/deepseek-v4-flash',
+      'cline-pass/mimo-v2.5',
+      'cline-pass/mimo-v2.5-pro',
+      'cline-pass/minimax-m3',
+      'cline-pass/qwen3.7-max',
+      'cline-pass/qwen3.7-plus',
+    ]));
+    expect(pricingFor('cline-pass/glm-5.2')).toEqual({
+      input: 1.4,
+      cachedInput: 0.26,
+      output: 4.4,
+    });
+    expect(pricingFor('cline-pass/qwen3.7-plus')).toEqual({
+      input: 0.4,
+      cachedInput: 0.04,
+      output: 1.6,
+    });
   });
 });

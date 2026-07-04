@@ -9,6 +9,7 @@ export interface OpenAICompatibleConfig {
 interface OpenAICompatibleChatPayload {
   model: string;
   messages: Array<{ role: string; content: string }>;
+  stream: false;
   temperature?: number;
   top_p?: number;
   max_tokens?: number;
@@ -30,6 +31,12 @@ interface OpenAICompatibleChatResponse {
   };
 }
 
+interface OpenAICompatibleChatEnvelope {
+  choices?: OpenAICompatibleChatResponse['choices'];
+  usage?: OpenAICompatibleChatResponse['usage'];
+  data?: OpenAICompatibleChatResponse;
+}
+
 export class OpenAICompatibleProvider implements LLMProvider {
   readonly name = 'openai-compatible';
 
@@ -43,6 +50,7 @@ export class OpenAICompatibleProvider implements LLMProvider {
     const body: OpenAICompatibleChatPayload = {
       model: req.model,
       messages: req.messages.map(this.toOpenAICompatibleMessage),
+      stream: false,
       temperature: req.temperature,
       top_p: req.topP,
       max_tokens: req.maxOutputTokens,
@@ -66,7 +74,8 @@ export class OpenAICompatibleProvider implements LLMProvider {
       const text = await res.text();
       throw new Error(`OpenAI-compatible error ${res.status}: ${text}`);
     }
-    const data = (await res.json()) as OpenAICompatibleChatResponse;
+    const envelope = (await res.json()) as OpenAICompatibleChatEnvelope;
+    const data = envelope.data ?? envelope;
     const choice = data.choices?.[0];
     if (!choice) throw new Error('OpenAI-compatible provider returned no choices');
     const inputTokens = data.usage?.prompt_tokens ?? 0;

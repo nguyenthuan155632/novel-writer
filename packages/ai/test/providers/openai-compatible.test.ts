@@ -52,6 +52,7 @@ describe('OpenAICompatibleProvider', () => {
       temperature: 0.2,
       top_p: 0.9,
       max_tokens: 100,
+      stream: false,
     });
     expect(r.content).toBe('ok');
     expect(r.usage).toEqual({ inputTokens: 10, outputTokens: 5, cachedInputTokens: 7 });
@@ -67,6 +68,34 @@ describe('OpenAICompatibleProvider', () => {
     });
     await expect(p.complete({ model: 'provider/model-a', messages: [{ role: 'user', content: 'hi' }] }))
       .rejects.toThrow(/OpenAI-compatible error 500/);
+  });
+
+  it('unwraps data-wrapped chat completion responses', async () => {
+    const fetchImpl = makeFetchStub({
+      success: true,
+      data: {
+        choices: [{ message: { content: '{"ok":true}' }, finish_reason: 'stop' }],
+        usage: {
+          prompt_tokens: 12,
+          completion_tokens: 4,
+          prompt_tokens_details: { cached_tokens: 3 },
+        },
+      },
+    });
+    const p = new OpenAICompatibleProvider({
+      apiKey: 'k',
+      baseUrl: 'https://llm.example/v1',
+      fetchImpl,
+    });
+
+    const r = await p.complete({
+      model: 'provider/model-a',
+      messages: [{ role: 'user', content: 'hi' }],
+    });
+
+    expect(r.content).toBe('{"ok":true}');
+    expect(r.usage).toEqual({ inputTokens: 12, outputTokens: 4, cachedInputTokens: 3 });
+    expect(r.raw).toMatchObject({ choices: expect.any(Array), usage: expect.any(Object) });
   });
 
   it('passes responseSchema as response_format', async () => {
