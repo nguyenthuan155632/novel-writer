@@ -2,7 +2,7 @@ import { getDb, type Db } from '@novel/db';
 import { llmProviderSettings, llmProviderState } from '@novel/db/schema';
 import { parseLlmProvider, type LlmProviderId, type ModelRoutes } from '@novel/core';
 import { eq } from 'drizzle-orm';
-import { OpenCodeProvider } from '@novel/ai/providers/opencode';
+import { OpenAICompatibleProvider } from '@novel/ai/providers/openai-compatible';
 import { OpenRouterProvider } from '@novel/ai/providers/openrouter';
 import { OllamaProvider } from '@novel/ai/providers/ollama';
 import { VmlxProvider } from '@novel/ai/providers/vmlx';
@@ -37,9 +37,9 @@ function buildProvider(provider: LlmProviderId): LLMProvider {
     });
   }
 
-  return new OpenCodeProvider({
-    apiKey: process.env.OPENCODE_API_KEY ?? '',
-    baseUrl: process.env.OPENCODE_BASE_URL,
+  return new OpenAICompatibleProvider({
+    apiKey: process.env.OPENAI_COMPATIBLE_API_KEY ?? '',
+    baseUrl: process.env.OPENAI_COMPATIBLE_BASE_URL ?? '',
   });
 }
 

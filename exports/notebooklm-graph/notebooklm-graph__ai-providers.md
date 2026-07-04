@@ -98,7 +98,7 @@ Provider: LLMProvider Interface Depends on
 
 Provider: LLMProvider Interface Used by
 - [[ai-providers/provider-openrouter]] — implements this interface
-- [[ai-providers/provider-opencode]] — implements this interface
+- [[ai-providers/provider-openai-compatible]] — implements this interface
 - [[ai-providers/provider-ollama]] — implements this interface
 - [[ai-providers/provider-vmlx]] — implements this interface
 - [[ai-providers/provider-mock]] — implements this interface (tests only)
@@ -314,85 +314,85 @@ Provider: Ollama Notes
 
 ---
 
-## provider-opencode
+## provider-openai-compatible
 
-`ai-providers/provider-opencode.md`
+`ai-providers/provider-openai-compatible.md`
 
 ---
 type: ai-provider
-source: packages/ai/src/providers/opencode.ts
+source: packages/ai/src/providers/openai-compatible.ts
 ---
 
 
 
-Provider: OpenCode Responsibility
+Provider: OpenAI compatible Responsibility
 **Type:** LLM Provider
-**Source:** `packages/ai/src/providers/opencode.ts`
-**Provider name:** `"opencode"`
-Sends completion requests to the OpenCode AI gateway (`opencode.ai/zen`), which exposes an OpenAI-compatible chat completions endpoint.
+**Source:** `packages/ai/src/providers/openai-compatible.ts`
+**Provider name:** `"openai-compatible"`
+Sends completion requests to the OpenAI compatible AI gateway (`configured OpenAI-compatible endpoint`), which exposes an OpenAI-compatible chat completions endpoint.
 
 
 
-Provider: OpenCode Base URL
-`https://opencode.ai/zen/go/v1`
+Provider: OpenAI compatible Base URL
+`https://api.openai.com/v1`
 
 
 
-Provider: OpenCode Authentication
-`OPENCODE_API_KEY` — required; sent as `Authorization: Bearer ` header. Constructor throws if absent.
+Provider: OpenAI compatible Authentication
+`OPENAI_COMPATIBLE_API_KEY` — required; sent as `Authorization: Bearer ` header. Constructor throws if absent.
 
 
 
-Provider: OpenCode Config interface (`OpenCodeConfig`)
+Provider: OpenAI compatible Config interface (`OpenAICompatibleConfig`)
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `apiKey` | `string` | ✓ | OpenCode API key; throws on construction if absent |
+| `apiKey` | `string` | ✓ | OpenAI compatible API key; throws on construction if absent |
 | `baseUrl` | `string` | — | Override default base URL |
 | `fetchImpl` | `typeof fetch` | — | Injectable fetch for testing |
 
 
 
-Provider: OpenCode Retry / Error handling
-No retry logic. Single attempt only. On non-2xx response, throws `Error("OpenCode error : ")`.
+Provider: OpenAI compatible Retry / Error handling
+No retry logic. Single attempt only. On non-2xx response, throws `Error("OpenAI-compatible error : ")`.
 
 
 
-Provider: OpenCode Inputs
+Provider: OpenAI compatible Inputs
 - Implements [[ai-providers/provider-interface]]
 - [[modules/llm-call-logger]] wraps every call
 
 
 
-Provider: OpenCode Outputs
+Provider: OpenAI compatible Outputs
 - `CompletionResponse` with content, usage tokens, finishReason
 
 
 
-Provider: OpenCode Depends on
+Provider: OpenAI compatible Depends on
 - [[ai-providers/provider-interface]]
 - [[modules/llm-call-logger]] (wraps this provider)
 
 
 
-Provider: OpenCode Used by
+Provider: OpenAI compatible Used by
 - [[jobs/job-generate-chapter]] — instantiated based on job.llmProvider
 - [[app-worker]] — selected at runtime
 
 
 
-Provider: OpenCode Related database tables
+Provider: OpenAI compatible Related database tables
 - [[database/tables/llm-calls]] — every call logged here
 - [[database/tables/llm-provider-settings]]
 - [[database/tables/llm-provider-state]]
 
 
 
-Provider: OpenCode Related flows
+Provider: OpenAI compatible Related flows
 - [[flows/llm-provider-flow]]
 
 
 
-Provider: OpenCode Notes
+Provider: OpenAI compatible Notes
 - Default provider for the system (see [[modules/provider-switcher]]).
 - API shape is OpenAI-compatible: `POST /chat/completions` with standard `choices[0].message.content` response.
 - JSON structured output via `response_format.json_schema` with `strict: true`.

@@ -62,7 +62,7 @@ Novel Factory — Atomic Code Graph Entry Points by Section Validators (14)
 
 Novel Factory — Atomic Code Graph Entry Points by Section AI Providers (5)
 - [[ai-providers/provider-interface]] · [[ai-providers/provider-openrouter]]
-- [[ai-providers/provider-opencode]] · [[ai-providers/provider-ollama]]
+- [[ai-providers/provider-openai-compatible]] · [[ai-providers/provider-ollama]]
 - [[ai-providers/provider-vmlx]] · [[ai-providers/provider-mock]]
 
 
@@ -104,7 +104,7 @@ Novel Factory — Atomic Code Graph Entry Points by Section Errors (5)
 Novel Factory — Atomic Code Graph Entry Points by Section External Services (7)
 - [[external-services/service-postgresql]] · [[external-services/service-redis]]
 - [[external-services/service-bullmq]] · [[external-services/service-openrouter]]
-- [[external-services/service-opencode]] · [[external-services/service-ollama]]
+- [[external-services/service-openai-compatible]] · [[external-services/service-ollama]]
 - [[external-services/service-vmlx]]
 
 
@@ -243,7 +243,7 @@ Node Inventory Workers (2)
 Node Inventory AI Providers (6)
 - [[ai-providers/provider-interface]]
 - [[ai-providers/provider-openrouter]]
-- [[ai-providers/provider-opencode]]
+- [[ai-providers/provider-openai-compatible]]
 - [[ai-providers/provider-ollama]]
 - [[ai-providers/provider-vmlx]]
 - [[ai-providers/provider-mock]]
@@ -419,7 +419,7 @@ Node Inventory External Services (7)
 - [[external-services/service-redis]]
 - [[external-services/service-bullmq]]
 - [[external-services/service-openrouter]]
-- [[external-services/service-opencode]]
+- [[external-services/service-openai-compatible]]
 - [[external-services/service-ollama]]
 - [[external-services/service-vmlx]]
 ---
@@ -607,7 +607,7 @@ Edge Inventory LLM Provider Edges Provider abstraction
 
 Edge Inventory LLM Provider Edges Logged provider wrapper
 - [[modules/llm-call-logger]] → wraps → [[ai-providers/provider-openrouter]]
-- [[modules/llm-call-logger]] → wraps → [[ai-providers/provider-opencode]]
+- [[modules/llm-call-logger]] → wraps → [[ai-providers/provider-openai-compatible]]
 - [[modules/llm-call-logger]] → wraps → [[ai-providers/provider-ollama]]
 - [[modules/llm-call-logger]] → wraps → [[ai-providers/provider-vmlx]]
 - [[modules/llm-call-logger]] → wraps → [[ai-providers/provider-mock]] _(tests)_
@@ -773,7 +773,7 @@ Edge Inventory External Service Edges
 - [[apps/app-worker]] → consumes from → [[external-services/service-redis]]
 - [[external-services/service-bullmq]] → backed by → [[external-services/service-redis]]
 - [[ai-providers/provider-openrouter]] → calls → [[external-services/service-openrouter]]
-- [[ai-providers/provider-opencode]] → calls → [[external-services/service-opencode]]
+- [[ai-providers/provider-openai-compatible]] → calls → [[external-services/service-openai-compatible]]
 - [[ai-providers/provider-ollama]] → calls → [[external-services/service-ollama]]
 - [[ai-providers/provider-vmlx]] → calls → [[external-services/service-vmlx]]
 ---

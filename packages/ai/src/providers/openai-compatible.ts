@@ -1,12 +1,12 @@
 import type { CompletionRequest, CompletionResponse, LLMProvider, Message } from './types.ts';
 
-export interface OpenCodeConfig {
+export interface OpenAICompatibleConfig {
   apiKey: string;
-  baseUrl?: string;
+  baseUrl: string;
   fetchImpl?: typeof fetch;
 }
 
-interface OpenCodeChatPayload {
+interface OpenAICompatibleChatPayload {
   model: string;
   messages: Array<{ role: string; content: string }>;
   temperature?: number;
@@ -18,7 +18,7 @@ interface OpenCodeChatPayload {
   };
 }
 
-interface OpenCodeChatResponse {
+interface OpenAICompatibleChatResponse {
   choices: Array<{
     message: { content: string };
     finish_reason: string;
@@ -30,20 +30,19 @@ interface OpenCodeChatResponse {
   };
 }
 
-const DEFAULT_BASE = 'https://opencode.ai/zen/go/v1';
+export class OpenAICompatibleProvider implements LLMProvider {
+  readonly name = 'openai-compatible';
 
-export class OpenCodeProvider implements LLMProvider {
-  readonly name = 'opencode';
-
-  constructor(private config: OpenCodeConfig) {
-    if (!config.apiKey) throw new Error('OpenCode apiKey is required');
+  constructor(private config: OpenAICompatibleConfig) {
+    if (!config.apiKey) throw new Error('OpenAI-compatible apiKey is required');
+    if (!config.baseUrl) throw new Error('OpenAI-compatible baseUrl is required');
   }
 
   async complete(req: CompletionRequest): Promise<CompletionResponse> {
     const fetchFn = this.config.fetchImpl ?? globalThis.fetch;
-    const body: OpenCodeChatPayload = {
+    const body: OpenAICompatibleChatPayload = {
       model: req.model,
-      messages: req.messages.map(this.toOpenCodeMessage),
+      messages: req.messages.map(this.toOpenAICompatibleMessage),
       temperature: req.temperature,
       top_p: req.topP,
       max_tokens: req.maxOutputTokens,
@@ -54,7 +53,7 @@ export class OpenCodeProvider implements LLMProvider {
         json_schema: { name: 'response', schema: req.responseSchema, strict: true },
       };
     }
-    const url = (this.config.baseUrl ?? DEFAULT_BASE) + '/chat/completions';
+    const url = `${this.config.baseUrl.replace(/\/+$/, '')}/chat/completions`;
     const res = await fetchFn(url, {
       method: 'POST',
       headers: {
@@ -65,11 +64,11 @@ export class OpenCodeProvider implements LLMProvider {
     });
     if (!res.ok) {
       const text = await res.text();
-      throw new Error(`OpenCode error ${res.status}: ${text}`);
+      throw new Error(`OpenAI-compatible error ${res.status}: ${text}`);
     }
-    const data = (await res.json()) as OpenCodeChatResponse;
+    const data = (await res.json()) as OpenAICompatibleChatResponse;
     const choice = data.choices?.[0];
-    if (!choice) throw new Error('OpenCode returned no choices');
+    if (!choice) throw new Error('OpenAI-compatible provider returned no choices');
     const inputTokens = data.usage?.prompt_tokens ?? 0;
     const outputTokens = data.usage?.completion_tokens ?? 0;
     const cachedInputTokens = data.usage?.prompt_tokens_details?.cached_tokens ?? 0;
@@ -81,7 +80,7 @@ export class OpenCodeProvider implements LLMProvider {
     };
   }
 
-  private toOpenCodeMessage(m: Message): { role: string; content: string } {
+  private toOpenAICompatibleMessage(m: Message): { role: string; content: string } {
     return { role: m.role, content: m.content };
   }
 

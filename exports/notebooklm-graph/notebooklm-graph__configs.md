@@ -472,13 +472,13 @@ source: packages/core/src/config/llm-provider.ts
 Config: LLM Provider Responsibility
 **Type:** Configuration Module
 **Source:** `packages/core/src/config/llm-provider.ts`
-Defines the `LlmProviderId` union type for the four user-selectable provider backends and provides `parseLlmProvider()` — a safe string parser that normalises raw env-var or DB string values into a valid `LlmProviderId`, defaulting to `'opencode'` for any unrecognised input.
+Defines the `LlmProviderId` union type for the four user-selectable provider backends and provides `parseLlmProvider()` — a safe string parser that normalises raw env-var or DB string values into a valid `LlmProviderId`, defaulting to `'openai-compatible'` for any unrecognised input.
 
 
 
 Config: LLM Provider Key Exports `LlmProviderId` (type)
 ```typescript
-type LlmProviderId = 'opencode' | 'openrouter' | 'ollama' | 'vmlx';
+type LlmProviderId = 'openai-compatible' | 'openrouter' | 'ollama' | 'vmlx';
 ```
 
 
@@ -493,7 +493,7 @@ parseLlmProvider(value: string | undefined): LlmProviderId
 | `'openrouter'` | `'openrouter'` |
 | `'ollama'` | `'ollama'` |
 | `'vmlx'` | `'vmlx'` |
-| anything else / `undefined` | `'opencode'` (default) |
+| anything else / `undefined` | `'openai-compatible'` (default) |
 
 
 
@@ -509,14 +509,14 @@ Config: LLM Provider Used by
 
 
 Config: LLM Provider Related domain concepts
-- The four `LlmProviderId` values map to concrete `LLMProvider` implementations: [[ai-providers/provider-opencode]], [[ai-providers/provider-openrouter]], [[ai-providers/provider-ollama]], [[ai-providers/provider-vmlx]]
+- The four `LlmProviderId` values map to concrete `LLMProvider` implementations: [[ai-providers/provider-openai-compatible]], [[ai-providers/provider-openrouter]], [[ai-providers/provider-ollama]], [[ai-providers/provider-vmlx]]
 - `mock` provider is test-only and not user-selectable
 - [[configs/config-models]] — model route strings are provider-agnostic; `LlmProviderId` determines only which API endpoint receives the resolved model string
 
 
 
 Config: LLM Provider Notes
-- `'opencode'` is the default — reflects the primary development environment. Production deployments typically override via the `LLM_PROVIDER` env var or `PUT /api/admin/provider`.
+- `'openai-compatible'` is the default — reflects the primary development environment. Production deployments typically override via the `LLM_PROVIDER` env var or `PUT /api/admin/provider`.
 - This module is intentionally minimal — it carries no config constants, only a type and a safe parse function.
 
 ---

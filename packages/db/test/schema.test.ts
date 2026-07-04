@@ -78,7 +78,12 @@ describe('schema smoke', () => {
 
   it('seeds llm provider settings and active provider state', async () => {
     const providerRows = await db.select().from(llmProviderSettings);
-    expect(providerRows.map((row) => row.provider).sort()).toEqual(['ollama', 'opencode', 'openrouter', 'vmlx']);
+    expect(providerRows.map((row) => row.provider).sort()).toEqual([
+      'ollama',
+      'openai-compatible',
+      'openrouter',
+      'vmlx',
+    ]);
 
     for (const row of providerRows) {
       const routes = row.modelRoutes as Record<string, string>;
@@ -90,12 +95,12 @@ describe('schema smoke', () => {
 
     const stateRows = await db.select().from(llmProviderState).where(eq(llmProviderState.id, 'global'));
     expect(stateRows).toHaveLength(1);
-    expect(['opencode', 'openrouter', 'ollama', 'vmlx']).toContain(stateRows[0]!.activeProvider);
+    expect(['openai-compatible', 'openrouter', 'ollama', 'vmlx']).toContain(stateRows[0]!.activeProvider);
   });
 
   it('enforces llm singleton and provider constraints', async () => {
     await expect(
-      db.execute(sql`insert into llm_provider_state (id, active_provider) values ('not-global', 'opencode')`)
+      db.execute(sql`insert into llm_provider_state (id, active_provider) values ('not-global', 'openai-compatible')`)
     ).rejects.toThrow();
 
     await expect(
@@ -103,7 +108,7 @@ describe('schema smoke', () => {
     ).rejects.toThrow();
 
     await expect(
-      db.execute(sql`update llm_provider_settings set model_routes = '[]'::jsonb where provider = 'opencode'`)
+      db.execute(sql`update llm_provider_settings set model_routes = '[]'::jsonb where provider = 'openai-compatible'`)
     ).rejects.toThrow();
   });
 

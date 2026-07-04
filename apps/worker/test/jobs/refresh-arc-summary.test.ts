@@ -19,8 +19,8 @@ vi.mock('@novel/ai', () => ({
   },
 }));
 
-vi.mock('@novel/ai/providers/opencode', () => ({
-  OpenCodeProvider: class {},
+vi.mock('@novel/ai/providers/openai-compatible', () => ({
+  OpenAICompatibleProvider: class {},
 }));
 
 vi.mock('@novel/ai/llm-call-logger', () => ({

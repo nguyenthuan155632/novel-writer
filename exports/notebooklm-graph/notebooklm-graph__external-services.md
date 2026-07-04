@@ -134,9 +134,9 @@ Service: Ollama Related
 
 ---
 
-## service-opencode
+## service-openai-compatible
 
-`external-services/service-opencode.md`
+`external-services/service-openai-compatible.md`
 
 ---
 type: external-service
@@ -144,50 +144,50 @@ type: external-service
 
 
 
-Service: OpenCode Role
+Service: OpenAI compatible Role
 Alternative LLM API gateway exposing an OpenAI-compatible chat completions endpoint. Configured as the **default provider** for the system (see [[modules/provider-switcher]]).
 
 
 
-Service: OpenCode Base URL
-`https://opencode.ai/zen/go/v1`
+Service: OpenAI compatible Base URL
+`https://api.openai.com/v1`
 
 
 
-Service: OpenCode Authentication
-`OPENCODE_API_KEY` — sent as `Authorization: Bearer ` header. Required; [[ai-providers/provider-opencode]] throws at construction if absent.
+Service: OpenAI compatible Authentication
+`OPENAI_COMPATIBLE_API_KEY` — sent as `Authorization: Bearer ` header. Required; [[ai-providers/provider-openai-compatible]] throws at construction if absent.
 
 
 
-Service: OpenCode Request Format
+Service: OpenAI compatible Request Format
 Standard OpenAI-compatible `POST /chat/completions`.
 Token usage read from `prompt_tokens`, `completion_tokens`, `prompt_tokens_details.cached_tokens`.
 JSON structured output via `response_format.json_schema` with `strict: true`.
 
 
 
-Service: OpenCode Retry Logic
-None. Single attempt only. On non-2xx response: `Error("OpenCode error : ")` thrown immediately.
+Service: OpenAI compatible Retry Logic
+None. Single attempt only. On non-2xx response: `Error("OpenAI-compatible error : ")` thrown immediately.
 
 
 
-Service: OpenCode Cost Tracking
+Service: OpenAI compatible Cost Tracking
 Per-token cost estimated via `estimateCostUsd()` and written to [[database/tables/llm-calls]] by [[modules/llm-call-logger]].
 
 
 
-Service: OpenCode Provider Implementation
-[[ai-providers/provider-opencode]] — `packages/ai/src/providers/opencode.ts`
+Service: OpenAI compatible Provider Implementation
+[[ai-providers/provider-openai-compatible]] — `packages/ai/src/providers/openai-compatible.ts`
 
 
 
-Service: OpenCode Used By
-All AI agents when `providerName = 'opencode'` — see [[flows/llm-provider-flow]].
+Service: OpenAI compatible Used By
+All AI agents when `providerName = 'openai-compatible'` — see [[flows/llm-provider-flow]].
 Switched at runtime via `PUT /api/admin/provider` (→ [[routes/admin]]).
 
 
 
-Service: OpenCode Related
+Service: OpenAI compatible Related
 - [[flows/llm-provider-flow]]
 - [[database/tables/llm-provider-settings]]
 - [[database/tables/llm-calls]]

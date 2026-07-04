@@ -27,7 +27,7 @@ This project is a single-user local application designed to generate long-form (
 - **Frontend**: Next.js 15, React 19, Vanilla CSS.
 - **Database**: PostgreSQL 16 + pgvector (via Drizzle ORM).
 - **Queue**: BullMQ + Redis.
-- **AI**: Gemini 2.5 Flash (default), supports OpenCode, OpenRouter, and local Ollama.
+- **AI**: Gemini 2.5 Flash (default), supports a reusable OpenAI-compatible endpoint, OpenRouter, and local Ollama.
 
 ## Critical Commands
 

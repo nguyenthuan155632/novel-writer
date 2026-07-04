@@ -57,7 +57,7 @@ Every chapter is generated from a `ChapterContext` assembled by `buildContext()`
 
 ### LLM Provider Abstraction (`packages/ai/src/providers/`)
 
-All LLM calls go through the `LLMProvider` interface (`complete(req): Promise<CompletionResponse>`). Available providers: `google-direct`, `openrouter`, `opencode`, `ollama`, `vmlx`, `mock`.
+All LLM calls go through the `LLMProvider` interface (`complete(req): Promise<CompletionResponse>`). Available providers: `google-direct`, `openai-compatible`, `openrouter`, `ollama`, `vmlx`, `mock`.
 
 The active provider and per-agent model routes are stored in the database (`llm_provider_settings`, `llm_provider_state`). Toggled at runtime via `PUT /api/admin/provider` and `PUT /api/admin/models`.
 

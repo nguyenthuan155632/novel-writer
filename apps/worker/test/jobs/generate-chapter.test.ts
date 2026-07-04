@@ -20,7 +20,7 @@ const mockBuildContext = vi.fn();
 const mockAuditPacket = vi.fn();
 const mockBuildChecks = vi.fn();
 const mockRunDeterministicValidator = vi.fn();
-const mockOpenCodeProvider = vi.fn();
+const mockOpenAICompatibleProvider = vi.fn();
 const mockOpenRouterProvider = vi.fn();
 const mockOllamaProvider = vi.fn();
 const mockVmlxProvider = vi.fn();
@@ -229,8 +229,8 @@ vi.mock('@novel/ai', () => ({
   getLockedCanonFactCandidates: vi.fn().mockResolvedValue([]),
 }));
 
-vi.mock('@novel/ai/providers/opencode', () => ({
-  OpenCodeProvider: mockOpenCodeProvider,
+vi.mock('@novel/ai/providers/openai-compatible', () => ({
+  OpenAICompatibleProvider: mockOpenAICompatibleProvider,
 }));
 
 vi.mock('@novel/ai/providers/openrouter', () => ({
@@ -306,11 +306,11 @@ describe('executeGenerateChapterPipeline', () => {
     mockAuditPacket.mockReset();
     mockBuildChecks.mockReset();
     mockRunDeterministicValidator.mockReset();
-    mockOpenCodeProvider.mockReset();
+    mockOpenAICompatibleProvider.mockReset();
     mockOpenRouterProvider.mockReset();
     mockOllamaProvider.mockReset();
     mockVmlxProvider.mockReset();
-    mockOpenCodeProvider.mockImplementation(function OpenCodeProvider(this: object) {
+    mockOpenAICompatibleProvider.mockImplementation(function OpenAICompatibleProvider(this: object) {
       return this;
     });
     mockOpenRouterProvider.mockImplementation(function OpenRouterProvider(this: object) {
@@ -351,7 +351,7 @@ describe('executeGenerateChapterPipeline', () => {
     expect(mockOpenRouterProvider).toHaveBeenCalledWith(expect.objectContaining({
       apiKey: 'openrouter-key',
     }));
-    expect(mockOpenCodeProvider).not.toHaveBeenCalled();
+    expect(mockOpenAICompatibleProvider).not.toHaveBeenCalled();
     expect(mockOllamaProvider).not.toHaveBeenCalled();
     expect(loggedInner).toBeDefined();
   });
@@ -378,7 +378,7 @@ describe('executeGenerateChapterPipeline', () => {
     expect(mockOllamaProvider).toHaveBeenCalledWith(expect.objectContaining({
       baseUrl: 'http://127.0.0.1:11434/v1',
     }));
-    expect(mockOpenCodeProvider).not.toHaveBeenCalled();
+    expect(mockOpenAICompatibleProvider).not.toHaveBeenCalled();
     expect(mockOpenRouterProvider).not.toHaveBeenCalled();
     expect(loggedInner).toBeDefined();
   });
@@ -405,7 +405,7 @@ describe('executeGenerateChapterPipeline', () => {
     expect(mockVmlxProvider).toHaveBeenCalledWith(expect.objectContaining({
       baseUrl: 'http://127.0.0.1:8000/v1',
     }));
-    expect(mockOpenCodeProvider).not.toHaveBeenCalled();
+    expect(mockOpenAICompatibleProvider).not.toHaveBeenCalled();
     expect(mockOpenRouterProvider).not.toHaveBeenCalled();
     expect(mockOllamaProvider).not.toHaveBeenCalled();
     expect(loggedInner).toBeDefined();

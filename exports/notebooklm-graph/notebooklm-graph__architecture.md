@@ -63,7 +63,7 @@ shrinkToFit() on budget overflow"]
 wraps every provider call
 writes llm_calls + story_costs"]
         PROVIDERS["5 LLM Providers
-openrouter · opencode · ollama
+openrouter · openai-compatible · ollama
 vmlx · mock (test)"]
         AGENTS --> CTXBLD
         AGENTS --> LOGGED
@@ -98,7 +98,7 @@ backing store")]
         OR["OpenRouter API
 100+ cloud models
 retry + rate limit handling"]
-        OC["OpenCode API
+        OC["OpenAI compatible API
 Default cloud provider"]
         OL["Ollama
 Local inference

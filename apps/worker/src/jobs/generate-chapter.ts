@@ -66,7 +66,7 @@ import {
 } from "@novel/ai/utils/realm-order";
 import { mkdir, writeFile } from "fs/promises";
 import { join } from "path";
-import { OpenCodeProvider } from "@novel/ai/providers/opencode";
+import { OpenAICompatibleProvider } from "@novel/ai/providers/openai-compatible";
 import { OllamaProvider } from "@novel/ai/providers/ollama";
 import { OpenRouterProvider } from "@novel/ai/providers/openrouter";
 import { VmlxProvider } from "@novel/ai/providers/vmlx";
@@ -596,9 +596,9 @@ function buildWorkerProvider(data: GenerateChapterJob): LLMProvider {
     });
   }
 
-  return new OpenCodeProvider({
-    apiKey: process.env.OPENCODE_API_KEY ?? "",
-    baseUrl: process.env.OPENCODE_BASE_URL,
+  return new OpenAICompatibleProvider({
+    apiKey: process.env.OPENAI_COMPATIBLE_API_KEY ?? "",
+    baseUrl: process.env.OPENAI_COMPATIBLE_BASE_URL ?? "",
   });
 }
 

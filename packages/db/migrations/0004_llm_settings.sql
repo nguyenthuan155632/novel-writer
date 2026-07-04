@@ -3,7 +3,7 @@ CREATE TABLE "llm_provider_settings" (
   "model_routes" jsonb NOT NULL,
   "created_at" timestamp with time zone DEFAULT now() NOT NULL,
   "updated_at" timestamp with time zone DEFAULT now() NOT NULL,
-  CONSTRAINT "llm_provider_settings_provider_check" CHECK ("provider" IN ('opencode', 'openrouter', 'ollama', 'vmlx')),
+  CONSTRAINT "llm_provider_settings_provider_check" CHECK ("provider" IN ('openai-compatible', 'openrouter', 'ollama', 'vmlx')),
   CONSTRAINT "llm_provider_settings_model_routes_object_check" CHECK (jsonb_typeof("model_routes") = 'object')
 );
 --> statement-breakpoint
@@ -20,7 +20,7 @@ ALTER TABLE "llm_provider_state" ADD CONSTRAINT "llm_provider_state_active_provi
 INSERT INTO "llm_provider_settings" ("provider", "model_routes")
 VALUES
   (
-    'opencode',
+    'openai-compatible',
     '{
       "bible_generator":"google/gemini-2.5-flash",
       "saga_planner":"google/gemini-2.5-flash",
@@ -85,4 +85,4 @@ VALUES
   );
 --> statement-breakpoint
 INSERT INTO "llm_provider_state" ("id", "active_provider")
-VALUES ('global', 'opencode');
+VALUES ('global', 'openai-compatible');

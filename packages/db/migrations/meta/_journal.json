@@ -211,6 +211,13 @@
       "when": 1783164218202,
       "tag": "0029_add_plan_progress_columns",
       "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "7",
+      "when": 1783173288752,
+      "tag": "0030_openai_compatible_provider",
+      "breakpoints": true
     }
   ]
 }

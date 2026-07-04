@@ -4,7 +4,8 @@ import { buildServer } from '../src/server.ts';
 
 const TEST_DB = process.env.TEST_DATABASE_URL ?? 'postgresql://novel:novel@localhost:5432/novel_factory';
 process.env.DATABASE_URL = TEST_DB;
-process.env.OPENCODE_API_KEY = 'test-key';
+process.env.OPENAI_COMPATIBLE_API_KEY = 'test-key';
+process.env.OPENAI_COMPATIBLE_BASE_URL = 'https://llm.example/v1';
 process.env.NOVEL_FORCE_MOCK_LLM = '1';
 
 const words = (count: number, prefix: string): string =>

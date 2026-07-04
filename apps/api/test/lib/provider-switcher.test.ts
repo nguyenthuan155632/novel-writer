@@ -22,27 +22,33 @@ afterEach(async () => {
 });
 
 describe('provider switcher', () => {
-  it('defaults to opencode from database seed', async () => {
+  it('defaults to the reusable OpenAI-compatible provider from database seed', async () => {
     await resetActiveProviderForTests();
 
-    expect(await getActiveProvider()).toBe('opencode');
-    expect((await getProviderStatus()).provider).toBe('opencode');
+    expect(await getActiveProvider()).toBe('openai-compatible');
+    expect((await getProviderStatus()).provider).toBe('openai-compatible');
   });
 
   it('updates the active provider', async () => {
     await setActiveProvider('openrouter');
 
     expect(await getActiveProvider()).toBe('openrouter');
-    expect((await getProviderStatus()).options.map((o) => o.id)).toEqual(['opencode', 'openrouter', 'ollama', 'vmlx']);
+    expect((await getProviderStatus()).options.map((o) => o.id)).toEqual([
+      'openai-compatible',
+      'openrouter',
+      'ollama',
+      'vmlx',
+    ]);
   });
 
-  it('builds an opencode live provider when selected', async () => {
-    await setActiveProvider('opencode');
-    process.env.OPENCODE_API_KEY = 'opencode-key';
+  it('builds an OpenAI-compatible live provider when selected', async () => {
+    await setActiveProvider('openai-compatible');
+    process.env.OPENAI_COMPATIBLE_API_KEY = 'compatible-key';
+    process.env.OPENAI_COMPATIBLE_BASE_URL = 'https://llm.example/v1';
 
     const provider = await buildLiveProvider();
 
-    expect(provider.name).toBe('opencode');
+    expect(provider.name).toBe('openai-compatible');
   });
 
   it('builds an openrouter live provider when selected', async () => {

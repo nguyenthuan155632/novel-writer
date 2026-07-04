@@ -10,7 +10,7 @@ import {
 } from '../lib/provider-switcher.ts';
 
 const ProviderBodySchema = z.object({
-  provider: z.enum(['opencode', 'openrouter', 'ollama', 'vmlx']),
+  provider: z.enum(['openai-compatible', 'openrouter', 'ollama', 'vmlx']),
 });
 
 const ModelRoutesSchema = z.object({

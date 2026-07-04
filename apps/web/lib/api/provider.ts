@@ -1,6 +1,6 @@
 import { apiFetch } from '../api-client';
 
-export type LlmProviderId = 'opencode' | 'openrouter' | 'ollama' | 'vmlx';
+export type LlmProviderId = 'openai-compatible' | 'openrouter' | 'ollama' | 'vmlx';
 
 export interface ProviderOption {
   id: LlmProviderId;

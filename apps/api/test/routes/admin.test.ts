@@ -11,7 +11,7 @@ afterEach(async () => {
 
 describe('admin provider routes', () => {
   it('returns the active provider and options', async () => {
-    await setActiveProvider('opencode');
+    await setActiveProvider('openai-compatible');
     const app = buildServer();
 
     const res = await app.inject({ method: 'GET', url: '/api/admin/provider' });
@@ -19,9 +19,9 @@ describe('admin provider routes', () => {
 
     expect(res.statusCode).toBe(200);
     expect(res.json()).toEqual({
-      provider: 'opencode',
+      provider: 'openai-compatible',
       options: [
-        { id: 'opencode', label: 'OpenCode' },
+        { id: 'openai-compatible', label: 'OpenAI compatible' },
         { id: 'openrouter', label: 'OpenRouter' },
         { id: 'ollama', label: 'Ollama (local)' },
         { id: 'vmlx', label: 'vMLX (local)' },

@@ -1327,7 +1327,7 @@ story_settings.overrides
 
 - **Mục đích**: Quản lý provider và model routing.
 - **CHECK constraints**:
-  - `provider` IN ('opencode', 'openrouter', 'ollama')
+  - `provider` IN ('openai-compatible', 'openrouter', 'ollama', 'vmlx')
   - `id = 'global'` (singleton)
 - **Lỗi thường gặp**: Đổi provider nhưng model routes không tương thích → "model not found" ở worker.
 
@@ -1918,9 +1918,9 @@ running → completed
 
 | Provider       | Env Var                             | Notes                                |
 | -------------- | ----------------------------------- | ------------------------------------ |
-| **OpenCode**   | `OPENCODE_API_KEY`                  | Default provider                     |
-| **OpenRouter** | `OPENROUTER_API_KEY`                | Hỗ trợ nhiều model, có embedding API |
-| **Ollama**     | `OLLAMA_API_KEY`, `OLLAMA_BASE_URL` | Local/self-hosted                    |
+| **OpenAI compatible** | `OPENAI_COMPATIBLE_API_KEY`, `OPENAI_COMPATIBLE_BASE_URL` | Default reusable endpoint |
+| **OpenRouter**        | `OPENROUTER_API_KEY`                                      | Hỗ trợ nhiều model, có embedding API |
+| **Ollama**            | `OLLAMA_API_KEY`, `OLLAMA_BASE_URL`                       | Local/self-hosted |
 
 ### Cách chọn model
 

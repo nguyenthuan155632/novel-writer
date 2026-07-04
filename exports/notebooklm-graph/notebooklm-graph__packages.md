@@ -53,7 +53,7 @@ Package: @novel/ai Key Modules
 
 Package: @novel/ai LLM Providers
 - [[ai-providers/provider-interface]] — shared contract
-- [[ai-providers/provider-opencode]]
+- [[ai-providers/provider-openai-compatible]]
 - [[ai-providers/provider-openrouter]]
 - [[ai-providers/provider-ollama]]
 - [[ai-providers/provider-vmlx]]
@@ -71,7 +71,7 @@ Package: @novel/ai Depends on
 - [[packages/package-db]]
 - [[packages/package-core]]
 - [[external-services/service-openrouter]]
-- [[external-services/service-opencode]]
+- [[external-services/service-openai-compatible]]
 - [[external-services/service-ollama]]
 - [[external-services/service-vmlx]]
 

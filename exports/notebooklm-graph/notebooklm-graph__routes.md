@@ -30,7 +30,7 @@ Route: Admin Endpoints
 
 
 Route: Admin Inputs
-- **`ProviderBodySchema`** — `{ provider: 'opencode' | 'openrouter' | 'ollama' | 'vmlx' }`
+- **`ProviderBodySchema`** — `{ provider: 'openai-compatible' | 'openrouter' | 'ollama' | 'vmlx' }`
 - **`ModelRoutesSchema`** — `{ routes: { [AgentRole]: string? } }` — roles enumerated dynamically from `MODEL_OPTIONS`
 - No URL params
 

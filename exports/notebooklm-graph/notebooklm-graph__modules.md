@@ -1763,7 +1763,7 @@ Module: Provider Switcher Outputs
 
 
 Module: Provider Switcher Provider Options
-- [[ai-providers/provider-opencode]] (default)
+- [[ai-providers/provider-openai-compatible]] (default)
 - [[ai-providers/provider-openrouter]]
 - [[ai-providers/provider-ollama]]
 - [[ai-providers/provider-vmlx]]

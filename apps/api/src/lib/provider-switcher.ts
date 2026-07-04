@@ -1,4 +1,4 @@
-import { OpenCodeProvider } from '@novel/ai/providers/opencode';
+import { OpenAICompatibleProvider } from '@novel/ai/providers/openai-compatible';
 import { OllamaProvider } from '@novel/ai/providers/ollama';
 import { OpenRouterProvider } from '@novel/ai/providers/openrouter';
 import { VmlxProvider } from '@novel/ai/providers/vmlx';
@@ -27,7 +27,7 @@ export interface ProviderStatus {
 }
 
 export const PROVIDER_OPTIONS: ProviderOption[] = [
-  { id: 'opencode', label: 'OpenCode' },
+  { id: 'openai-compatible', label: 'OpenAI compatible' },
   { id: 'openrouter', label: 'OpenRouter' },
   { id: 'ollama', label: 'Ollama (local)' },
   { id: 'vmlx', label: 'vMLX (local)' },
@@ -75,9 +75,9 @@ export async function buildLiveProvider(): Promise<LLMProvider> {
     });
   }
 
-  return new OpenCodeProvider({
-    apiKey: requireEnv('OPENCODE_API_KEY'),
-    baseUrl: process.env.OPENCODE_BASE_URL,
+  return new OpenAICompatibleProvider({
+    apiKey: requireEnv('OPENAI_COMPATIBLE_API_KEY'),
+    baseUrl: requireEnv('OPENAI_COMPATIBLE_BASE_URL'),
   });
 }
 

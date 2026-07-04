@@ -250,7 +250,7 @@ flowchart TD
     A["Agent calls provider.complete(req)"] --> B[LoggedLLMProvider wrapper]
     B --> C{Active provider from DB}
     C -->|openrouter| D[OpenRouterProvider]
-    C -->|opencode| E[OpenCodeProvider]
+    C -->|openai-compatible| E[OpenAICompatibleProvider]
     C -->|ollama| F[OllamaProvider]
     C -->|vmlx| G[VmlxProvider]
     C -->|mock| H["MockProvider\n(tests only)"]
@@ -271,7 +271,7 @@ Flow: LLM Provider Provider Selection
 | Provider Name | External Service | Auth Env Var | Retry |
 |--------------|-----------------|--------------|-------|
 | `openrouter` | [[external-services/service-openrouter]] | `OPENROUTER_API_KEY` | 6 attempts, exp. backoff |
-| `opencode` | [[external-services/service-opencode]] | `OPENCODE_API_KEY` | None (single attempt) |
+| `openai-compatible` | [[external-services/service-openai-compatible]] | `OPENAI_COMPATIBLE_API_KEY` | None (single attempt) |
 | `ollama` | [[external-services/service-ollama]] | None (local) | None |
 | `vmlx` | [[external-services/service-vmlx]] | None (local) | None |
 | `mock` | N/A | None | N/A — tests only |
@@ -297,7 +297,7 @@ Flow: LLM Provider Cost Calculation
 Flow: LLM Provider Participants
 - All AI agents: [[agents/writer]], [[agents/llm-validator]], [[agents/auto-fixer]], [[agents/canon-extractor]], [[agents/summary-compactor]], [[agents/packet-generator]], [[agents/arc-planner]], [[agents/saga-planner]], [[agents/high-stakes-reviewer]], [[agents/bible-generator]], [[agents/arc-summary-compactor]]
 - [[ai-providers/provider-interface]] — shared contract
-- [[ai-providers/provider-openrouter]], [[ai-providers/provider-opencode]], [[ai-providers/provider-ollama]], [[ai-providers/provider-vmlx]], [[ai-providers/provider-mock]]
+- [[ai-providers/provider-openrouter]], [[ai-providers/provider-openai-compatible]], [[ai-providers/provider-ollama]], [[ai-providers/provider-vmlx]], [[ai-providers/provider-mock]]
 - [[modules/llm-call-logger]] — inside `LoggedLLMProvider`
 - [[modules/cost-tracker]] — `accumulateStoryCost()`
 

@@ -14,7 +14,7 @@ Single-user local app that generates 500–1000 chapter Vietnamese xianxia / fan
 - pnpm workspaces: `apps/{api,web,worker}` + `packages/{ai,core,db}`
 - Fastify (API) · Next.js 15 App Router (web) · BullMQ + Redis (worker)
 - PostgreSQL 16 + pgvector · Drizzle ORM
-- LLM gateway: OpenCode Go (default), OpenRouter, local Ollama (OpenAI-compatible), Google Direct (for explicit caching)
+- LLM gateway: reusable OpenAI-compatible endpoint (default), OpenRouter, local Ollama, Google Direct (for explicit caching)
 
 ## Getting started
 
@@ -35,14 +35,14 @@ pnpm dev   # api + web + worker concurrently
 
 Env vars (copy `.env.example` → `.env`):
 
-- `OPENCODE_API_KEY` — required when OpenCode is the active provider
+- `OPENAI_COMPATIBLE_API_KEY`, `OPENAI_COMPATIBLE_BASE_URL` — required when the reusable OpenAI-compatible provider is active
 - `OPENROUTER_API_KEY` — required when OpenRouter is the active provider, and for embedding calls in chapter generation
 - `OLLAMA_BASE_URL` — optional (defaults to `http://localhost:11434/v1`) when using Ollama; `OLLAMA_API_KEY` only if your server expects a Bearer token
 - `GOOGLE_API_KEY` — optional, enables Pro / Flash with explicit caching
 - `DATABASE_URL`, `REDIS_URL` — connection strings
 - `RUN_LIVE_LLM=1` — gate live-API tests
 
-Base URL overrides (`OPENCODE_BASE_URL`, `OPENROUTER_BASE_URL`) are optional; see `.env.example`.
+Base URL overrides (`OPENAI_COMPATIBLE_BASE_URL`, `OPENROUTER_BASE_URL`) are configured in `.env.example`.
 
 ### Provider + model settings
 

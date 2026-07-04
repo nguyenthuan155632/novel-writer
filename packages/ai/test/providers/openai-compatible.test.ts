@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { OpenCodeProvider } from '../../src/providers/opencode.ts';
+import { OpenAICompatibleProvider } from '../../src/providers/openai-compatible.ts';
 
 function makeFetchStub(payload: unknown, status = 200) {
   return vi.fn(async () => ({
@@ -10,8 +10,8 @@ function makeFetchStub(payload: unknown, status = 200) {
   })) as unknown as typeof fetch;
 }
 
-describe('OpenCodeProvider', () => {
-  it('posts OpenAI-compatible chat completion requests to OpenCode Go', async () => {
+describe('OpenAICompatibleProvider', () => {
+  it('posts OpenAI-compatible chat completion requests to the configured base URL', async () => {
     let captured: { url?: string; init?: RequestInit } = {};
     const fetchImpl = vi.fn(async (url: string, init: RequestInit) => {
       captured = { url, init };
@@ -26,23 +26,28 @@ describe('OpenCodeProvider', () => {
       };
     }) as unknown as typeof fetch;
 
-    const p = new OpenCodeProvider({ apiKey: 'k', fetchImpl });
+    const p = new OpenAICompatibleProvider({
+      apiKey: 'k',
+      baseUrl: 'https://llm.example/v1/',
+      fetchImpl,
+    });
     const r = await p.complete({
-      model: 'google/gemini-2.5-flash',
+      model: 'provider/model-a',
       messages: [{ role: 'user', content: 'hi' }],
       temperature: 0.2,
       topP: 0.9,
       maxOutputTokens: 100,
     });
 
-    expect(captured.url).toBe('https://opencode.ai/zen/go/v1/chat/completions');
+    expect(p.name).toBe('openai-compatible');
+    expect(captured.url).toBe('https://llm.example/v1/chat/completions');
     expect(captured.init?.method).toBe('POST');
     expect(captured.init?.headers).toMatchObject({
       Authorization: 'Bearer k',
       'Content-Type': 'application/json',
     });
     expect(JSON.parse(captured.init?.body as string)).toEqual({
-      model: 'google/gemini-2.5-flash',
+      model: 'provider/model-a',
       messages: [{ role: 'user', content: 'hi' }],
       temperature: 0.2,
       top_p: 0.9,
@@ -55,9 +60,13 @@ describe('OpenCodeProvider', () => {
 
   it('throws on non-OK response', async () => {
     const fetchImpl = makeFetchStub({ error: 'bad' }, 500);
-    const p = new OpenCodeProvider({ apiKey: 'k', fetchImpl });
-    await expect(p.complete({ model: 'google/gemini-2.5-flash', messages: [{ role: 'user', content: 'hi' }] }))
-      .rejects.toThrow(/OpenCode error 500/);
+    const p = new OpenAICompatibleProvider({
+      apiKey: 'k',
+      baseUrl: 'https://llm.example/v1',
+      fetchImpl,
+    });
+    await expect(p.complete({ model: 'provider/model-a', messages: [{ role: 'user', content: 'hi' }] }))
+      .rejects.toThrow(/OpenAI-compatible error 500/);
   });
 
   it('passes responseSchema as response_format', async () => {
@@ -71,9 +80,13 @@ describe('OpenCodeProvider', () => {
         json: async () => ({ choices: [{ message: { content: '{}' }, finish_reason: 'stop' }] }),
       };
     }) as unknown as typeof fetch;
-    const p = new OpenCodeProvider({ apiKey: 'k', fetchImpl });
+    const p = new OpenAICompatibleProvider({
+      apiKey: 'k',
+      baseUrl: 'https://llm.example/v1',
+      fetchImpl,
+    });
     await p.complete({
-      model: 'google/gemini-2.5-flash',
+      model: 'provider/model-a',
       messages: [{ role: 'user', content: 'hi' }],
       responseSchema: { type: 'object', properties: { a: { type: 'string' } } },
     });
@@ -82,6 +95,16 @@ describe('OpenCodeProvider', () => {
   });
 
   it('throws when apiKey is empty', () => {
-    expect(() => new OpenCodeProvider({ apiKey: '' })).toThrow(/apiKey/);
+    expect(() => new OpenAICompatibleProvider({
+      apiKey: '',
+      baseUrl: 'https://llm.example/v1',
+    })).toThrow(/apiKey/);
+  });
+
+  it('throws when baseUrl is empty', () => {
+    expect(() => new OpenAICompatibleProvider({
+      apiKey: 'k',
+      baseUrl: '',
+    })).toThrow(/baseUrl/);
   });
 });

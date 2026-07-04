@@ -62,7 +62,7 @@ The `generate-chapter` BullMQ job orchestrates this sequence:
 
 ### LLM Provider Abstraction (`packages/ai/src/providers/`)
 
-All LLM calls go through `LLMProvider.complete(req)`. Providers: `google-direct`, `openrouter`, `opencode`, `ollama`, `vmlx`, `mock`.
+All LLM calls go through `LLMProvider.complete(req)`. Providers: `google-direct`, `openai-compatible`, `openrouter`, `ollama`, `vmlx`, `mock`.
 
 - Active provider and per-agent model routes are stored in the DB (`llm_provider_settings`, `llm_provider_state`)
 - Toggle at runtime via `PUT /api/admin/provider` and `PUT /api/admin/models`
@@ -113,7 +113,7 @@ Use vanilla CSS (in `globals.css` or component-level `.css` files). Do not intro
 Copy `.env.example` → `.env`. Key vars:
 - `DATABASE_URL`, `REDIS_URL` — connection strings
 - `OPENROUTER_API_KEY` — required for OpenRouter provider and embedding calls
-- `OPENCODE_API_KEY` — required for OpenCode provider
+- `OPENAI_COMPATIBLE_API_KEY`, `OPENAI_COMPATIBLE_BASE_URL` — required for the reusable OpenAI-compatible provider
 - `GOOGLE_API_KEY` — optional, enables Google Direct (Pro/Flash with explicit caching)
 - `OLLAMA_BASE_URL` — optional (defaults to `http://localhost:11434/v1`)
 - `RUN_LIVE_LLM=1` — gate live-API tests
