@@ -36,6 +36,58 @@ export type ArcPlannerDeps = {
   model?: string;
 };
 
+function asNumber(value: unknown): number | undefined {
+  if (typeof value === "number") return value;
+  if (typeof value === "string" && value.trim() !== "") {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  return undefined;
+}
+
+function normalizeArcPlannerOutput(
+  raw: unknown,
+  sagaStart: number,
+  sagaEnd: number,
+): unknown {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return raw;
+  const root = { ...(raw as Record<string, unknown>) };
+  if (!Array.isArray(root.arcs)) return root;
+
+  const arcsRaw = root.arcs as unknown[];
+  const shouldInferChapterRanges = arcsRaw.every((arc) => {
+    if (!arc || typeof arc !== "object" || Array.isArray(arc)) return false;
+    const item = arc as Record<string, unknown>;
+    return (
+      asNumber(item.startChapter ?? item.start_chapter) === undefined &&
+      asNumber(item.endChapter ?? item.end_chapter) === undefined
+    );
+  });
+  const span = Math.max(1, sagaEnd - sagaStart + 1);
+  const arcCount = Math.max(1, arcsRaw.length);
+
+  root.arcs = arcsRaw.map((arc, i) => {
+    if (!arc || typeof arc !== "object" || Array.isArray(arc)) return arc;
+    const item = { ...(arc as Record<string, unknown>) };
+    item.index =
+      asNumber(item.index ?? item.arcNumber ?? item.arc_number) ?? i;
+    item.startChapter = asNumber(item.startChapter ?? item.start_chapter);
+    item.endChapter = asNumber(item.endChapter ?? item.end_chapter);
+
+    if (shouldInferChapterRanges) {
+      item.startChapter = sagaStart + Math.floor((span * i) / arcCount);
+      item.endChapter =
+        i === arcCount - 1
+          ? sagaEnd
+          : sagaStart + Math.floor((span * (i + 1)) / arcCount) - 1;
+    }
+
+    return item;
+  });
+
+  return root;
+}
+
 export class ArcPlannerAgent {
   constructor(private readonly deps: ArcPlannerDeps) {}
 
@@ -107,7 +159,13 @@ export class ArcPlannerAgent {
 
     let parsed: ArcPlannerOutput;
     try {
-      parsed = ArcPlannerOutputSchema.parse(JSON.parse(response.content));
+      parsed = ArcPlannerOutputSchema.parse(
+        normalizeArcPlannerOutput(
+          JSON.parse(response.content),
+          saga.startChapter ?? 1,
+          saga.endChapter ?? saga.startChapter ?? 1,
+        ),
+      );
     } catch (err) {
       log.error(
         { err, raw: response.content.slice(0, 500) },

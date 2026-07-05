@@ -122,4 +122,47 @@ describe("ArcPlannerAgent.plan (mocked db)", () => {
 
     expect(provider.getCalls()[0]!.model).toBe("gemma4:e4b");
   });
+
+  it("fills common missing arc metadata from provider JSON", async () => {
+    selectCallCount = 0;
+    const provider = new MockProvider({
+      responder: {
+        kind: "fixed",
+        content: JSON.stringify({
+          arcs: Array.from({ length: 3 }, (_, i) => ({
+            title: `Arc ${i}`,
+            premise: "p ".repeat(30).trim(),
+            expectedChanges: ["change happens here enough text"],
+            coveredTurningPoints: [i],
+          })),
+        }),
+      },
+    });
+    const agent = new ArcPlannerAgent({ provider, logger: silentLogger });
+
+    const r = await agent.plan({
+      storyId: "s",
+      sagaId: "sa",
+      currentState: "state",
+      genreDef: {
+        slug: "tien_hiep",
+        viLabel: "Tiên hiệp",
+        viDescription: "",
+        family: "cultivation",
+        allowedTropes: [],
+        discouragedTropes: [],
+        toneGuidance: "",
+        worldbuildingGuidance: "",
+        examplePremises: [],
+      } as any,
+      storyOptions: {} as any,
+    });
+
+    expect(r.output.arcs.map((arc) => arc.index)).toEqual([0, 1, 2]);
+    expect(r.output.arcs.map((arc) => [arc.startChapter, arc.endChapter])).toEqual([
+      [1, 33],
+      [34, 66],
+      [67, 100],
+    ]);
+  });
 });

@@ -110,6 +110,66 @@ describe('ExtractorOutputSchema', () => {
     expect(result.factionUpdates).toEqual([]);
   });
 
+  it('normalizes recoverable extractor omissions from live model output', () => {
+    const result = ExtractorOutputSchema.parse({
+      characterUpdates: [
+        { action: 'update', name: 'Lâm Dạ' },
+        { name: 'Malformed row without action' },
+      ],
+      threadUpdates: [
+        { title: 'Lâm Hạo nghi ngờ Lâm Dạ', state: 'open' },
+        { state: 'open' },
+      ],
+      factionUpdates: [
+        { action: 'create', name: 'Hỏa Diễm Môn' },
+      ],
+    });
+
+    expect(result.characterUpdates).toEqual([
+      expect.objectContaining({ action: 'update', name: 'Lâm Dạ', fields: {} }),
+    ]);
+    expect(result.newCanonFacts).toEqual([]);
+    expect(result.threadUpdates).toEqual([
+      expect.objectContaining({ action: 'create', title: 'Lâm Hạo nghi ngờ Lâm Dạ' }),
+    ]);
+    expect(result.newTimelineEvents).toEqual([]);
+    expect(result.factionUpdates).toEqual([
+      expect.objectContaining({ action: 'create', name: 'Hỏa Diễm Môn', fields: {} }),
+    ]);
+    expect(result.seedsResolvedThisChapter).toEqual([]);
+  });
+
+  it('normalizes canonFacts aliases and drops untitled thread updates', () => {
+    const result = ExtractorOutputSchema.parse({
+      canonFacts: [
+        {
+          id: 'fact-001',
+          description: 'Lâm Dạ đánh bay Lưu Minh trong một đòn.',
+          visibility: 'public',
+          knownBy: ['Lâm Dạ'],
+        },
+      ],
+      threadUpdates: [
+        { action: 'create', description: 'Lưu gia gửi tín phù cầu viện.' },
+        { action: 'update', state: 'open' },
+      ],
+    });
+
+    expect(result.newCanonFacts).toEqual([
+      expect.objectContaining({
+        topic: 'Sự kiện chương',
+        fact: 'Lâm Dạ đánh bay Lưu Minh trong một đòn.',
+        importance: 'medium',
+      }),
+    ]);
+    expect(result.threadUpdates).toEqual([
+      expect.objectContaining({
+        action: 'create',
+        title: 'Lưu gia gửi tín phù cầu viện.',
+      }),
+    ]);
+  });
+
   it('parses factionUpdates create + update with status enum', () => {
     const data = {
       characterUpdates: [],

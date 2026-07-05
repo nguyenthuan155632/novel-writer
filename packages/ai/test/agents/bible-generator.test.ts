@@ -89,6 +89,33 @@ describe('generateBible', () => {
     expect(result.bible.power_system).toBe('short');
   });
 
+  it('normalizes array text sections from provider JSON', async () => {
+    const inner = new MockProvider({
+      responder: {
+        kind: 'fixed',
+        content: JSON.stringify({
+          world_rules: 'short',
+          power_system: 'short',
+          power_system_kind: 'cultivation',
+          cultivation_system: 'short',
+          style_guide: 'short',
+          forbidden_rules: ['Không có súng đạn hiện đại.', 'Không có AI hoặc internet.'],
+          ending_direction: 'short',
+          compact_summary: 'short',
+        }),
+      },
+    });
+
+    const result = await generateBible({
+      provider: inner,
+      model: 'google/gemini-2.5-pro',
+      input: { premise: 'A premise', target_chapter_count: 1000, genreDef: { slug: 'tien_hiep', viLabel: 'Tiên hiệp', viDescription: '', family: 'cultivation', allowedTropes: [], discouragedTropes: [], toneGuidance: '', worldbuildingGuidance: '', examplePremises: [] } as any, personalityDef: { slug: 'tram_on', viLabel: '', viDescription: '', voiceHints: '', decisionStyle: '', dialogueStyle: '', conflictResponse: '', driftSignals: [] } as any, storyOptions: {} as any },
+      traceId: 'trace-x',
+    });
+
+    expect(result.bible.forbidden_rules).toBe('Không có súng đạn hiện đại.\nKhông có AI hoặc internet.');
+  });
+
   it('requires cultivation_system in provider schema for cultivation genres', async () => {
     const inner = new MockProvider({ responder: { kind: 'fixed', content: VALID_BIBLE_JSON } });
 

@@ -129,6 +129,84 @@ describe("buildContext", () => {
       traceId: "trace-1",
     });
   });
+
+  it("keeps generation context prior-only while preserving prior duplicates as one item", async () => {
+    const retrieval = await import("../../src/context/retrieval.js");
+    vi.mocked(retrieval.getOpenThreadsForStory).mockResolvedValueOnce([
+      {
+        id: "thread-prior",
+        title: "Bóng người áo choàng đen theo dõi Lâm Dạ",
+        state: "open",
+        introducedChapter: 4,
+      },
+      {
+        id: "thread-prior-dupe",
+        title: "Bóng người áo choàng đen theo dõi Lâm Dạ",
+        state: "open",
+        introducedChapter: 3,
+      },
+      {
+        id: "thread-current",
+        title: "Current stale thread",
+        state: "open",
+        introducedChapter: 10,
+      },
+      {
+        id: "thread-future",
+        title: "Future thread",
+        state: "open",
+        introducedChapter: 11,
+      },
+    ]);
+    vi.mocked(retrieval.getTimelineEventsForChapter).mockResolvedValueOnce([
+      {
+        chapterNumber: 9,
+        eventType: "major",
+        eventText: "Prior event",
+        importance: "high",
+      },
+      {
+        chapterNumber: 9,
+        eventType: "major",
+        eventText: "Prior event",
+        importance: "high",
+      },
+      {
+        chapterNumber: 10,
+        eventType: "major",
+        eventText: "Current stale event",
+        importance: "high",
+      },
+      {
+        chapterNumber: 11,
+        eventType: "major",
+        eventText: "Future event",
+        importance: "high",
+      },
+    ]);
+
+    const result = await buildContext(baseDeps);
+
+    expect(result.warm.arcOpenThreads.map((t) => t.title)).toEqual([
+      "Bóng người áo choàng đen theo dõi Lâm Dạ",
+    ]);
+    expect(result.cold.timelineEvents.map((e) => e.eventText)).toEqual([
+      "Prior event",
+    ]);
+    expect(retrieval.getTimelineEventsForChapter).toHaveBeenCalledWith(
+      baseDeps.db,
+      "story-1",
+      10,
+      undefined,
+      { includeCurrent: false },
+    );
+    expect(retrieval.getPendingCanonUpdatesForStory).toHaveBeenCalledWith(
+      baseDeps.db,
+      "story-1",
+      undefined,
+      10,
+    );
+  });
 });
 
 describe("buildContext progress meta", () => {

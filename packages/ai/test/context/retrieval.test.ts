@@ -29,6 +29,61 @@ describe('getActiveCharacters (unit)', () => {
   it('exports getActiveCharacters as a function', () => {
     expect(typeof getActiveCharacters).toBe('function');
   });
+
+  it('does not treat never-seen seed characters as active for early chapters', async () => {
+    let whereCondition: unknown;
+    const db = {
+      select: vi.fn(() => ({
+        from: vi.fn(() => ({
+          where: vi.fn((condition) => {
+            whereCondition = condition;
+            return {
+              orderBy: vi.fn(async () => []),
+            };
+          }),
+        })),
+      })),
+    } as unknown as import('@novel/db').Db;
+
+    await getActiveCharacters(db, 'story-1', 1);
+
+    const readSqlText = (value: unknown): string => {
+      if (
+        value &&
+        typeof value === 'object' &&
+        'queryChunks' in value &&
+        Array.isArray((value as { queryChunks: unknown[] }).queryChunks)
+      ) {
+        return (value as { queryChunks: unknown[] }).queryChunks
+          .map((chunk) => readSqlText(chunk))
+          .join(' ');
+      }
+
+      if (typeof value === 'number') return String(value);
+      if (
+        value &&
+        typeof value === 'object' &&
+        'value' in value &&
+        Array.isArray((value as { value: unknown[] }).value)
+      ) {
+        return (value as { value: unknown[] }).value.join('');
+      }
+      if (
+        value &&
+        typeof value === 'object' &&
+        'name' in value &&
+        typeof (value as { name: unknown }).name === 'string'
+      ) {
+        return (value as { name: string }).name;
+      }
+      return '';
+    };
+
+    const text = readSqlText(whereCondition);
+
+    expect(text).toMatch(/last_active_chapter\s+>\s+0/);
+    expect(text).toMatch(/last_seen_chapter\s+>\s+0/);
+  });
 });
 
 describe('getOpenThreadsForStory (unit)', () => {
@@ -46,6 +101,59 @@ describe('getPlantedSeedsForStory (unit)', () => {
 describe('getSeedsDueForChapter (unit)', () => {
   it('exports getSeedsDueForChapter as a function', () => {
     expect(typeof getSeedsDueForChapter).toBe('function');
+  });
+
+  it('only retrieves pending seeds due for the chapter', async () => {
+    let whereCondition: unknown;
+    const db = {
+      select: vi.fn(() => ({
+        from: vi.fn(() => ({
+          where: vi.fn((condition) => {
+            whereCondition = condition;
+            return Promise.resolve([]);
+          }),
+        })),
+      })),
+    } as unknown as import('@novel/db').Db;
+
+    await getSeedsDueForChapter(db, 'story-1', 5);
+
+    const readSqlText = (value: unknown): string => {
+      if (
+        value &&
+        typeof value === 'object' &&
+        'queryChunks' in value &&
+        Array.isArray((value as { queryChunks: unknown[] }).queryChunks)
+      ) {
+        return (value as { queryChunks: unknown[] }).queryChunks
+          .map((chunk) => readSqlText(chunk))
+          .join(' ');
+      }
+      if (
+        value &&
+        typeof value === 'object' &&
+        'value' in value &&
+        Array.isArray((value as { value: unknown[] }).value)
+      ) {
+        return (value as { value: unknown[] }).value.join('');
+      }
+      if (
+        value &&
+        typeof value === 'object' &&
+        'name' in value &&
+        typeof (value as { name: unknown }).name === 'string'
+      ) {
+        return (value as { name: string }).name;
+      }
+      if (typeof value === 'string') return value;
+      if (typeof value === 'number') return String(value);
+      return '';
+    };
+
+    const text = readSqlText(whereCondition);
+    expect(text).toContain('status');
+    expect(text).toContain('=');
+    expect(text).not.toContain('NOT IN');
   });
 });
 
@@ -110,6 +218,47 @@ describe('getTimelineEventsForChapter (unit)', () => {
       'Active side thread beat',
       'Convergence signal',
     ]);
+  });
+
+  it('can exclude current-chapter events for prior-only generation context', async () => {
+    let limitCall = 0;
+    const db = {
+      select: vi.fn(() => ({
+        from: vi.fn(() => ({
+          where: vi.fn(() => ({
+            orderBy: vi.fn(() => ({
+              limit: vi.fn(async () => {
+                limitCall += 1;
+                if (limitCall === 1) {
+                  return [{
+                    id: 'saga-1',
+                    storyId: 'story-1',
+                    startChapter: 1,
+                    endChapter: 20,
+                    parallelThreads: [],
+                    convergencePoints: [],
+                  }];
+                }
+                return [
+                  { chapterNumber: 12, eventType: 'event', eventText: 'Current stale event', importance: 'high', threadId: null, relatedThreadIds: [] },
+                  { chapterNumber: 11, eventType: 'event', eventText: 'Prior event', importance: 'high', threadId: null, relatedThreadIds: [] },
+                ];
+              }),
+            })),
+          })),
+        })),
+      })),
+    } as unknown as import('@novel/db').Db;
+
+    const result = await getTimelineEventsForChapter(
+      db,
+      'story-1',
+      12,
+      20,
+      { includeCurrent: false },
+    );
+
+    expect(result.map((row) => row.eventText)).toEqual(['Prior event']);
   });
 });
 

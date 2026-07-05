@@ -65,10 +65,20 @@ function truncateAtBoundary(value: unknown, maxLen: number): unknown {
   return clipped.trim();
 }
 
-function normalizePacketPayloadForFallback(payload: unknown): unknown {
+function normalizePacketPayload(
+  payload: unknown,
+  opts?: { chapterNumber?: number },
+): unknown {
   if (!payload || typeof payload !== 'object') return payload;
 
   const packet = { ...(payload as Record<string, unknown>) };
+  packet.chapterNumber ??= opts?.chapterNumber;
+  packet.charactersPresent ??=
+    packet.charactersInScene ?? packet.characters ?? packet.characterNames ?? [];
+  if (typeof packet.entryState === 'string') {
+    delete packet.entryState;
+  }
+
   packet.goal = truncateAtBoundary(packet.goal, PACKET_LIMITS.goal);
   packet.conflict = truncateAtBoundary(packet.conflict, PACKET_LIMITS.conflict);
   packet.cliffhanger = truncateAtBoundary(packet.cliffhanger, PACKET_LIMITS.cliffhanger);
@@ -101,9 +111,12 @@ function normalizePacketPayloadForFallback(payload: unknown): unknown {
   return packet;
 }
 
-function parsePacketContent(content: string): ChapterPacket {
+function parsePacketContent(
+  content: string,
+  opts?: { chapterNumber?: number },
+): ChapterPacket {
   const payload = JSON.parse(content);
-  return ChapterPacketSchema.parse(payload);
+  return ChapterPacketSchema.parse(normalizePacketPayload(payload, opts));
 }
 
 function hasLengthOnlyIssues(err: unknown): err is ZodError {
@@ -193,7 +206,7 @@ export class PacketGenerator {
     let rawContent = res.content;
 
     try {
-      parsed = parsePacketContent(rawContent);
+      parsed = parsePacketContent(rawContent, { chapterNumber: input.chapterNumber });
     } catch (err) {
       log.info({ err, raw: rawContent.slice(0, 500) }, 'packet parse failed, attempting repair');
       try {
@@ -204,12 +217,14 @@ export class PacketGenerator {
         );
         rawContent = repaired.content;
         totalUsage = mergeUsage(totalUsage, repaired.usage);
-        parsed = parsePacketContent(rawContent);
+        parsed = parsePacketContent(rawContent, { chapterNumber: input.chapterNumber });
       } catch (repairErr) {
         if (hasLengthOnlyIssues(repairErr)) {
           try {
             const repairedPayload = JSON.parse(rawContent);
-            const fallbackPayload = normalizePacketPayloadForFallback(repairedPayload);
+            const fallbackPayload = normalizePacketPayload(repairedPayload, {
+              chapterNumber: input.chapterNumber,
+            });
             parsed = ChapterPacketSchema.parse(fallbackPayload);
             log.info({ raw: rawContent.slice(0, 500) }, 'packet normalized with sentence-safe fallback');
           } catch (fallbackErr) {

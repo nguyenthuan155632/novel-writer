@@ -26,6 +26,7 @@ export type SummaryCompactionResult = {
 
 /** §1.11 — max tokens for bible_compact / summary output. */
 const SUMMARY_MAX_TOKENS = 500;
+const MOOD_SHIFTS = new Set(['darker', 'lighter', 'unchanged']);
 
 export class BibleCompactionTooLargeError extends Error {
   constructor(public readonly estimatedTokens: number) {
@@ -46,30 +47,83 @@ async function runOnce(
 ): Promise<{ parsed: SummaryCompactorOutput; rawContent: string; usage: { inputTokens: number; outputTokens: number; cachedInputTokens: number } }> {
   let lastResContent = '';
   let lastUsage = { inputTokens: 0, outputTokens: 0, cachedInputTokens: 0 };
-  const parsed = SummaryCompactorOutputSchema.parse(
-    await withCompletionRetry(
-      'summary_compactor',
-      async () => {
-        const res = await provider.complete({
-          model,
-          messages: [{ role: 'system', content: system }, { role: 'user', content: user }],
-          responseSchema: SUMMARY_COMPACTOR_JSON_SCHEMA,
-          temperature: 0.2,
-          metadata: {
-            agentRole: summaryCompactorPromptV2.agentRole,
-            promptVersion: summaryCompactorPromptV2.version,
-            traceId,
-            storyId,
-          },
-        });
-        lastResContent = res.content ?? '';
-        lastUsage = res.usage;
-        return res;
-      },
-      3,
-    ),
+  const rawParsed = await withCompletionRetry(
+    'summary_compactor',
+    async () => {
+      const res = await provider.complete({
+        model,
+        messages: [{ role: 'system', content: system }, { role: 'user', content: user }],
+        responseSchema: SUMMARY_COMPACTOR_JSON_SCHEMA,
+        temperature: 0.2,
+        metadata: {
+          agentRole: summaryCompactorPromptV2.agentRole,
+          promptVersion: summaryCompactorPromptV2.version,
+          traceId,
+          storyId,
+        },
+      });
+      lastResContent = res.content ?? '';
+      lastUsage = res.usage;
+      return res;
+    },
+    3,
   );
+  const parsed = SummaryCompactorOutputSchema.parse(normalizeSummaryCompactorPayload(rawParsed));
   return { parsed, rawContent: lastResContent, usage: lastUsage };
+}
+
+function stringFromEvent(value: unknown): string | null {
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    return trimmed.length > 0 ? trimmed : null;
+  }
+  if (value == null || typeof value !== 'object' || Array.isArray(value)) return null;
+  const record = value as Record<string, unknown>;
+  for (const key of ['event', 'description', 'summary', 'text']) {
+    const candidate = record[key];
+    if (typeof candidate === 'string' && candidate.trim().length > 0) {
+      return candidate.trim();
+    }
+  }
+  return null;
+}
+
+export function normalizeSummaryCompactorPayload(value: unknown): unknown {
+  if (value == null || typeof value !== 'object' || Array.isArray(value)) return value;
+
+  const payload = { ...(value as Record<string, unknown>) };
+  if (Array.isArray(payload.keyEvents)) {
+    payload.keyEvents = payload.keyEvents.map(stringFromEvent).filter((event): event is string => event != null);
+  }
+
+  if (typeof payload.summary !== 'string' || payload.summary.trim().length === 0) {
+    for (const key of ['chapterSummary', 'summaryText', 'compactSummary']) {
+      const candidate = payload[key];
+      if (typeof candidate === 'string' && candidate.trim().length > 0) {
+        payload.summary = candidate.trim();
+        break;
+      }
+    }
+    if ((typeof payload.summary !== 'string' || payload.summary.trim().length === 0) && Array.isArray(payload.keyEvents)) {
+      const events = payload.keyEvents.filter((event): event is string => typeof event === 'string' && event.trim().length > 0);
+      if (events.length > 0) {
+        payload.summary = events.join(' ');
+      }
+    }
+  }
+
+  if (!Array.isArray(payload.charactersPresent)) {
+    payload.charactersPresent = [];
+  }
+
+  if (
+    payload.moodShift == null ||
+    (typeof payload.moodShift === 'string' && !MOOD_SHIFTS.has(payload.moodShift))
+  ) {
+    delete payload.moodShift;
+  }
+
+  return payload;
 }
 
 export class SummaryCompactor {

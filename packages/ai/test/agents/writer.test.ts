@@ -21,6 +21,24 @@ describe('parseTitleAndContent', () => {
     expect(result.content).toBe('Nội dung');
   });
 
+  it('normalizes markdown chapter title artifacts', () => {
+    const result = parseTitleAndContent('TITLE: # CHƯƠNG 6: GÀ NƯỚNG\n\nNội dung');
+    expect(result.title).toBe('GÀ NƯỚNG');
+    expect(result.content).toBe('Nội dung');
+  });
+
+  it('normalizes nested TITLE prefix artifacts', () => {
+    const result = parseTitleAndContent('TITLE: TITLE: Bàn Tay Đen\n\nNội dung');
+    expect(result.title).toBe('Bàn Tay Đen');
+    expect(result.content).toBe('Nội dung');
+  });
+
+  it('removes generated end-of-chapter footer markers', () => {
+    const result = parseTitleAndContent('TITLE: Chương 6\n\nNội dung\n\n*Hết chương 6*');
+    expect(result.title).toBe('Chương 6');
+    expect(result.content).toBe('Nội dung');
+  });
+
   it('falls back to first line as title when no TITLE: prefix', () => {
     const result = parseTitleAndContent('Chương 3\nNội dung chương');
     expect(result.title).toBe('Chương 3');

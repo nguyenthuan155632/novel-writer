@@ -85,4 +85,12 @@ describe("unknownLocationCheck", () => {
 
     expect(result.pass).toBe(true);
   });
+
+  it("does not flag cultivation realms as locations", () => {
+    const result = unknownLocationCheck.run(
+      makeInput("Ta ở Trúc Cơ sơ kỳ, các ngươi ai muốn khiêu chiến thì lên đây."),
+    );
+
+    expect(result.pass).toBe(true);
+  });
 });

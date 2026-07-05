@@ -19,6 +19,8 @@ Cấu hình truyện đã được xác định trong context (user message), g�
 - PROTAGONIST PERSONALITY CONTRACT: voice, decision style, dialogue, conflict response
 - STORY OPTIONS: POV, pacing, tone, morality, romance/dark/comedy levels
 - SAGA PROGRESS & ARC PROGRESS: vị trí hiện tại trong saga và arc
+- RECENT SUMMARIES: latest completed chapter continuity; if it conflicts with stale ACTIVE CHARACTERS, follow the latest summary and do not regress character state
+- ACTIVE CHARACTERS: currentRealm/current state của nhân vật ở thời điểm bắt đầu chương, trừ khi mâu thuẫn với RECENT SUMMARIES mới hơn
 
 TUYỆT ĐỐI tuân thủ các contract này. Viết ~2000-3000 từ. Đầu ra theo định dạng:
 
@@ -32,13 +34,15 @@ TITLE: <tiêu đề>
 - KHÔNG assume POV là third-person nếu STORY OPTIONS chỉ định first-person.
 - KHÔNG assume tone là nghiêm túc/epic nếu tone được set là humorous/soft.
 - MỌI thông tin về thế giới, nhân vật, hệ thống sức mạnh phải đến TỪ context được cung cấp.
+- Hài hước phải dùng hình ảnh phù hợp thế giới dị giới/cổ phong; KHÔNG dùng sản phẩm, dịch vụ, thuật ngữ sinh hoạt hiện đại như khử mùi, đăng ký hội viên, giảm giá, lịch hẹn trừ khi canon cho phép.
 
 # CONTEXT PRIORITY (thứ tự ưu tiên khi xung đột)
 1. GENRE CONTRACT + STORY OPTIONS (ràng buộc ưu tiên cao nhất)
 2. CANON FACTS + SYSTEM RULES (từ bible)
-3. ARC SUMMARY + SAGA SUMMARY (narrative direction)
-4. CHAPTER PLAN / PACKET (concrete goals for this chapter)
-5. RECENT SUMMARIES (continuity)
+3. RECENT SUMMARIES của chương mới nhất (latest completed chapter continuity; override stale ACTIVE CHARACTERS khi có xung đột trạng thái/cảnh giới)
+4. ACTIVE CHARACTERS (currentRealm/current state hiện tại nếu không mâu thuẫn với latest summary)
+5. ARC SUMMARY + SAGA SUMMARY (narrative direction)
+6. CHAPTER PLAN / PACKET (concrete goals for this chapter)
 
 # PACING RULES
 - Đọc kỹ SAGA PROGRESS và ARC PROGRESS để biết chương này ở đâu trong cấu trúc truyện.
@@ -71,6 +75,8 @@ Cấu hình truyện đã được xác định trong context (user message), g�
 - PROTAGONIST PERSONALITY CONTRACT: voice, decision style, dialogue, conflict response
 - STORY OPTIONS: POV, pacing, tone, morality, romance/dark/comedy levels
 - SAGA PROGRESS & ARC PROGRESS: vị trí hiện tại trong saga và arc
+- RECENT SUMMARIES: latest completed chapter continuity; if it conflicts with stale ACTIVE CHARACTERS, follow the latest summary and do not regress character state
+- ACTIVE CHARACTERS: currentRealm/current state của nhân vật ở thời điểm bắt đầu chương, trừ khi mâu thuẫn với RECENT SUMMARIES mới hơn
 
 TUYỆT ĐỐI tuân thủ các contract này. Viết ~2000-3000 từ. Đầu ra theo định dạng:
 
@@ -84,13 +90,15 @@ TITLE: <tiêu đề>
 - KHÔNG assume POV là third-person nếu STORY OPTIONS chỉ định first-person.
 - KHÔNG assume tone là nghiêm túc/epic nếu tone được set là humorous/soft.
 - MỌI thông tin về thế giới, nhân vật, hệ thống sức mạnh phải đến TỪ context được cung cấp.
+- Hài hước phải dùng hình ảnh phù hợp thế giới dị giới/cổ phong; KHÔNG dùng sản phẩm, dịch vụ, thuật ngữ sinh hoạt hiện đại như khử mùi, đăng ký hội viên, giảm giá, lịch hẹn trừ khi canon cho phép.
 
 # CONTEXT PRIORITY (thứ tự ưu tiên khi xung đột)
 1. GENRE CONTRACT + STORY OPTIONS (ràng buộc ưu tiên cao nhất)
 2. CANON FACTS + SYSTEM RULES (từ bible)
-3. ARC SUMMARY + SAGA SUMMARY (narrative direction)
-4. CHAPTER PLAN / PACKET (concrete goals for this chapter)
-5. RECENT SUMMARIES (continuity)
+3. RECENT SUMMARIES của chương mới nhất (latest completed chapter continuity; override stale ACTIVE CHARACTERS khi có xung đột trạng thái/cảnh giới)
+4. ACTIVE CHARACTERS (currentRealm/current state hiện tại nếu không mâu thuẫn với latest summary)
+5. ARC SUMMARY + SAGA SUMMARY (narrative direction)
+6. CHAPTER PLAN / PACKET (concrete goals for this chapter)
 
 # PACING RULES
 - Đọc kỹ SAGA PROGRESS và ARC PROGRESS để biết chương này ở đâu trong cấu trúc truyện.

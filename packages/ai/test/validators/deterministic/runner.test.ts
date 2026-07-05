@@ -75,8 +75,9 @@ describe("buildChecks", () => {
     const checks = buildChecks("", "cultivation");
     // Cosmetic checks (cliffhanger, conflict_presence, style_red_flags, repetition) removed.
     // cultivation: dead_character + realm_jump + new_bloodline_source + locked_fact +
-    //   forbidden_move + word_count + unknown_character + unknown_location + unknown_faction = 9.
-    expect(checks.length).toBe(9);
+    //   forbidden_move + word_count + word_count_target + unknown_character +
+    //   unknown_location + unknown_faction = 10.
+    expect(checks.length).toBe(10);
     expect(checks[0]!.severity).toBe("critical");
     expect(checks[checks.length - 1]!.severity).toBe("low");
   });
@@ -134,6 +135,19 @@ describe("runDeterministicValidator", () => {
       },
     });
     const result = runDeterministicValidator(input, checks);
+    expect(result.pass).toBe(false);
+    expect(result.shortCircuited).toBe(false);
+  });
+
+  it("reports target word-count misses without short-circuiting", () => {
+    const checks = buildChecks("", "cultivation");
+    const input = makeInput({
+      content: Array(1600).fill("word").join(" "),
+    });
+    const result = runDeterministicValidator(input, checks);
+    const targetCheck = result.checks.find((c) => c.id === "word_count_target");
+    expect(targetCheck?.pass).toBe(false);
+    expect(targetCheck?.severity).toBe("medium");
     expect(result.pass).toBe(false);
     expect(result.shortCircuited).toBe(false);
   });

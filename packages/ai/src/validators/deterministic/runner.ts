@@ -6,7 +6,7 @@ import type {
   PendingVerificationItem,
   Severity,
 } from "./types.ts";
-import { wordCountCheck } from "./word-count.ts";
+import { targetWordCountCheck, wordCountCheck } from "./word-count.ts";
 import { deadCharacterCheck } from "./dead-character.ts";
 import { realmJumpCheck } from "./realm-jump.ts";
 import { lockedFactCheck } from "./locked-fact.ts";
@@ -32,6 +32,7 @@ export function buildChecks(
     lockedFactCheck,
     makeForbiddenMoveCheck(forbiddenRulesText),
     wordCountCheck,
+    targetWordCountCheck,
     unknownCharacterCheck,
     unknownLocationCheck,
     unknownFactionCheck,

@@ -18,6 +18,7 @@ import type {
   CanonFactCompact,
   TimelineEventCompact,
   CharacterCompact,
+  ThreadCompact,
 } from "./types.js";
 import { computeHotHash, computeWarmHash } from "./cache-keys.js";
 import {
@@ -127,8 +128,10 @@ export async function buildContext(
       cfg.RECENT_CHAPTER_SUMMARIES_COUNT,
     ),
     getFactionsForStory(db, storyId),
-    getTimelineEventsForChapter(db, storyId, chapterNumber),
-    getPendingCanonUpdatesForStory(db, storyId),
+    getTimelineEventsForChapter(db, storyId, chapterNumber, undefined, {
+      includeCurrent: false,
+    }),
+    getPendingCanonUpdatesForStory(db, storyId, undefined, chapterNumber),
     getPrevChapterTailContent(db, storyId, chapterNumber),
   ]);
 
@@ -141,6 +144,9 @@ export async function buildContext(
     characters,
     recalledCharacters,
     chapterNumber,
+  );
+  const priorThreads = dedupeThreadsForPrompt(
+    threads.filter((thread) => thread.introducedChapter < chapterNumber),
   );
 
   const arcSeeds = filterArcSeeds(allSeeds, chapterNumber);
@@ -189,7 +195,7 @@ export async function buildContext(
     sagaSummary: sagaPlanText,
     arcSummary: arcPlanText,
     activeCharacters: mergedCharacters,
-    arcOpenThreads: threads,
+    arcOpenThreads: priorThreads,
     arcPlantedSeeds: arcSeeds,
     parallelThreads: Array.isArray(saga?.parallelThreads)
       ? saga.parallelThreads.filter(
@@ -264,7 +270,9 @@ export async function buildContext(
     retrievedFacts,
     retrievedPastChapters: pastChapterSummaries,
     seedsToPlantNow: dueSeeds,
-    timelineEvents: timelineEventsRows,
+    timelineEvents: dedupeTimelineEventsForPrompt(
+      timelineEventsRows.filter((event) => event.chapterNumber < chapterNumber),
+    ),
     pendingCanonUpdates: pendingCanonUpdatesRows,
     packet,
   };
@@ -368,6 +376,43 @@ export function mergeRecalledCharacters(
     .filter((c) => !seen.has(c.id))
     .map((c) => ({ ...c, lastActiveChapter: chapterNumber }));
   return [...stampedActive, ...extras];
+}
+
+function dedupeThreadsForPrompt(threads: ThreadCompact[]): ThreadCompact[] {
+  const seen = new Set<string>();
+  const out: ThreadCompact[] = [];
+  for (const thread of threads) {
+    const key = thread.id || normalizePromptKey(thread.title);
+    const titleKey = normalizePromptKey(thread.title);
+    if (seen.has(key) || seen.has(titleKey)) continue;
+    seen.add(key);
+    seen.add(titleKey);
+    out.push(thread);
+  }
+  return out;
+}
+
+function dedupeTimelineEventsForPrompt(
+  events: TimelineEventCompact[],
+): TimelineEventCompact[] {
+  const seen = new Set<string>();
+  const out: TimelineEventCompact[] = [];
+  for (const event of events) {
+    const key = [
+      event.chapterNumber,
+      normalizePromptKey(event.eventType),
+      normalizePromptKey(event.eventText),
+      normalizePromptKey(event.importance),
+    ].join("|");
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(event);
+  }
+  return out;
+}
+
+function normalizePromptKey(value: string): string {
+  return value.trim().toLocaleLowerCase("vi-VN").replace(/\s+/g, " ");
 }
 
 function buildHotTier(

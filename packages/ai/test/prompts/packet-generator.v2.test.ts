@@ -46,4 +46,18 @@ describe('packetGeneratorPromptV2', () => {
     expect(built.system).toContain('Bá đạo, quyết đoán');
     expect(built.system).toContain('Tone: Nghiêm túc');
   });
+
+  it('guards packet humor against modern consumer language', () => {
+    const built = packetGeneratorPromptV2.build({
+      bibleCompact: 'b', arcSummary: 'a', recentChapterSummaries: [],
+      activeCharacters: [], openThreads: [], duePlantedSeeds: [],
+      overdueThreads: [], forbiddenRules: '', chapterNumber: 1, arcGoals: 'g',
+      genreDef: findGenre('huyen_huyen'),
+      personalityDef: findPersonality('humorous_slick'),
+      storyOptions: {},
+    });
+
+    expect(built.user).toContain('Hài hước phải hợp thế giới');
+    expect(built.user).toContain('khử mùi');
+  });
 });

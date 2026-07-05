@@ -83,7 +83,64 @@ describe('PacketGenerator', () => {
     expect(r.packet.cliffhanger.length).toBeLessThanOrEqual(500);
     expect(r.packet.requiredEvents[0]?.description.length).toBeLessThanOrEqual(500);
     expect(r.packet.notes?.length ?? 0).toBeLessThanOrEqual(500);
-    expect(provider.getCalls().length).toBe(2);
+    expect(provider.getCalls().length).toBe(1);
+  });
+
+  it('normalizes common packet field drift without calling repair', async () => {
+    const drifted = JSON.stringify({
+      goal: 'protect Lam Da',
+      requiredEvents: [{ description: 'Lam Da escapes the hunter' }],
+      charactersInScene: ['Lam Da', 'Moc Linh Nhi'],
+      conflict: 'hunter attacks',
+      cliffhanger: 'jade pendant wakes',
+      forbiddenMoves: [],
+      entryState: 'continues from previous chapter',
+    });
+
+    const provider = new MockProvider({
+      responder: { kind: 'fixed', content: drifted },
+    });
+    const gen = new PacketGenerator({ provider, logger: silentLogger });
+    const r = await gen.generate({
+      bibleCompact: 'b', arcSummary: 'a', recentChapterSummaries: [],
+      activeCharacters: [], openThreads: [], duePlantedSeeds: [], overdueThreads: [],
+      forbiddenRules: '', chapterNumber: 7, arcGoals: 'g',
+      genreDef: { slug: 'tien_hiep', viLabel: 'Tiên hiệp', viDescription: '', family: 'cultivation', allowedTropes: [], discouragedTropes: [], toneGuidance: '', worldbuildingGuidance: '', examplePremises: [] } as any,
+      personalityDef: { slug: 'tram_on', viLabel: '', viDescription: '', voiceHints: '', decisionStyle: '', dialogueStyle: '', conflictResponse: '', driftSignals: [] } as any,
+      storyOptions: {} as any,
+    }, { traceId: 't', storyId: 's' });
+
+    expect(r.packet.chapterNumber).toBe(7);
+    expect(r.packet.charactersPresent).toEqual(['Lam Da', 'Moc Linh Nhi']);
+    expect(r.packet.entryState).toBeUndefined();
+    expect(provider.getCalls()).toHaveLength(1);
+  });
+
+  it('defaults missing charactersPresent to an empty list without calling repair', async () => {
+    const missingCharacters = JSON.stringify({
+      chapterNumber: 1,
+      goal: 'Lam Da accidentally breaks the testing stone',
+      requiredEvents: [{ description: 'Lam Da reveals unusual strength' }],
+      conflict: 'the elders doubt him',
+      cliffhanger: 'the jade pendant flickers',
+      forbiddenMoves: [],
+    });
+
+    const provider = new MockProvider({
+      responder: { kind: 'fixed', content: missingCharacters },
+    });
+    const gen = new PacketGenerator({ provider, logger: silentLogger });
+    const r = await gen.generate({
+      bibleCompact: 'b', arcSummary: 'a', recentChapterSummaries: [],
+      activeCharacters: [], openThreads: [], duePlantedSeeds: [], overdueThreads: [],
+      forbiddenRules: '', chapterNumber: 1, arcGoals: 'g',
+      genreDef: { slug: 'tien_hiep', viLabel: 'Tiên hiệp', viDescription: '', family: 'cultivation', allowedTropes: [], discouragedTropes: [], toneGuidance: '', worldbuildingGuidance: '', examplePremises: [] } as any,
+      personalityDef: { slug: 'tram_on', viLabel: '', viDescription: '', voiceHints: '', decisionStyle: '', dialogueStyle: '', conflictResponse: '', driftSignals: [] } as any,
+      storyOptions: {} as any,
+    }, { traceId: 't', storyId: 's' });
+
+    expect(r.packet.charactersPresent).toEqual([]);
+    expect(provider.getCalls()).toHaveLength(1);
   });
 
   it('includes packet planning context in the JSON repair call', async () => {

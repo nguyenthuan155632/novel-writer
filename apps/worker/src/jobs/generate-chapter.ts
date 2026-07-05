@@ -4,6 +4,7 @@ import {
   chapterPackets,
   chapterSummaries,
   contextPackets,
+  plantedSeeds,
   validations,
   sagas,
   arcs,
@@ -26,6 +27,7 @@ import {
   findAntiLlmPatternHits,
   CanonExtractor,
   type CanonExtractionResult,
+  type ExtractorOutput,
   SummaryCompactor,
   extractTailContent,
   auditPacket,
@@ -110,6 +112,51 @@ export interface GenerateChapterDeps {
 /** §1.8 escalation: a packet that still fails audit after retries must not be written unattended. */
 export function shouldPauseOnAuditFailure(mode: string, requiresRegenerate: boolean): boolean {
   return requiresRegenerate && mode !== "safe";
+}
+
+export function shouldPauseOnHighValidatorIssue(
+  mode: string,
+  hasHighValidatorIssue: boolean,
+): boolean {
+  return hasHighValidatorIssue && mode !== "full_auto";
+}
+
+export function validationStatusForDeterministicResult(
+  checks: Array<{ pass: boolean; severity: string }>,
+): "passed" | "failed" {
+  return checks.some(
+    (check) =>
+      !check.pass &&
+      (check.severity === "high" || check.severity === "critical"),
+  )
+    ? "failed"
+    : "passed";
+}
+
+function buildFallbackChapterSummary(title: string, content: string): string {
+  const normalized = content.replace(/\s+/g, " ").trim();
+  const excerpt =
+    normalized.length > 1200 ? `${normalized.slice(0, 1199).trimEnd()}…` : normalized;
+  return [`${title}:`, excerpt].filter(Boolean).join(" ").trim();
+}
+
+function buildEmptyExtractionResult(): CanonExtractionResult {
+  const output: ExtractorOutput = {
+    characterUpdates: [],
+    newCanonFacts: [],
+    threadUpdates: [],
+    newTimelineEvents: [],
+    factionUpdates: [],
+    seedsResolvedThisChapter: [],
+    turningPointsCompleted: [],
+    arcChangesCompleted: [],
+  };
+  return {
+    output,
+    promptVersion: "fallback-empty",
+    rawContent: "",
+    usage: { inputTokens: 0, outputTokens: 0, cachedInputTokens: 0 },
+  };
 }
 
 export function serializeContextForWriter(
@@ -761,6 +808,7 @@ export async function executeGenerateChapterPipeline(
       .returning({ id: chapters.id });
     chapterId = inserted!.id;
   }
+  await db.delete(validations).where(eq(validations.chapterId, chapterId));
 
   const domain = await loadStoryDomainContext(db, data.storyId);
 
@@ -1265,7 +1313,7 @@ Trạng thái hiện tại: ${currentRealms || "(chưa xác định)"}`;
       .update(chapters)
       .set({
         deterministicValidation: detResult.checks,
-        validationStatus: detResult.pass ? "passed" : "failed",
+        validationStatus: validationStatusForDeterministicResult(detResult.checks),
         updatedAt: new Date(),
       })
       .where(eq(chapters.id, chapterId));
@@ -1275,6 +1323,13 @@ Trạng thái hiện tại: ${currentRealms || "(chưa xác định)"}`;
       checks: detResult.checks,
       validatorModel: "deterministic",
     });
+    const deterministicFixIssues = detResult.checks
+      .filter((c) => !c.pass && c.id === "word_count_target")
+      .flatMap((c) => c.issues.map((message) => ({
+        code: c.id,
+        severity: c.severity,
+        message,
+      })));
 
     if (detResult.shortCircuited || !detResult.pass) {
       const criticalIssues = detResult.checks.filter(
@@ -1398,7 +1453,7 @@ Trạng thái hiện tại: ${currentRealms || "(chưa xác định)"}`;
           } catch (enqueueErr) {
             log.warn({ err: enqueueErr }, "failed to enqueue critical-severity high-stakes review");
           }
-          if (mode === "safe") {
+          if (shouldPauseOnHighValidatorIssue(mode, true)) {
             const pausedWordCount = writerResult.content.trim()
               ? writerResult.content.trim().split(/\s+/).length
               : 0;
@@ -1425,6 +1480,32 @@ Trạng thái hiện tại: ${currentRealms || "(chưa xác định)"}`;
               durationMs: Date.now() - start,
             };
           }
+
+          const failedWordCount = writerResult.content.trim()
+            ? writerResult.content.trim().split(/\s+/).length
+            : 0;
+          await db
+            .update(chapters)
+            .set({
+              title: writerResult.title,
+              content: writerResult.content,
+              status: "failed",
+              wordCount: failedWordCount,
+              generationMode: chapterGenerationMode,
+              polishPassStatus,
+              contextCacheKey: context.meta.hotHash,
+              tailContent: extractTailContent(writerResult.content),
+              updatedAt: new Date(),
+            })
+            .where(eq(chapters.id, chapterId));
+          return {
+            chapterId,
+            status: "failed",
+            attempts: attemptCount,
+            totalTokens: tokenAcc.inputTokens + tokenAcc.outputTokens,
+            totalCostUsd: totalCost,
+            durationMs: Date.now() - start,
+          };
         }
 
         const antiPatternIssues = findAntiLlmPatternHits(writerResult.content).map((hit) => ({
@@ -1451,7 +1532,11 @@ Trạng thái hiện tại: ${currentRealms || "(chưa xác định)"}`;
           });
         }
 
-        const combinedFixIssues = [...nonCriticalIssues, ...antiPatternIssues];
+        const combinedFixIssues = [
+          ...deterministicFixIssues,
+          ...nonCriticalIssues,
+          ...antiPatternIssues,
+        ];
         if (combinedFixIssues.length > 0) {
           log.info(
             { combinedFixIssues },
@@ -1515,6 +1600,35 @@ Trạng thái hiện tại: ${currentRealms || "(chưa xác định)"}`;
           .update(chapters)
           .set({ polishPassStatus, updatedAt: new Date() })
           .where(eq(chapters.id, chapterId));
+      } else if (deterministicFixIssues.length > 0) {
+        log.info(
+          { deterministicFixIssues },
+          "deterministic target word-count issues found, auto-fixing",
+        );
+        const autoFixerModel = modelForRole(effectiveConfig, "auto_fixer");
+        const autoFixer = new AutoFixerAgent({
+          provider,
+          logger: log,
+          model: autoFixerModel,
+        });
+        const fixResult = await autoFixer.fix({
+          serializedContext,
+          chapterContent: writerResult.content,
+          chapterTitle: writerResult.title,
+          chapterNumber: data.chapterNumber,
+          issues: deterministicFixIssues,
+          storyId: data.storyId,
+          traceId,
+          genreDef: domain.genreDef,
+        });
+        accumulateUsage(fixResult.usage, tokenAcc);
+        totalCost += estimateCostUsd(autoFixerModel, fixResult.usage);
+        writerResult = {
+          title: fixResult.title,
+          content: fixResult.content,
+          usage: fixResult.usage,
+          cost: fixResult.cost,
+        };
       }
     }
 
@@ -1534,35 +1648,41 @@ Trạng thái hiện tại: ${currentRealms || "(chưa xác định)"}`;
     );
     const canonSnapshotText = buildCanonSnapshotText(canonSnapshot);
 
-    const extractionResult = await canonExtractor.extract(
-      {
-        chapterNumber: data.chapterNumber,
-        chapterContent: writerResult.content,
-        bibleCompact: context.hot.bibleCompact,
-        canonSnapshot: canonSnapshotText,
-        plantedSeeds: context.warm.arcPlantedSeeds.map((s) => ({
-          id: s.id,
-          seedText: s.seedText,
-          payoffDescription: s.payoffDescription,
-          status: s.status,
-        })),
-        recentSummary: context.cold.recentSummaries[0]?.summary ?? "",
-        sagaTurningPoints: (Array.isArray(saga?.expectedTurningPoints)
-          ? (saga.expectedTurningPoints as string[])
-          : []
-        ).map((text, index) => ({
-          index,
-          text,
-          completed: ((saga?.completedTurningPoints as number[]) ?? []).includes(index),
-        })),
-        arcExpectedChanges: arcExpectedChanges.map((text, index) => ({
-          index,
-          text,
-          completed: ((arc?.completedChanges as number[]) ?? []).includes(index),
-        })),
-      },
-      { traceId, storyId: data.storyId },
-    );
+    let extractionResult: CanonExtractionResult;
+    try {
+      extractionResult = await canonExtractor.extract(
+        {
+          chapterNumber: data.chapterNumber,
+          chapterContent: writerResult.content,
+          bibleCompact: context.hot.bibleCompact,
+          canonSnapshot: canonSnapshotText,
+          plantedSeeds: context.warm.arcPlantedSeeds.map((s) => ({
+            id: s.id,
+            seedText: s.seedText,
+            payoffDescription: s.payoffDescription,
+            status: s.status,
+          })),
+          recentSummary: context.cold.recentSummaries[0]?.summary ?? "",
+          sagaTurningPoints: (Array.isArray(saga?.expectedTurningPoints)
+            ? (saga.expectedTurningPoints as string[])
+            : []
+          ).map((text, index) => ({
+            index,
+            text,
+            completed: ((saga?.completedTurningPoints as number[]) ?? []).includes(index),
+          })),
+          arcExpectedChanges: arcExpectedChanges.map((text, index) => ({
+            index,
+            text,
+            completed: ((arc?.completedChanges as number[]) ?? []).includes(index),
+          })),
+        },
+        { traceId, storyId: data.storyId },
+      );
+    } catch (err) {
+      extractionResult = buildEmptyExtractionResult();
+      log.warn({ err }, "canon extractor failed; using empty extraction result");
+    }
     accumulateUsage(extractionResult.usage, tokenAcc);
     totalCost += estimateCostUsd(canonExtractorModel, extractionResult.usage);
 
@@ -1608,35 +1728,65 @@ Trạng thái hiện tại: ${currentRealms || "(chưa xác định)"}`;
       "canon merger completed",
     );
 
+    const enforcedSeedIds = packetResult.packet.seedsAutoEnforced ?? [];
+    for (const seedId of enforcedSeedIds) {
+      await db
+        .update(plantedSeeds)
+        .set({
+          status: "planted",
+          plantedInChapter: data.chapterNumber,
+        })
+        .where(
+          and(
+            eq(plantedSeeds.id, seedId),
+            eq(plantedSeeds.storyId, data.storyId),
+            eq(plantedSeeds.status, "pending"),
+          ),
+        );
+    }
+
     const summaryModel = modelForRole(effectiveConfig, "summary_compactor");
     const summaryCompactor = new SummaryCompactor({
       provider,
       logger: log,
       model: summaryModel,
     });
-    const summaryResult = await summaryCompactor.compact(
-      {
-        chapterNumber: data.chapterNumber,
-        chapterContent: writerResult.content,
-        previousSummary: context.cold.recentSummaries[0]?.summary ?? "",
-        bibleCompact: context.hot.bibleCompact,
-        genreFamily: domain.genreFamily,
-      },
-      { traceId, storyId: data.storyId },
-    );
-    accumulateUsage(summaryResult.usage, tokenAcc);
-    totalCost += estimateCostUsd(summaryModel, summaryResult.usage);
+    let chapterSummary: string;
+    try {
+      const summaryResult = await summaryCompactor.compact(
+        {
+          chapterNumber: data.chapterNumber,
+          chapterContent: writerResult.content,
+          previousSummary: context.cold.recentSummaries[0]?.summary ?? "",
+          bibleCompact: context.hot.bibleCompact,
+          genreFamily: domain.genreFamily,
+        },
+        { traceId, storyId: data.storyId },
+      );
+      accumulateUsage(summaryResult.usage, tokenAcc);
+      totalCost += estimateCostUsd(summaryModel, summaryResult.usage);
+      chapterSummary = summaryResult.output.summary;
+    } catch (err) {
+      chapterSummary = buildFallbackChapterSummary(
+        writerResult.title,
+        writerResult.content,
+      );
+      log.warn(
+        { err, summaryLen: chapterSummary.length },
+        "summary compactor failed; using deterministic fallback summary",
+      );
+    }
 
     try {
       const embResp = await embeddingService.embed({
-        input: summaryResult.output.summary,
+        input: chapterSummary,
         traceId,
       });
       await db.insert(chapterSummaries).values({
         chapterId,
         storyId: data.storyId,
         chapterNumber: data.chapterNumber,
-        summary: summaryResult.output.summary,
+        summary: chapterSummary,
         embedding: embResp.vector,
       });
     } catch (embErr) {
@@ -1648,7 +1798,7 @@ Trạng thái hiện tại: ${currentRealms || "(chưa xác định)"}`;
         chapterId,
         storyId: data.storyId,
         chapterNumber: data.chapterNumber,
-        summary: summaryResult.output.summary,
+        summary: chapterSummary,
       });
     }
 
@@ -1674,7 +1824,7 @@ Trạng thái hiện tại: ${currentRealms || "(chưa xác định)"}`;
       .set({
         title: writerResult.title,
         content: writerResult.content,
-        summary: summaryResult.output.summary,
+        summary: chapterSummary,
         status:
           finalStatus === "paused_pending_updates"
             ? "paused_pending_updates"

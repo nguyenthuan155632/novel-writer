@@ -134,6 +134,40 @@ describe("verifyDeterministicFindings", () => {
     });
   });
 
+  it("deduplicates identical items before LLM verification and expands the verdict back", async () => {
+    const duplicate: PendingVerificationItem = {
+      checkId: "unknown_location",
+      severity: "low",
+      issue: 'Địa danh "Trúc Cơ" không nằm trong danh sách known locations.',
+      snippet: "Ta ở Trúc Cơ sơ kỳ, các ngươi ai muốn khiêu chiến thì lên đây.",
+    };
+    const response = JSON.stringify({
+      verdicts: [
+        {
+          index: 1,
+          verdict: "dismiss",
+          reason: "Trúc Cơ là cảnh giới tu luyện, không phải địa danh",
+        },
+      ],
+    });
+    const provider = mockProvider(response);
+    const result = await verifyDeterministicFindings(
+      { provider, model: "test-model", logger: silentLogger },
+      [duplicate, { ...duplicate }, { ...duplicate }],
+    );
+
+    const request = vi.mocked(provider.complete).mock.calls[0]![0];
+    const userPrompt = request.messages.find((m) => m.role === "user")!.content;
+    expect(userPrompt.match(/### Cảnh báo/g)).toHaveLength(1);
+    expect(result.confirmed).toHaveLength(0);
+    expect(result.dismissed).toHaveLength(3);
+    expect(result.dismissed.map((d) => d.reason)).toEqual([
+      "Trúc Cơ là cảnh giới tu luyện, không phải địa danh",
+      "Trúc Cơ là cảnh giới tu luyện, không phải địa danh",
+      "Trúc Cơ là cảnh giới tu luyện, không phải địa danh",
+    ]);
+  });
+
   it("splits items correctly when LLM dismisses some and confirms others", async () => {
     const response = JSON.stringify({
       verdicts: [

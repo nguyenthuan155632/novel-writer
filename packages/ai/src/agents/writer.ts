@@ -83,9 +83,26 @@ export function parseTitleAndContent(raw: string): { title: string; content: str
   const match = raw.match(/^\s*TITLE:\s*(.+?)\n+([\s\S]+)$/);
   if (!match) {
     const lines = raw.split('\n');
-    const title = (lines[0] ?? '').trim() || 'Vô đề';
-    const content = lines.slice(1).join('\n').trim();
+    const title = normalizeGeneratedTitle((lines[0] ?? '').trim() || 'Vô đề');
+    const content = normalizeGeneratedContent(lines.slice(1).join('\n').trim());
     return { title, content };
   }
-  return { title: match[1]!.trim(), content: match[2]!.trim() };
+  return {
+    title: normalizeGeneratedTitle(match[1]!.trim()),
+    content: normalizeGeneratedContent(match[2]!.trim()),
+  };
+}
+
+function normalizeGeneratedTitle(title: string): string {
+  return title
+    .replace(/^#+\s*/, '')
+    .replace(/^title\s*:\s*/i, '')
+    .replace(/^ch(?:ươ|ư)ng\s+\d+\s*[:\-–—]\s*/i, '')
+    .trim() || 'Vô đề';
+}
+
+function normalizeGeneratedContent(content: string): string {
+  return content
+    .replace(/\n+\s*\*?\s*Hết chương\s+\d+\s*\*?\s*$/i, '')
+    .trim();
 }

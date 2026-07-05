@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { wordCountCheck } from "../../../src/validators/deterministic/word-count.ts";
+import { targetWordCountCheck, wordCountCheck } from "../../../src/validators/deterministic/word-count.ts";
 import type { CheckInput } from "../../../src/validators/deterministic/types.ts";
 
 function makeInput(content: string): CheckInput {
@@ -83,5 +83,27 @@ describe("wordCountCheck", () => {
     const result = wordCountCheck.run(makeInput(words));
     expect(result.pass).toBe(false);
     expect(result.issues[0]).toContain("quá dài");
+  });
+});
+
+describe("targetWordCountCheck", () => {
+  it("passes for content within target range", () => {
+    const words = Array(2200).fill("word").join(" ");
+    const result = targetWordCountCheck.run(makeInput(words));
+    expect(result.pass).toBe(true);
+  });
+
+  it("flags content below target but above hard minimum", () => {
+    const words = Array(1600).fill("word").join(" ");
+    const result = targetWordCountCheck.run(makeInput(words));
+    expect(result.pass).toBe(false);
+    expect(result.issues[0]).toContain("dưới mục tiêu");
+  });
+
+  it("flags content above target but below hard maximum", () => {
+    const words = Array(3200).fill("word").join(" ");
+    const result = targetWordCountCheck.run(makeInput(words));
+    expect(result.pass).toBe(false);
+    expect(result.issues[0]).toContain("vượt mục tiêu");
   });
 });

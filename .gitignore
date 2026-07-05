@@ -19,3 +19,10 @@ docs/graph/.DS_Store
 .venv-notebooklm/
 .claude/worktrees/
 .gitnexus
+
+.fastcontext/
+
+# Logs
+*.log
+**/validations/*/*.txt
+.DS_Store

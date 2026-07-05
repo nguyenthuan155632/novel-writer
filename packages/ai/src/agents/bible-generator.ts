@@ -38,6 +38,29 @@ export interface GenerateBibleResult {
 }
 
 const BIBLE_VALIDATION_ATTEMPTS = 3;
+const BIBLE_TEXT_FIELDS = [
+  "world_rules",
+  "power_system",
+  "cultivation_system",
+  "bloodline_system",
+  "style_guide",
+  "forbidden_rules",
+  "ending_direction",
+  "compact_summary",
+] as const;
+
+function normalizeBibleTextFields(raw: unknown): unknown {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return raw;
+
+  const normalized = { ...(raw as Record<string, unknown>) };
+  for (const field of BIBLE_TEXT_FIELDS) {
+    const value = normalized[field];
+    if (Array.isArray(value)) {
+      normalized[field] = value.map(String).join("\n");
+    }
+  }
+  return normalized;
+}
 
 function responseSchemaForInput(input: GenerateBibleParams["input"]) {
   if (input.genreDef.family !== "cultivation") return bibleV2JsonSchema;
@@ -94,7 +117,9 @@ export async function generateBible(
       );
     }
 
-    const raw = parseCompletionJsonObject(res, "bible_generator");
+    const raw = normalizeBibleTextFields(
+      parseCompletionJsonObject(res, "bible_generator"),
+    );
     const parsed = BibleV2Schema.safeParse(raw);
     if (parsed.success) {
       return { bible: parsed.data, usage: lastUsage, rawContent: lastContent };

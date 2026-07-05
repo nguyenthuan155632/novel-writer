@@ -167,4 +167,57 @@ describe("LlmValidatorAgent", () => {
     expect(result.output.issues).toHaveLength(1);
     expect(result.output.issues[0]!.code).toBe("dead_character");
   });
+
+  it("derives pass when validator omits the pass field", async () => {
+    const provider = new MockProvider({
+      responder: {
+        kind: "fixed",
+        content: JSON.stringify({
+          issues: [
+            {
+              code: "weak_cliffhanger",
+              severity: "low",
+              message: "Cliffhanger hơi nhẹ.",
+            },
+          ],
+        }),
+      },
+    });
+    const agent = new LlmValidatorAgent({ provider });
+
+    const result = await agent.validate({
+      serializedContext: "context",
+      chapterContent: "content",
+      chapterTitle: "Ch 5",
+      chapterNumber: 5,
+      storyId: "s1",
+      traceId: "t1",
+      genreDef: {
+        slug: "tien_hiep",
+        viLabel: "Tiên hiệp",
+        viDescription: "",
+        family: "cultivation",
+        allowedTropes: [],
+        discouragedTropes: [],
+        toneGuidance: "",
+        worldbuildingGuidance: "",
+        examplePremises: [],
+      } as any,
+      personalityDef: {
+        slug: "tram_on",
+        viLabel: "",
+        viDescription: "",
+        voiceHints: "",
+        decisionStyle: "",
+        dialogueStyle: "",
+        conflictResponse: "",
+        driftSignals: [],
+      } as any,
+      storyOptions: {} as any,
+    });
+
+    expect(result.output.pass).toBe(true);
+    expect(result.output.summary).toBe("");
+    expect(result.output.issues[0]!.code).toBe("weak_cliffhanger");
+  });
 });

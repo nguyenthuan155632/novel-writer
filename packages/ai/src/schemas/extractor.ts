@@ -20,6 +20,72 @@ export const optionalPositiveChapter = z.preprocess((val): unknown => {
   return val;
 }, z.number().int().positive().optional());
 
+const arrayOrEmpty = (val: unknown): unknown => {
+  if (val === null || val === undefined) return [];
+  return val;
+};
+
+const objectArrayOrEmpty = (
+  val: unknown,
+  normalize: (item: Record<string, unknown>) => Record<string, unknown> | null,
+): unknown => {
+  if (val === null || val === undefined) return [];
+  if (!Array.isArray(val)) return val;
+  const out: Record<string, unknown>[] = [];
+  for (const item of val) {
+    if (!item || typeof item !== 'object' || Array.isArray(item)) continue;
+    const normalized = normalize(item as Record<string, unknown>);
+    if (normalized) out.push(normalized);
+  }
+  return out;
+};
+
+const normalizeNamedUpdateFields = (item: Record<string, unknown>): Record<string, unknown> | null => {
+  if (typeof item.action !== 'string') return null;
+  if (typeof item.name !== 'string' || !item.name.trim()) return null;
+  return {
+    ...item,
+    fields: item.fields && typeof item.fields === 'object' && !Array.isArray(item.fields) ? item.fields : {},
+  };
+};
+
+const normalizeThreadUpdate = (item: Record<string, unknown>): Record<string, unknown> | null => {
+  const title = typeof item.title === 'string' && item.title.trim()
+    ? item.title
+    : typeof item.description === 'string' && item.description.trim()
+      ? item.description
+      : typeof item.name === 'string' && item.name.trim()
+        ? item.name
+        : undefined;
+  if (!title) return null;
+  if (typeof item.action === 'string') return { ...item, title };
+  return { ...item, action: 'create', title };
+};
+
+const normalizeCanonFactProposal = (item: Record<string, unknown>): Record<string, unknown> | null => {
+  const fact = typeof item.fact === 'string' && item.fact.trim()
+    ? item.fact
+    : typeof item.description === 'string' && item.description.trim()
+      ? item.description
+      : undefined;
+  if (!fact) return null;
+  return {
+    ...item,
+    topic: typeof item.topic === 'string' && item.topic.trim() ? item.topic : 'Sự kiện chương',
+    fact,
+    importance: typeof item.importance === 'string' ? item.importance : 'medium',
+  };
+};
+
+const normalizeExtractorOutput = (val: unknown): unknown => {
+  if (!val || typeof val !== 'object' || Array.isArray(val)) return val;
+  const obj = val as Record<string, unknown>;
+  return {
+    ...obj,
+    newCanonFacts: obj.newCanonFacts ?? obj.canonFacts,
+  };
+};
+
 export const CharacterUpdateSchema = z.object({
   action: z.enum(['create', 'update']),
   targetId: optionalUuidFromUnknown,
@@ -93,14 +159,15 @@ export const planIndexArray = z
     return out;
   });
 
-export const ExtractorOutputSchema = z.object({
-  characterUpdates: z.array(CharacterUpdateSchema).max(20),
-  newCanonFacts: z.array(CanonFactProposalSchema).max(15),
-  threadUpdates: z.array(ThreadUpdateSchema).max(15),
-  newTimelineEvents: z.array(TimelineEventSchema).max(20),
+const ExtractorOutputObjectSchema = z.object({
+  characterUpdates: z.preprocess((val) => objectArrayOrEmpty(val, normalizeNamedUpdateFields), z.array(CharacterUpdateSchema).max(20)),
+  newCanonFacts: z.preprocess((val) => objectArrayOrEmpty(val, normalizeCanonFactProposal), z.array(CanonFactProposalSchema).max(15)),
+  threadUpdates: z.preprocess((val) => objectArrayOrEmpty(val, normalizeThreadUpdate), z.array(ThreadUpdateSchema).max(15)),
+  newTimelineEvents: z.preprocess(arrayOrEmpty, z.array(TimelineEventSchema).max(20)),
   // Backward-compatible: older extractor responses without factionUpdates default to [].
-  factionUpdates: z.array(FactionUpdateSchema).max(10).default([]),
+  factionUpdates: z.preprocess((val) => objectArrayOrEmpty(val, normalizeNamedUpdateFields), z.array(FactionUpdateSchema).max(10)).default([]),
   seedsResolvedThisChapter: z
+    .preprocess(arrayOrEmpty, z
     .array(z.unknown())
     .max(10)
     .transform((arr): string[] => {
@@ -112,10 +179,12 @@ export const ExtractorOutputSchema = z.object({
         if (r.success) out.push(r.data);
       }
       return out;
-    }),
+    })),
   turningPointsCompleted: planIndexArray,
   arcChangesCompleted: planIndexArray,
 });
+
+export const ExtractorOutputSchema = z.preprocess(normalizeExtractorOutput, ExtractorOutputObjectSchema);
 
 export type ExtractorOutput = z.infer<typeof ExtractorOutputSchema>;
 

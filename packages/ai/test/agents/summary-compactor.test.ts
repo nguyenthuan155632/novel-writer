@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { SummaryCompactor, BibleCompactionTooLargeError } from '../../src/agents/summary-compactor.ts';
+import { SummaryCompactor, BibleCompactionTooLargeError, normalizeSummaryCompactorPayload } from '../../src/agents/summary-compactor.ts';
 import { MockProvider } from '../../src/providers/mock.ts';
 import type { Logger } from '../../src/agents/summary-compactor.ts';
 import '../../src/prompts/summary-compactor.v2.ts';
@@ -61,6 +61,65 @@ describe('SummaryCompactor', () => {
       previousSummary: 'Prev',
       bibleCompact: 'Bible',
     }, { traceId: 't', storyId: 's' })).rejects.toThrow();
+  });
+
+  it('normalizes observed schema drift from summary compactor output', async () => {
+    const payload = normalizeSummaryCompactorPayload({
+      keyEvents: [
+        'Lâm Dạ học cách kiểm soát huyết mạch.',
+        { description: 'Ngọc bội kích hoạt Thủy Nguyên Thần Tích.' },
+      ],
+      charactersPresent: ['Lâm Dạ', 'Lâm Thanh Phong'],
+      moodShift: 'từ hài hước sang căng thẳng rồi hy vọng',
+    }) as {
+      summary?: string;
+      keyEvents?: string[];
+      charactersPresent?: string[];
+      moodShift?: string;
+    };
+
+    expect(payload.summary).toContain('Lâm Dạ học cách kiểm soát huyết mạch.');
+    expect(payload.keyEvents).toEqual([
+      'Lâm Dạ học cách kiểm soát huyết mạch.',
+      'Ngọc bội kích hoạt Thủy Nguyên Thần Tích.',
+    ]);
+    expect(payload.charactersPresent).toEqual(['Lâm Dạ', 'Lâm Thanh Phong']);
+    expect(payload.moodShift).toBeUndefined();
+  });
+
+  it('normalizes nullable moodShift from first-chapter summaries', async () => {
+    const payload = normalizeSummaryCompactorPayload({
+      summary: 'Lâm Dạ bị kéo vào đại sảnh sau khi vô tình đột phá.',
+      keyEvents: ['Lâm Dạ bị hiểu lầm là thiên tài giấu nghề.'],
+      charactersPresent: ['Lâm Dạ'],
+      moodShift: null,
+    }) as { moodShift?: string };
+
+    expect(payload.moodShift).toBeUndefined();
+  });
+
+  it('compacts output when the provider omits summary but returns key events', async () => {
+    const provider = new MockProvider({
+      responder: {
+        kind: 'fixed',
+        content: JSON.stringify({
+          keyEvents: ['Lâm Dạ kích hoạt ngọc bội.', 'Thủy Nguyên Ấn bị đẩy lui.'],
+          charactersPresent: ['Lâm Dạ'],
+          moodShift: 'từ hài hước sang căng thẳng rồi hy vọng',
+        }),
+      },
+    });
+    const compactor = new SummaryCompactor({ provider, logger: silentLogger });
+    const r = await compactor.compact({
+      chapterNumber: 8,
+      chapterContent: 'Content',
+      previousSummary: 'Prev',
+      bibleCompact: 'Bible',
+    }, { traceId: 't', storyId: 's' });
+
+    expect(r.output.summary).toContain('Lâm Dạ kích hoạt ngọc bội.');
+    expect(r.output.keyEvents).toHaveLength(2);
+    expect(r.output.moodShift).toBeUndefined();
   });
 
   it('§1.11 retries with stricter prompt when summary exceeds 500 tokens', async () => {

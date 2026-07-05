@@ -84,7 +84,10 @@ function applyShrink(
 
   switch (action) {
     case 'activeCharactersCompactMode':
-      next.warm.activeCharacters = trimActiveCharacters(next.warm.activeCharacters).map(stripCharacter);
+      next.warm.activeCharacters = trimActiveCharacters(
+        next.warm.activeCharacters,
+        new Set(next.cold.packet.charactersPresent ?? []),
+      ).map(stripCharacter);
       return next;
     case 'retrievedFacts':
       next.cold.retrievedFacts = raiseFactThreshold(next.cold.retrievedFacts);
@@ -103,12 +106,33 @@ function applyShrink(
   }
 }
 
-function trimActiveCharacters(characters: CharacterCompact[]): CharacterCompact[] {
+function trimActiveCharacters(
+  characters: CharacterCompact[],
+  requiredNames: ReadonlySet<string>,
+): CharacterCompact[] {
   if (characters.length <= MIN_KEEP) return characters;
 
-  return [...characters]
+  const required: CharacterCompact[] = [];
+  const optional: CharacterCompact[] = [];
+  for (const character of characters) {
+    if (requiredNames.has(character.name)) {
+      required.push(character);
+    } else {
+      optional.push(character);
+    }
+  }
+
+  const keepCount = Math.max(MIN_KEEP, required.length);
+  const selected = [
+    ...required,
+    ...optional
+      .sort((a, b) => (b.lastActiveChapter ?? 0) - (a.lastActiveChapter ?? 0))
+      .slice(0, Math.max(0, keepCount - required.length)),
+  ];
+
+  return selected
     .sort((a, b) => (b.lastActiveChapter ?? 0) - (a.lastActiveChapter ?? 0))
-    .slice(0, MIN_KEEP);
+    .slice(0, keepCount);
 }
 
 function raiseFactThreshold(facts: CanonFactCompact[]): CanonFactCompact[] {

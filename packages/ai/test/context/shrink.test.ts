@@ -231,6 +231,64 @@ describe("shrinkToFit", () => {
     ]);
   });
 
+  it("does not trim characters required by the chapter packet", () => {
+    const chars: CharacterCompact[] = [
+      {
+        id: 'c1',
+        name: 'A',
+        currentRealm: 'realm-1',
+        status: 'alive',
+        bloodlines: ['x'],
+        shortTraits: ['t'],
+        lastActiveChapter: 1,
+      },
+      {
+        id: 'c2',
+        name: 'B',
+        currentRealm: 'realm-2',
+        status: 'alive',
+        bloodlines: ['x'],
+        shortTraits: ['t'],
+        lastActiveChapter: 20,
+      },
+      {
+        id: 'c3',
+        name: 'C',
+        currentRealm: 'realm-3',
+        status: 'alive',
+        bloodlines: ['x'],
+        shortTraits: ['t'],
+        lastActiveChapter: 10,
+      },
+      {
+        id: 'c4',
+        name: 'D',
+        currentRealm: 'realm-4',
+        status: 'alive',
+        bloodlines: ['x'],
+        shortTraits: ['t'],
+        lastActiveChapter: 30,
+      },
+    ];
+    const ctx = makeContext({
+      warm: { activeCharacters: chars },
+      cold: {
+        packet: {
+          chapterNumber: 1,
+          goal: "test goal",
+          requiredEvents: [],
+          charactersPresent: ['A'],
+          conflict: "test conflict",
+          cliffhanger: "test cliffhanger",
+          forbiddenMoves: [],
+          seedsAutoEnforced: [],
+        },
+      },
+    });
+    const result = shrinkToFit(ctx, 10);
+    expect(result.warm.activeCharacters.map((c) => c.name)).toEqual(['D', 'B', 'A']);
+  });
+
   it("keeps hot tier intact", () => {
     const ctx = makeContext({ hot: { systemRules: 'HOT-RULES' } });
     const result = shrinkToFit(ctx, 1);

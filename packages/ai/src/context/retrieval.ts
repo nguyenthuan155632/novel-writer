@@ -116,7 +116,7 @@ export async function getActiveCharacters(
     .where(
       and(
         eq(characters.storyId, storyId),
-        sql`${characters.lastActiveChapter} >= ${chapterNumber - 5} OR ${characters.lastSeenChapter} >= ${chapterNumber - 5}`,
+        sql`((${characters.lastActiveChapter} > 0 AND ${characters.lastActiveChapter} >= ${chapterNumber - 5}) OR (${characters.lastSeenChapter} > 0 AND ${characters.lastSeenChapter} >= ${chapterNumber - 5}))`,
       ),
     )
     .orderBy(desc(characters.lastActiveChapter));
@@ -193,7 +193,7 @@ export async function getSeedsDueForChapter(
         eq(plantedSeeds.storyId, storyId),
         lte(plantedSeeds.plantWindowStart, chapterNumber),
         gte(plantedSeeds.plantWindowEnd, chapterNumber),
-        sql`${plantedSeeds.status} NOT IN ('paid_off', 'abandoned')`,
+        eq(plantedSeeds.status, 'pending'),
       ),
     );
   return rows.map((s) => compactSeed(s));
@@ -414,7 +414,9 @@ export async function getTimelineEventsForChapter(
   storyId: string,
   chapterNumber: number,
   limit = 20,
+  options: { includeCurrent?: boolean } = {},
 ): Promise<TimelineEventCompact[]> {
+  const includeCurrent = options.includeCurrent ?? true;
   const saga = await getSagaForChapter(db, storyId, chapterNumber);
   const parallelThreads = normalizeParallelThreads(saga?.parallelThreads);
   const activeThreadIds = parallelThreads
@@ -440,13 +442,16 @@ export async function getTimelineEventsForChapter(
     .where(
       and(
         eq(timelineEvents.storyId, storyId),
-        lte(timelineEvents.chapterNumber, chapterNumber),
+        includeCurrent
+          ? lte(timelineEvents.chapterNumber, chapterNumber)
+          : lt(timelineEvents.chapterNumber, chapterNumber),
       ),
     )
     .orderBy(desc(timelineEvents.chapterNumber))
     .limit(limit * 3);
 
   const filtered = rows.filter((row) => {
+    if (!includeCurrent && row.chapterNumber >= chapterNumber) return false;
     if (!row.threadId && (!row.relatedThreadIds || row.relatedThreadIds.length === 0)) {
       return true;
     }
@@ -502,18 +507,49 @@ export async function getPendingCanonUpdatesForStory(
   db: Db,
   storyId: string,
   limit = 10,
+  beforeChapter?: number,
 ): Promise<PendingCanonUpdateCompact[]> {
-  const rows = await db
-    .select()
-    .from(pendingCanonUpdates)
-    .where(
-      and(
-        eq(pendingCanonUpdates.storyId, storyId),
-        eq(pendingCanonUpdates.resolution, "pending"),
-      ),
-    )
-    .orderBy(desc(pendingCanonUpdates.createdAt))
-    .limit(limit);
+  const columns = {
+    id: pendingCanonUpdates.id,
+    storyId: pendingCanonUpdates.storyId,
+    chapterId: pendingCanonUpdates.chapterId,
+    updateType: pendingCanonUpdates.updateType,
+    targetTable: pendingCanonUpdates.targetTable,
+    targetId: pendingCanonUpdates.targetId,
+    payload: pendingCanonUpdates.payload,
+    conflictStatus: pendingCanonUpdates.conflictStatus,
+    conflictReasons: pendingCanonUpdates.conflictReasons,
+    suggestedResolution: pendingCanonUpdates.suggestedResolution,
+    resolution: pendingCanonUpdates.resolution,
+    reviewedBy: pendingCanonUpdates.reviewedBy,
+    createdAt: pendingCanonUpdates.createdAt,
+    resolvedAt: pendingCanonUpdates.resolvedAt,
+  };
+  const rows = beforeChapter == null
+    ? await db
+        .select(columns)
+        .from(pendingCanonUpdates)
+        .where(
+          and(
+            eq(pendingCanonUpdates.storyId, storyId),
+            eq(pendingCanonUpdates.resolution, "pending"),
+          ),
+        )
+        .orderBy(desc(pendingCanonUpdates.createdAt))
+        .limit(limit)
+    : await db
+        .select(columns)
+        .from(pendingCanonUpdates)
+        .innerJoin(chapters, eq(pendingCanonUpdates.chapterId, chapters.id))
+        .where(
+          and(
+            eq(pendingCanonUpdates.storyId, storyId),
+            eq(pendingCanonUpdates.resolution, "pending"),
+            lt(chapters.chapterNumber, beforeChapter),
+          ),
+        )
+        .orderBy(desc(pendingCanonUpdates.createdAt))
+        .limit(limit);
   return rows.map((r) => compactPendingCanonUpdate(r));
 }
 

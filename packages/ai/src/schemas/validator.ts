@@ -7,11 +7,35 @@ export const LlmValidatorIssueSchema = z.object({
   message: z.string(),
 });
 
-export const LlmValidatorOutputSchema = z.object({
+const arrayOrEmpty = (val: unknown): unknown => {
+  if (val === null || val === undefined) return [];
+  return val;
+};
+
+const normalizeValidatorOutput = (val: unknown): unknown => {
+  if (!val || typeof val !== 'object' || Array.isArray(val)) return val;
+  const obj = val as Record<string, unknown>;
+  const issues = Array.isArray(obj.issues) ? obj.issues : [];
+  const hasBlockingIssue = issues.some((issue) => {
+    if (!issue || typeof issue !== 'object' || Array.isArray(issue)) return false;
+    const severity = (issue as Record<string, unknown>).severity;
+    return severity === 'high' || severity === 'critical';
+  });
+  return {
+    ...obj,
+    pass: typeof obj.pass === 'boolean' ? obj.pass : !hasBlockingIssue,
+    issues,
+    summary: typeof obj.summary === 'string' ? obj.summary : '',
+  };
+};
+
+const LlmValidatorOutputObjectSchema = z.object({
   pass: z.boolean(),
-  issues: z.array(LlmValidatorIssueSchema),
+  issues: z.preprocess(arrayOrEmpty, z.array(LlmValidatorIssueSchema)),
   summary: z.string(),
 });
+
+export const LlmValidatorOutputSchema = z.preprocess(normalizeValidatorOutput, LlmValidatorOutputObjectSchema);
 
 export type LlmValidatorIssue = z.infer<typeof LlmValidatorIssueSchema>;
 export type LlmValidatorOutput = z.infer<typeof LlmValidatorOutputSchema>;

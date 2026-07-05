@@ -47,4 +47,30 @@ describe('writerPromptV2', () => {
     expect(built.user).not.toContain('<consistent_chronology>');
     expect(built.user).not.toContain('<entry_state>');
   });
+
+  it('tells the writer to let latest summaries override stale character state conflicts', () => {
+    const built = writerPromptV2.build({
+      serializedContext: [
+        '# ACTIVE CHARACTERS',
+        '- Lâm Dạ [alive] realm=Tụ Khí đỉnh phong faction=Lâm gia',
+        '# RECENT SUMMARIES',
+        '- Ch5: Lâm Dạ vừa đột phá lên Trúc Cơ sau trận đấu.',
+      ].join('\n'),
+      genreDef: findGenre('tien_hiep'),
+    } as unknown as Record<string, unknown>);
+
+    expect(built.system).toContain('RECENT SUMMARIES');
+    expect(built.system).toContain('latest completed chapter');
+    expect(built.system).toContain('override stale ACTIVE CHARACTERS');
+  });
+
+  it('guards comedic voice against modern consumer language', () => {
+    const built = writerPromptV2.build({
+      serializedContext: 'CTX',
+      genreDef: findGenre('huyen_huyen'),
+    } as unknown as Record<string, unknown>);
+
+    expect(built.system).toContain('Hài hước phải dùng hình ảnh phù hợp thế giới');
+    expect(built.system).toContain('khử mùi');
+  });
 });

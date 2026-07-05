@@ -1,5 +1,19 @@
 import type { CheckInput, CheckResult, DeterministicCheck } from "./types.ts";
 
+const CULTIVATION_REALMS = new Set(
+  [
+    "Luyện Thể",
+    "Tụ Khí",
+    "Trúc Cơ",
+    "Kim Đan",
+    "Thần Phủ",
+    "Hiển Pháp",
+    "Thánh Cảnh",
+    "Đại Thánh",
+    "Đế Cảnh",
+  ].map((name) => name.toLowerCase()),
+);
+
 export const unknownLocationCheck: DeterministicCheck = {
   id: "unknown_location",
   severity: "low",
@@ -31,7 +45,8 @@ export const unknownLocationCheck: DeterministicCheck = {
         knownCharacters.has(lower) ||
         knownBloodlines.has(lower) ||
         knownLocations.has(lower) ||
-        knownFactions.has(lower)
+        knownFactions.has(lower) ||
+        CULTIVATION_REALMS.has(lower)
       ) {
         continue;
       }

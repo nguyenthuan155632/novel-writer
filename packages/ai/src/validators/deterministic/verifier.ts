@@ -91,11 +91,13 @@ export async function verifyDeterministicFindings(
     };
   }
 
+  const groups = groupVerificationItems(items);
+  const uniqueItems = groups.map((group) => group.item);
   const model = deps.model ?? MODEL_CONFIG.routes.deterministic_verifier;
-  const userPrompt = buildUserPrompt(items);
+  const userPrompt = buildUserPrompt(uniqueItems);
 
   deps.logger?.info(
-    { itemCount: items.length },
+    { itemCount: uniqueItems.length, originalItemCount: items.length },
     "verifying deterministic findings with LLM",
   );
 
@@ -155,35 +157,43 @@ export async function verifyDeterministicFindings(
     const parsed = JSON.parse(res.content);
     const verdicts: { index: number; verdict: string; reason: string }[] =
       parsed.verdicts ?? parsed;
+    const addressedGroups = new Set<number>();
 
     for (const v of verdicts) {
-      const item = items[v.index - 1]; // 1-based index from prompt
-      if (!item) continue;
+      const groupIndex = v.index - 1; // 1-based index from prompt
+      const group = groups[groupIndex];
+      if (!group) continue;
+      addressedGroups.add(groupIndex);
 
       if (v.verdict === "confirm") {
-        confirmed.push({
-          checkId: item.checkId,
-          severity: item.severity,
-          issue: item.issue,
-        });
+        for (const item of group.items) {
+          confirmed.push({
+            checkId: item.checkId,
+            severity: item.severity,
+            issue: item.issue,
+          });
+        }
       } else {
-        dismissed.push({
-          checkId: item.checkId,
-          issue: item.issue,
-          reason: v.reason ?? "",
-        });
+        for (const item of group.items) {
+          dismissed.push({
+            checkId: item.checkId,
+            issue: item.issue,
+            reason: v.reason ?? "",
+          });
+        }
       }
     }
 
     // Any items not addressed by LLM → conservatively confirm
-    for (let i = 0; i < items.length; i++) {
-      const addressed = verdicts.some((v) => v.index - 1 === i);
-      if (!addressed) {
-        confirmed.push({
-          checkId: items[i]!.checkId,
-          severity: items[i]!.severity,
-          issue: items[i]!.issue,
-        });
+    for (let i = 0; i < groups.length; i++) {
+      if (!addressedGroups.has(i)) {
+        for (const item of groups[i]!.items) {
+          confirmed.push({
+            checkId: item.checkId,
+            severity: item.severity,
+            issue: item.issue,
+          });
+        }
       }
     }
   } catch {
@@ -205,4 +215,37 @@ export async function verifyDeterministicFindings(
   );
 
   return { confirmed, dismissed, usage: res.usage };
+}
+
+function groupVerificationItems(items: PendingVerificationItem[]): Array<{
+  item: PendingVerificationItem;
+  items: PendingVerificationItem[];
+}> {
+  const groups: Array<{
+    item: PendingVerificationItem;
+    items: PendingVerificationItem[];
+  }> = [];
+  const byKey = new Map<string, number>();
+
+  for (const item of items) {
+    const key = [
+      item.checkId,
+      item.severity,
+      normalizeVerificationKey(item.issue),
+      normalizeVerificationKey(item.snippet),
+    ].join("|");
+    const groupIndex = byKey.get(key);
+    if (groupIndex === undefined) {
+      byKey.set(key, groups.length);
+      groups.push({ item, items: [item] });
+    } else {
+      groups[groupIndex]!.items.push(item);
+    }
+  }
+
+  return groups;
+}
+
+function normalizeVerificationKey(value: string): string {
+  return value.trim().toLocaleLowerCase("vi-VN").replace(/\s+/g, " ");
 }
