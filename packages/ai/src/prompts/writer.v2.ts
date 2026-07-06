@@ -22,7 +22,7 @@ Cấu hình truyện đã được xác định trong context (user message), g�
 - RECENT SUMMARIES: latest completed chapter continuity; if it conflicts with stale ACTIVE CHARACTERS, follow the latest summary and do not regress character state
 - ACTIVE CHARACTERS: currentRealm/current state của nhân vật ở thời điểm bắt đầu chương, trừ khi mâu thuẫn với RECENT SUMMARIES mới hơn
 
-TUYỆT ĐỐI tuân thủ các contract này. Viết ~2000-3000 từ. Đầu ra theo định dạng:
+TUYỆT ĐỐI tuân thủ các contract này. Viết 2200-2600 từ; không được dưới 2000 từ hoặc vượt 3000 từ. Không viết dạng tóm tắt nén; phải triển khai đủ cảnh, đối thoại, hành động và phản ứng nội tâm. Nếu bản nháp dưới 2000 từ, tự mở rộng trước khi trả lời. Đầu ra theo định dạng:
 
 TITLE: <tiêu đề>
 
@@ -34,7 +34,10 @@ TITLE: <tiêu đề>
 - KHÔNG assume POV là third-person nếu STORY OPTIONS chỉ định first-person.
 - KHÔNG assume tone là nghiêm túc/epic nếu tone được set là humorous/soft.
 - MỌI thông tin về thế giới, nhân vật, hệ thống sức mạnh phải đến TỪ context được cung cấp.
-- Hài hước phải dùng hình ảnh phù hợp thế giới dị giới/cổ phong; KHÔNG dùng sản phẩm, dịch vụ, thuật ngữ sinh hoạt hiện đại như khử mùi, đăng ký hội viên, giảm giá, lịch hẹn trừ khi canon cho phép.
+- KHÔNG tái diễn hoặc giải quyết lại sự kiện/conflict đã hoàn tất trong RECENT SUMMARIES, CANON FACTS, hoặc completed arc changes; chương mới phải phát triển hậu quả, biến chứng, hoặc mục tiêu kế tiếp từ các sự kiện đó.
+- Hài hước phải dùng hình ảnh phù hợp thế giới dị giới/cổ phong; KHÔNG dùng sản phẩm, dịch vụ, thuật ngữ sinh hoạt hiện đại, tiếng Anh đời thường, công nghệ, văn phòng, du lịch, trò chơi, điện ảnh như khử mùi, đăng ký hội viên, giảm giá, lịch hẹn, khách sạn, minibar, TV, đánh giá một sao, free, CLB, GPS, resort, sếp cuối, phim, kịch bản trừ khi canon cho phép.
+- Giữ xưng hô cổ phong/nhất quán theo context: ưu tiên ta/ngươi/hắn/nàng/lão; KHÔNG tự ý chuyển thoại thân mật hiện đại như tôi/anh/em/cậu nếu canon hoặc POV không yêu cầu.
+- Trước khi trả lời, tự rà soát và thay mọi xưng hô hiện đại sai bối cảnh như tôi/anh/em/cậu bằng xưng hô đã dùng trong context (ta/ngươi/hắn/nàng), trừ khi STORY OPTIONS là ngôi nhất hoặc hiện đại.
 
 # CONTEXT PRIORITY (thứ tự ưu tiên khi xung đột)
 1. GENRE CONTRACT + STORY OPTIONS (ràng buộc ưu tiên cao nhất)
@@ -78,7 +81,7 @@ Cấu hình truyện đã được xác định trong context (user message), g�
 - RECENT SUMMARIES: latest completed chapter continuity; if it conflicts with stale ACTIVE CHARACTERS, follow the latest summary and do not regress character state
 - ACTIVE CHARACTERS: currentRealm/current state của nhân vật ở thời điểm bắt đầu chương, trừ khi mâu thuẫn với RECENT SUMMARIES mới hơn
 
-TUYỆT ĐỐI tuân thủ các contract này. Viết ~2000-3000 từ. Đầu ra theo định dạng:
+TUYỆT ĐỐI tuân thủ các contract này. Viết 2200-2600 từ; không được dưới 2000 từ hoặc vượt 3000 từ. Không viết dạng tóm tắt nén; phải triển khai đủ cảnh, đối thoại, hành động và phản ứng nội tâm. Nếu bản nháp dưới 2000 từ, tự mở rộng trước khi trả lời. Đầu ra theo định dạng:
 
 TITLE: <tiêu đề>
 
@@ -90,7 +93,10 @@ TITLE: <tiêu đề>
 - KHÔNG assume POV là third-person nếu STORY OPTIONS chỉ định first-person.
 - KHÔNG assume tone là nghiêm túc/epic nếu tone được set là humorous/soft.
 - MỌI thông tin về thế giới, nhân vật, hệ thống sức mạnh phải đến TỪ context được cung cấp.
-- Hài hước phải dùng hình ảnh phù hợp thế giới dị giới/cổ phong; KHÔNG dùng sản phẩm, dịch vụ, thuật ngữ sinh hoạt hiện đại như khử mùi, đăng ký hội viên, giảm giá, lịch hẹn trừ khi canon cho phép.
+- KHÔNG tái diễn hoặc giải quyết lại sự kiện/conflict đã hoàn tất trong RECENT SUMMARIES, CANON FACTS, hoặc completed arc changes; chương mới phải phát triển hậu quả, biến chứng, hoặc mục tiêu kế tiếp từ các sự kiện đó.
+- Hài hước phải dùng hình ảnh phù hợp thế giới dị giới/cổ phong; KHÔNG dùng sản phẩm, dịch vụ, thuật ngữ sinh hoạt hiện đại, tiếng Anh đời thường, công nghệ, văn phòng, du lịch, trò chơi, điện ảnh như khử mùi, đăng ký hội viên, giảm giá, lịch hẹn, khách sạn, minibar, TV, đánh giá một sao, free, CLB, GPS, resort, sếp cuối, phim, kịch bản trừ khi canon cho phép.
+- Giữ xưng hô cổ phong/nhất quán theo context: ưu tiên ta/ngươi/hắn/nàng/lão; KHÔNG tự ý chuyển thoại thân mật hiện đại như tôi/anh/em/cậu nếu canon hoặc POV không yêu cầu.
+- Trước khi trả lời, tự rà soát và thay mọi xưng hô hiện đại sai bối cảnh như tôi/anh/em/cậu bằng xưng hô đã dùng trong context (ta/ngươi/hắn/nàng), trừ khi STORY OPTIONS là ngôi nhất hoặc hiện đại.
 
 # CONTEXT PRIORITY (thứ tự ưu tiên khi xung đột)
 1. GENRE CONTRACT + STORY OPTIONS (ràng buộc ưu tiên cao nhất)

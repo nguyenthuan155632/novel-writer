@@ -62,6 +62,8 @@ describe('writerPromptV2', () => {
     expect(built.system).toContain('RECENT SUMMARIES');
     expect(built.system).toContain('latest completed chapter');
     expect(built.system).toContain('override stale ACTIVE CHARACTERS');
+    expect(built.system).toContain('KHÔNG tái diễn hoặc giải quyết lại sự kiện/conflict đã hoàn tất');
+    expect(built.system).toContain('phát triển hậu quả, biến chứng, hoặc mục tiêu kế tiếp');
   });
 
   it('guards comedic voice against modern consumer language', () => {
@@ -72,5 +74,19 @@ describe('writerPromptV2', () => {
 
     expect(built.system).toContain('Hài hước phải dùng hình ảnh phù hợp thế giới');
     expect(built.system).toContain('khử mùi');
+    expect(built.system).toContain('khách sạn, minibar, TV, đánh giá một sao, free, CLB, GPS, resort, sếp cuối, phim, kịch bản');
+    expect(built.system).toContain('KHÔNG tự ý chuyển thoại thân mật hiện đại như tôi/anh/em/cậu');
+    expect(built.system).toContain('tự rà soát và thay mọi xưng hô hiện đại sai bối cảnh');
+  });
+
+  it('sets a hard minimum below the requested chapter length range', () => {
+    const built = writerPromptV2.build({
+      serializedContext: 'CTX',
+      genreDef: findGenre('huyen_huyen'),
+    } as unknown as Record<string, unknown>);
+
+    expect(built.system).toContain('Viết 2200-2600 từ; không được dưới 2000 từ hoặc vượt 3000 từ');
+    expect(built.system).toContain('Không viết dạng tóm tắt nén');
+    expect(built.system).toContain('tự mở rộng trước khi trả lời');
   });
 });

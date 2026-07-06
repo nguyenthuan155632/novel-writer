@@ -87,6 +87,10 @@ describe("wordCountCheck", () => {
 });
 
 describe("targetWordCountCheck", () => {
+  it("is high severity so target misses fail chapter completion", () => {
+    expect(targetWordCountCheck.severity).toBe("high");
+  });
+
   it("passes for content within target range", () => {
     const words = Array(2200).fill("word").join(" ");
     const result = targetWordCountCheck.run(makeInput(words));

@@ -69,12 +69,35 @@ const normalizeCanonFactProposal = (item: Record<string, unknown>): Record<strin
       ? item.description
       : undefined;
   if (!fact) return null;
+  const importance = item.importance === 'pivotal'
+    ? 'critical'
+    : typeof item.importance === 'string'
+      ? item.importance
+      : 'medium';
   return {
     ...item,
     topic: typeof item.topic === 'string' && item.topic.trim() ? item.topic : 'Sự kiện chương',
     fact,
-    importance: typeof item.importance === 'string' ? item.importance : 'medium',
+    importance,
   };
+};
+
+const normalizeTimelineEvent = (item: Record<string, unknown>): Record<string, unknown> | null => {
+  const description = typeof item.description === 'string' && item.description.trim()
+    ? item.description
+    : typeof item.event === 'string' && item.event.trim()
+      ? item.event
+      : undefined;
+  if (!description) return null;
+  const significance =
+    item.significance === 'critical' || item.significance === 'high'
+      ? 'pivotal'
+      : item.significance === 'significant'
+        ? 'major'
+      : item.significance === 'medium'
+        ? 'major'
+        : item.significance;
+  return { ...item, description, significance };
 };
 
 const normalizeExtractorOutput = (val: unknown): unknown => {
@@ -163,7 +186,7 @@ const ExtractorOutputObjectSchema = z.object({
   characterUpdates: z.preprocess((val) => objectArrayOrEmpty(val, normalizeNamedUpdateFields), z.array(CharacterUpdateSchema).max(20)),
   newCanonFacts: z.preprocess((val) => objectArrayOrEmpty(val, normalizeCanonFactProposal), z.array(CanonFactProposalSchema).max(15)),
   threadUpdates: z.preprocess((val) => objectArrayOrEmpty(val, normalizeThreadUpdate), z.array(ThreadUpdateSchema).max(15)),
-  newTimelineEvents: z.preprocess(arrayOrEmpty, z.array(TimelineEventSchema).max(20)),
+  newTimelineEvents: z.preprocess((val) => objectArrayOrEmpty(val, normalizeTimelineEvent), z.array(TimelineEventSchema).max(20)),
   // Backward-compatible: older extractor responses without factionUpdates default to [].
   factionUpdates: z.preprocess((val) => objectArrayOrEmpty(val, normalizeNamedUpdateFields), z.array(FactionUpdateSchema).max(10)).default([]),
   seedsResolvedThisChapter: z

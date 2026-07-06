@@ -98,11 +98,12 @@ function normalizeGeneratedTitle(title: string): string {
     .replace(/^#+\s*/, '')
     .replace(/^title\s*:\s*/i, '')
     .replace(/^ch(?:ươ|ư)ng\s+\d+\s*[:\-–—]\s*/i, '')
+    .replace(/^chapter\s+\d+\s*[:\-–—]\s*/i, '')
     .trim() || 'Vô đề';
 }
 
 function normalizeGeneratedContent(content: string): string {
   return content
-    .replace(/\n+\s*\*?\s*Hết chương\s+\d+\s*\*?\s*$/i, '')
+    .replace(/\n+\s*(?:\*{1,2})?\s*Hết chương\s+\d+\s*(?:\*{1,2})?\s*$/i, '')
     .trim();
 }

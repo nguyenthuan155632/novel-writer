@@ -17,6 +17,22 @@ function computeSeedsAutoEnforced(
   return mustIncludeSeeds.map((s) => s.id).filter((id) => linkedSeedIds.has(id));
 }
 
+function linkInlineSeedIds(
+  packet: ChapterPacket,
+  mustIncludeSeeds: { id: string }[],
+): ChapterPacket {
+  if (mustIncludeSeeds.length === 0) return packet;
+
+  const seedIds = mustIncludeSeeds.map((s) => s.id);
+  packet.requiredEvents = packet.requiredEvents.map((event) => {
+    if (event.seedId) return event;
+    const seedId = seedIds.find((id) => event.description.includes(id));
+    return seedId ? { ...event, seedId } : event;
+  });
+
+  return packet;
+}
+
 export interface Logger {
   child(bindings: Record<string, unknown>): Logger;
   error(obj: Record<string, unknown>, msg: string): void;
@@ -237,6 +253,8 @@ export class PacketGenerator {
         }
       }
     }
+
+    parsed = linkInlineSeedIds(parsed, ctx.mustIncludeSeeds ?? []);
 
     // §1.9 — compute seedsAutoEnforced server-side (LLMs don't reliably echo IDs)
     parsed.seedsAutoEnforced = computeSeedsAutoEnforced(parsed, ctx.mustIncludeSeeds ?? []);

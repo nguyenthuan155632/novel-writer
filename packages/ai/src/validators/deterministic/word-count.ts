@@ -19,7 +19,7 @@ export const wordCountCheck: DeterministicCheck = {
 
 export const targetWordCountCheck: DeterministicCheck = {
   id: 'word_count_target',
-  severity: 'medium',
+  severity: 'high',
   run(input: CheckInput): CheckResult {
     const words = input.content.split(/\s+/).filter(Boolean).length;
     const issues: string[] = [];

@@ -165,4 +165,53 @@ describe("ArcPlannerAgent.plan (mocked db)", () => {
       [67, 100],
     ]);
   });
+
+  it("normalizes common arc title aliases", async () => {
+    selectCallCount = 0;
+    const provider = new MockProvider({
+      responder: {
+        kind: "fixed",
+        content: JSON.stringify({
+          arcs: [
+            {
+              arcTitle: "Alias Arc 0",
+              premise: "p ".repeat(30).trim(),
+              expectedChanges: ["change happens here enough text"],
+              coveredTurningPoints: [0],
+            },
+            {
+              name: "Alias Arc 1",
+              premise: "p ".repeat(30).trim(),
+              expectedChanges: ["change happens here enough text"],
+              coveredTurningPoints: [1],
+            },
+          ],
+        }),
+      },
+    });
+    const agent = new ArcPlannerAgent({ provider, logger: silentLogger });
+
+    const r = await agent.plan({
+      storyId: "s",
+      sagaId: "sa",
+      currentState: "state",
+      genreDef: {
+        slug: "tien_hiep",
+        viLabel: "Tiên hiệp",
+        viDescription: "",
+        family: "cultivation",
+        allowedTropes: [],
+        discouragedTropes: [],
+        toneGuidance: "",
+        worldbuildingGuidance: "",
+        examplePremises: [],
+      } as any,
+      storyOptions: {} as any,
+    });
+
+    expect(r.output.arcs.map((arc) => arc.title)).toEqual([
+      "Alias Arc 0",
+      "Alias Arc 1",
+    ]);
+  });
 });
