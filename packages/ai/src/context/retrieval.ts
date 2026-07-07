@@ -185,18 +185,28 @@ export async function getSeedsDueForChapter(
   storyId: string,
   chapterNumber: number,
 ): Promise<SeedCompact[]> {
+  const nearPayoffHorizon = 8;
   const rows = await db
     .select()
     .from(plantedSeeds)
     .where(
       and(
         eq(plantedSeeds.storyId, storyId),
-        lte(plantedSeeds.plantWindowStart, chapterNumber),
-        gte(plantedSeeds.plantWindowEnd, chapterNumber),
         eq(plantedSeeds.status, 'pending'),
       ),
     );
-  return rows.map((s) => compactSeed(s));
+  return rows
+    .filter((s) => {
+      if (s.payoffChapter == null) return true;
+      const nearPayoff = s.payoffChapter - chapterNumber <= nearPayoffHorizon;
+      if (!nearPayoff) return false;
+      const inPlantWindow =
+        s.plantWindowStart <= chapterNumber && s.plantWindowEnd >= chapterNumber;
+      if (inPlantWindow) return true;
+      if (s.plantWindowEnd > chapterNumber) return false;
+      return s.payoffChapter - chapterNumber <= nearPayoffHorizon;
+    })
+    .map((s) => compactSeed(s));
 }
 
 export async function getRecentSummaries(
@@ -611,34 +621,44 @@ export async function getLockedCanonFactCandidates(
  */
 
 /**
- * §1.9 — Seeds approaching their plant deadline (within 2 chapters of plantWindowEnd).
+ * §1.9 — Seeds at their plant deadline.
+ * Earlier-window seeds stay soft context; forcing them before the deadline makes
+ * opening chapters feel like a checklist instead of natural serial fiction.
  */
 export async function getSeedsApproachingPlantDeadline(
   db: Db,
   storyId: string,
   chapterNumber: number,
-  lookahead = 2,
+  _lookahead = 0,
 ): Promise<{ id: string; seedText: string; plantWindowEnd: number }[]> {
+  const nearPayoffHorizon = 8;
   const rows = await db
     .select({
       id: plantedSeeds.id,
       seedText: plantedSeeds.seedText,
+      status: plantedSeeds.status,
       plantWindowEnd: plantedSeeds.plantWindowEnd,
+      payoffChapter: plantedSeeds.payoffChapter,
     })
     .from(plantedSeeds)
     .where(
       and(
         eq(plantedSeeds.storyId, storyId),
-        lte(plantedSeeds.plantWindowEnd, chapterNumber + lookahead),
-        gte(plantedSeeds.plantWindowEnd, chapterNumber),
-        sql`${plantedSeeds.status} NOT IN ('paid_off', 'abandoned')`,
+        eq(plantedSeeds.status, 'pending'),
       ),
     );
-  return rows.map((r) => ({
-    id: r.id,
-    seedText: r.seedText,
-    plantWindowEnd: r.plantWindowEnd,
-  }));
+  return rows
+    .filter((r) => {
+      if (r.status !== 'pending') return false;
+      if (r.plantWindowEnd > chapterNumber) return false;
+      if (r.payoffChapter == null) return true;
+      return r.payoffChapter - chapterNumber <= nearPayoffHorizon;
+    })
+    .map((r) => ({
+      id: r.id,
+      seedText: r.seedText,
+      plantWindowEnd: r.plantWindowEnd,
+    }));
 }
 
 export type RetrievalResult = {

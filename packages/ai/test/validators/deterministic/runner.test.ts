@@ -121,7 +121,7 @@ describe("runDeterministicValidator", () => {
     expect(result.shortCircuited).toBe(true);
   });
 
-  it("reports issues when no critical failure (word_count fails for short content)", () => {
+  it("keeps word-count issues advisory for short content", () => {
     const checks = buildChecks("", "cultivation");
     const input = makeInput({
       content: "Nội dung quá ngắn.",
@@ -135,20 +135,24 @@ describe("runDeterministicValidator", () => {
       },
     });
     const result = runDeterministicValidator(input, checks);
-    expect(result.pass).toBe(false);
+    const wcCheck = result.checks.find((c) => c.id === "word_count");
+    expect(wcCheck?.pass).toBe(true);
+    expect(wcCheck?.issues[0]).toContain("quá ngắn");
+    expect(result.pass).toBe(true);
     expect(result.shortCircuited).toBe(false);
   });
 
-  it("reports target word-count misses without short-circuiting", () => {
+  it("keeps target word-count misses advisory without short-circuiting", () => {
     const checks = buildChecks("", "cultivation");
     const input = makeInput({
       content: Array(1600).fill("word").join(" "),
     });
     const result = runDeterministicValidator(input, checks);
     const targetCheck = result.checks.find((c) => c.id === "word_count_target");
-    expect(targetCheck?.pass).toBe(false);
-    expect(targetCheck?.severity).toBe("medium");
-    expect(result.pass).toBe(false);
+    expect(targetCheck?.pass).toBe(true);
+    expect(targetCheck?.severity).toBe("low");
+    expect(targetCheck?.issues[0]).toContain("dưới mục tiêu");
+    expect(result.pass).toBe(true);
     expect(result.shortCircuited).toBe(false);
   });
 });
@@ -202,7 +206,7 @@ describe("llmVerifiable checks produce pendingVerification", () => {
     expect(result.pendingVerification[0]!.snippet).toContain("Trần Đại Hiệp");
   });
 
-  it("non-llmVerifiable checks still fail normally", () => {
+  it("non-llmVerifiable advisory checks still report issues without failing", () => {
     const checks = buildChecks("", "cultivation");
     const input = makeInput({
       content: "Short.",
@@ -216,10 +220,10 @@ describe("llmVerifiable checks produce pendingVerification", () => {
       },
     });
     const result = runDeterministicValidator(input, checks);
-    // word_count is NOT llmVerifiable, so it should fail directly
     const wcCheck = result.checks.find((c) => c.id === "word_count");
-    expect(wcCheck?.pass).toBe(false);
-    expect(result.pass).toBe(false);
+    expect(wcCheck?.pass).toBe(true);
+    expect(wcCheck?.issues[0]).toContain("quá ngắn");
+    expect(result.pass).toBe(true);
     expect(result.pendingVerification.length).toBe(0);
   });
 });

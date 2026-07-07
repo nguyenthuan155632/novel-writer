@@ -38,11 +38,14 @@ ${buildStoryOptionsBlock({ storyOptions, target: "arc" })}
 
 YÊU CẦU:
 - Tổng các arc PHẢI bao trùm toàn bộ chapter range của saga, không chồng lấn.
-- Mỗi arc có 1-8 expectedChanges (sự kiện trạng thái cụ thể).
+- Mỗi arc có 1-8 expectedChanges. expectedChanges là thay đổi trạng thái đọc được, có thể là đời sống, quan hệ, nghề nghiệp, thói quen, không khí cộng đồng, luật thế giới, cảm xúc hoặc biến cố cốt truyện. KHÔNG biến mọi expectedChanges thành sự kiện giật gân.
 - TURNING POINTS: Mỗi arc PHẢI khai báo coveredTurningPoints (mảng index 0-based của turning point mà arc đó cover). Mỗi turning point chỉ thuộc đúng 1 arc. Tất cả turning points phải được phân bổ hết — không bỏ sót. Phân bổ cân đối: tối đa 2-3 TP/arc, tránh nhét quá nhiều TP vào 1 arc ngắn.
 - Premise của mỗi arc PHẢI phản ánh rõ nội dung các turning points mà nó cover.
 - Nếu unresolved seeds nằm trong saga này, hãy ưu tiên gán payoff vào arc tương ứng (seedsToResolveInArc).
 - Bám đúng Genre Contract — không tự ý đưa trope của thể loại khác.
+- Với saga/arc mở đầu của tiểu thuyết dài tập: arc đầu KHÔNG được chỉ là danh sách phát hiện, truy đuổi, điều tra hoặc đánh nhau. Ít nhất phần đầu arc phải thiết lập nhịp sống bình thường, công việc, các mối quan hệ, địa phương, chi phí sinh hoạt, thói quen, lời đồn và cách nhân vật nhìn đời trước khi đẩy nhân vật vào nhiệm vụ lớn.
+- Nếu turning point đầu là biến cố mạnh, arc đầu vẫn phải để biến cố đó xuất hiện như một vết nứt trong đời sống đã có nền, không phải cảnh mở màn liên tục kéo nhân vật chạy. Tránh expectedChanges kiểu "quyết tâm điều tra" quá sớm nếu chưa có đủ nền quan hệ và đời sống.
+- Đối với nhịp slow/balanced, 25-40% đầu của arc mở đầu có thể chỉ dùng để dựng baseline và seed mềm; đây là tiến triển hợp lệ nếu mỗi chương có texture đọc được.
 - Trả về JSON đúng schema. Không giải thích.`,
       user: `SAGA "${String(input.sagaTitle)}" (ch ${String(input.sagaStart)}-${String(input.sagaEnd)}):\n${String(input.sagaPremise)}\n\nTurning points:\n${Array.isArray(input.turningPoints) ? (input.turningPoints as string[]).map((t, i) => `${i}. ${t}`).join("\n") : ""}\n\nTrạng thái hiện tại:\n${String(input.currentState)}\n\nSeeds chưa giải quyết:\n${Array.isArray(input.unresolvedSeeds) ? (input.unresolvedSeeds as { seedKey: string; description: string; payoffChapter: number }[]).map((s) => `- ${s.seedKey} (payoff ch ${s.payoffChapter}): ${s.description}`).join("\n") : "(none)"}`,
     };

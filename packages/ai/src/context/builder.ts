@@ -448,6 +448,7 @@ function buildHotTier(
         storyOptions: domain.storyOptions,
         target: "writer",
       }),
+      lifeTextureBank: buildLifeTextureBank(null, domain),
     };
   }
 
@@ -476,7 +477,42 @@ function buildHotTier(
       storyOptions: domain.storyOptions,
       target: "writer",
     }),
+    lifeTextureBank: buildLifeTextureBank(bible, domain),
   };
+}
+
+function buildLifeTextureBank(
+  bible: {
+    worldRules: string;
+    styleGuide: string;
+    compactSummary: string | null;
+  } | null,
+  domain: {
+    genreDef: GenreDef;
+    personalityDef: PersonalityDef;
+    storyOptions: StoryOptions;
+  },
+): string[] {
+  const sourceLines = [
+    bible?.worldRules,
+    bible?.styleGuide,
+    domain.genreDef.worldbuildingGuidance,
+    domain.genreDef.toneGuidance,
+    domain.personalityDef.voiceHints,
+    domain.personalityDef.dialogueStyle,
+  ].filter((v): v is string => !!v && v.trim().length > 0);
+
+  const extracted = sourceLines
+    .flatMap((line) => line.split(/\n+/))
+    .map((line) => line.trim())
+    .filter((line) => line.length >= 12)
+    .slice(0, 8);
+
+  return [
+    ...extracted,
+    "Ưu tiên chi tiết đời sống phù hợp bối cảnh: ăn uống, nơi ngủ, thời tiết, mùi, âm thanh, công việc nhỏ, thói quen, tiền bạc/trao đổi, người thường xung quanh.",
+    "Các chương chậm nhịp vẫn hợp lệ nếu làm rõ quan hệ, hậu quả cảm xúc, sinh hoạt, luật thế giới, hoặc cách nhân vật nhìn đời.",
+  ];
 }
 
 function filterArcSeeds(

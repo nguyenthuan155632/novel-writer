@@ -15,6 +15,8 @@ export const chapterPackets = pgTable('chapter_packets', {
   charactersInScene: jsonb('characters_in_scene').$type<string[]>().default([]).notNull(),
   conflict: text('conflict'),
   cliffhanger: text('cliffhanger'),
+  chapterPurpose: text('chapter_purpose'),
+  endingMode: text('ending_mode'),
   forbiddenMoves: jsonb('forbidden_moves').$type<string[]>().default([]).notNull(),
   highStakes: boolean('high_stakes').default(false).notNull(),
   contextNotes: text('context_notes'),

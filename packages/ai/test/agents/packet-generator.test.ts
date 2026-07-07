@@ -38,6 +38,36 @@ describe('PacketGenerator', () => {
     expect(r.packet.requiredEvents).toHaveLength(1);
   });
 
+  it('keeps earlier non-empty goal and conflict when the model appends duplicate empty fields', async () => {
+    const packetWithDuplicateEmptyFields = [
+      '{',
+      '"chapterNumber":1,',
+      '"goal":"ghi lại một ngày thường ở kho nghĩa thương",',
+      '"requiredEvents":[{"description":"Lâm Triều cân gạo và ghi sổ trong buổi sáng"}],',
+      '"charactersPresent":["Lâm Triều"],',
+      '"conflict":"một sai lệch nhỏ trong lượt phát gạo khiến hắn phải kiểm lại sổ",',
+      '"forbiddenMoves":[],',
+      '"goal":"",',
+      '"conflict":""',
+      '}',
+    ].join('');
+    const provider = new MockProvider({
+      responder: { kind: 'fixed', content: packetWithDuplicateEmptyFields },
+    });
+    const gen = new PacketGenerator({ provider, logger: silentLogger });
+    const r = await gen.generate({
+      bibleCompact: 'b', arcSummary: 'a', recentChapterSummaries: [],
+      activeCharacters: [], openThreads: [], duePlantedSeeds: [], overdueThreads: [],
+      forbiddenRules: '', chapterNumber: 1, arcGoals: 'g',
+      genreDef: { slug: 'tien_hiep', viLabel: 'Tiên hiệp', viDescription: '', family: 'cultivation', allowedTropes: [], discouragedTropes: [], toneGuidance: '', worldbuildingGuidance: '', examplePremises: [] } as any,
+      personalityDef: { slug: 'tram_on', viLabel: '', viDescription: '', voiceHints: '', decisionStyle: '', dialogueStyle: '', conflictResponse: '', driftSignals: [] } as any,
+      storyOptions: {} as any,
+    }, { traceId: 't', storyId: 's' });
+
+    expect(r.packet.goal).toContain('ngày thường');
+    expect(r.packet.conflict).toContain('sai lệch nhỏ');
+  });
+
   it('links must-include seed ids when the model embeds the UUID in event text', async () => {
     const seedId = 'cba2f6bb-211b-4218-af76-b814252e1aa8';
     const packetWithInlineSeedId = JSON.stringify({
@@ -113,7 +143,7 @@ describe('PacketGenerator', () => {
 
     expect(r.packet.goal.length).toBeLessThanOrEqual(500);
     expect(r.packet.conflict.length).toBeLessThanOrEqual(500);
-    expect(r.packet.cliffhanger.length).toBeLessThanOrEqual(500);
+    expect(r.packet.cliffhanger?.length ?? 0).toBeLessThanOrEqual(500);
     expect(r.packet.requiredEvents[0]?.description.length).toBeLessThanOrEqual(500);
     expect(r.packet.notes?.length ?? 0).toBeLessThanOrEqual(500);
     expect(provider.getCalls().length).toBe(1);
@@ -173,6 +203,38 @@ describe('PacketGenerator', () => {
     }, { traceId: 't', storyId: 's' });
 
     expect(r.packet.charactersPresent).toEqual([]);
+    expect(provider.getCalls()).toHaveLength(1);
+  });
+
+  it('drops null optional pacing fields without calling repair', async () => {
+    const nullableOptionals = JSON.stringify({
+      chapterNumber: 2,
+      goal: 'ghi lại nhịp mở quán và một đổi thay rất nhỏ trong phố',
+      requiredEvents: [{ description: 'Lâm Triều cân lại mẻ gạo mới giao trong buổi sớm' }],
+      charactersPresent: ['Lâm Triều'],
+      conflict: 'sổ gạo có một dòng ghi thiếu khiến cậu phải hỏi lại người giao hàng',
+      cliffhanger: null,
+      chapterPurpose: null,
+      endingMode: null,
+      forbiddenMoves: [],
+    });
+
+    const provider = new MockProvider({
+      responder: { kind: 'fixed', content: nullableOptionals },
+    });
+    const gen = new PacketGenerator({ provider, logger: silentLogger });
+    const r = await gen.generate({
+      bibleCompact: 'b', arcSummary: 'a', recentChapterSummaries: [],
+      activeCharacters: [], openThreads: [], duePlantedSeeds: [], overdueThreads: [],
+      forbiddenRules: '', chapterNumber: 2, arcGoals: 'g',
+      genreDef: { slug: 'do_thi', viLabel: 'Đô thị', viDescription: '', family: 'urban', allowedTropes: [], discouragedTropes: [], toneGuidance: '', worldbuildingGuidance: '', examplePremises: [] } as any,
+      personalityDef: { slug: 'tram_on', viLabel: '', viDescription: '', voiceHints: '', decisionStyle: '', dialogueStyle: '', conflictResponse: '', driftSignals: [] } as any,
+      storyOptions: {} as any,
+    }, { traceId: 't', storyId: 's' });
+
+    expect(r.packet.cliffhanger).toBeUndefined();
+    expect(r.packet.chapterPurpose).toBe('plot_progression');
+    expect(r.packet.endingMode).toBe('quiet_transition');
     expect(provider.getCalls()).toHaveLength(1);
   });
 

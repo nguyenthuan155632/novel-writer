@@ -114,6 +114,8 @@ function makeContext(): ChapterContext {
         charactersPresent: ["Lam Trach"],
         conflict: "The bureau blocks access.",
         cliffhanger: "The witness calls from inside the bureau.",
+        chapterPurpose: "plot_progression",
+        endingMode: "open_question",
         forbiddenMoves: ["resolve betrayal"],
         seedsAutoEnforced: [],
       },
@@ -146,22 +148,44 @@ describe("serializeContextForWriter", () => {
     expect(out).toContain("# STORY OPTIONS");
     expect(out).toContain("# STORY PROGRESS");
     expect(out).toContain("source=story_target_fallback");
+    expect(out).toContain("Future turning-point direction");
     expect(out).toContain("# SAGA SUMMARY");
     expect(out).toContain("# ARC SUMMARY");
     expect(out).toContain("# ACTIVE CHARACTERS");
     expect(out).toContain("bloodlines=[Moonline]");
     expect(out).toContain("# OPEN THREADS");
-    expect(out).toContain("# PLANTED SEEDS");
+    expect(out).toContain("# FUTURE SEED REFERENCE");
+    expect(out).toContain("redacted for writer");
+    expect(out).toContain("pending future seed(s) hidden");
+    expect(out).toContain("Only OPTIONAL SEED TEXTURE contains seeds allowed for this chapter");
+    expect(out).not.toContain('"cracked badge"');
     expect(out).toContain("# PARALLEL THREADS");
     expect(out).toContain("thread-a [active] ch4-ch7: Shadow investigation inside rival bureau");
     expect(out).toContain("# KNOWN FACTIONS");
     expect(out).toContain("# RECENT SUMMARIES");
     expect(out).toContain("# CANON FACTS");
     expect(out).toContain("# PAST CHAPTER SUMMARIES");
-    expect(out).toContain("# SEEDS DUE THIS CHAPTER");
+    expect(out).toContain("# OPTIONAL SEED TEXTURE");
+    expect(out).toContain("Không biến thành reveal/chuyển hướng chính nếu packet không yêu cầu");
     expect(out).toContain("# TIMELINE EVENTS");
     expect(out).toContain("# PENDING CANON UPDATES");
     expect(out).toContain("# CHAPTER PLAN");
+    expect(out).not.toContain("# CURRENT CHAPTER BOUNDARY");
+  });
+
+  it("adds a strict current-chapter boundary for quiet slice-of-life packets", () => {
+    const ctx = makeContext();
+    ctx.cold.packet.chapterPurpose = "slice_of_life";
+    ctx.cold.packet.endingMode = "quiet_transition";
+    ctx.cold.packet.requiredEvents = [
+      { description: "Show the protagonist opening the shop and checking ordinary stock." },
+    ];
+    const out = serializeContextForWriter(ctx);
+
+    expect(out).toContain("# CURRENT CHAPTER BOUNDARY");
+    expect(out).toContain("Viet dung quy mo packet");
+    expect(out).toContain("KHONG tu them vat chung bi an");
+    expect(out).toContain("Required events");
   });
 
   it("injects POWER PROGRESSION section when realmLadder is provided", () => {

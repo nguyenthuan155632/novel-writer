@@ -73,10 +73,10 @@ describe("cliffhangerCheck", () => {
     expect(result.pass).toBe(true);
   });
 
-  it("flags when no cliffhanger indicators found", () => {
+  it("passes when no cliffhanger indicators are present", () => {
     const content =
       Array(2000).fill("word").join(" ") + "\n\nMọi thứ yên bình trở lại.";
     const result = cliffhangerCheck.run(makeInput(content));
-    expect(result.pass).toBe(false);
+    expect(result.pass).toBe(true);
   });
 });

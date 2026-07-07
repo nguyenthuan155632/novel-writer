@@ -60,6 +60,8 @@ const samplePacket: ChapterPacket = {
   charactersPresent: ["Linh"],
   conflict: "Internal struggle",
   cliffhanger: "Unexpected revelation",
+  chapterPurpose: "plot_progression",
+  endingMode: "open_question",
   forbiddenMoves: [],
   seedsAutoEnforced: [],
 };
@@ -119,6 +121,31 @@ describe("buildContext", () => {
   it("includes packet in cold tier", async () => {
     const result = await buildContext(baseDeps);
     expect(result.cold.packet).toEqual(samplePacket);
+  });
+
+  it("builds a life/world texture bank for slower serial-style prose", async () => {
+    const retrieval = await import("../../src/context/retrieval.js");
+    vi.mocked(retrieval.getStoryBible).mockResolvedValueOnce({
+      worldRules: "Tông môn có nhà ăn chung, sân phơi thảo dược và khu chợ sáng dưới chân núi.",
+      forbiddenRules: "",
+      styleGuide: "Miêu tả mùi khói bếp, tiếng guốc gỗ, việc học việc và sinh hoạt thường ngày.",
+      compactSummary: "Một học đồ lười sẽ phát hiện chân tướng bí mật của trưởng lão.",
+      powerSystem: "Mặc Lộ Đạo dùng nét vẽ sai để mở đường.",
+      powerSystemKind: "none",
+      cultivationSystem: null,
+      bloodlineSystem: null,
+      styleFewShots: [],
+    } as any);
+
+    const result = await buildContext(baseDeps);
+
+    expect(result.hot.lifeTextureBank).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining("Tông môn có nhà ăn chung"),
+        expect.stringContaining("Miêu tả mùi khói bếp"),
+      ]),
+    );
+    expect(result.hot.lifeTextureBank?.join("\n")).not.toContain("chân tướng");
   });
 
   it("uses embedding service for canon fact retrieval", async () => {

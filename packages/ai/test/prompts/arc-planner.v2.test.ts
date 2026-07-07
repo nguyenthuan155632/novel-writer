@@ -24,4 +24,21 @@ describe('arcPlannerPromptV2', () => {
     expect(built.system).toContain('<planner_frame>');
     expect(built.system).toContain('Suy nghĩ nội bộ trước, sau đó mới xuất JSON cuối cùng');
   });
+
+  it('guides first arcs toward natural long-serial openings instead of immediate chase plotting', () => {
+    const built = arcPlannerPromptV2.build({
+      sagaStart: 1, sagaEnd: 40, sagaLength: 40,
+      sagaTitle: 'Saga mở đầu',
+      sagaPremise: 'Một người giữ đèn phát hiện thị trấn có điều lạ.',
+      turningPoints: ['Đèn tắt bất thường vào đêm đầu tiên'],
+      currentState: 'init',
+      unresolvedSeeds: [],
+      genreDef: findGenre('dong_phuong_huyen_bi'),
+      storyOptions: { pacing: 'slow' },
+    });
+    expect(built.system).toContain('nhịp sống bình thường');
+    expect(built.system).toContain('25-40% đầu của arc mở đầu');
+    expect(built.system).toContain('không phải cảnh mở màn liên tục kéo nhân vật chạy');
+    expect(built.system).toContain('KHÔNG biến mọi expectedChanges thành sự kiện giật gân');
+  });
 });

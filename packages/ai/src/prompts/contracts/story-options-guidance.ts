@@ -236,8 +236,9 @@ const PACING_GUIDANCE: ValueGuidanceMap = {
       rules: [
         "Mỗi saga nên có giai đoạn setup dài hơn — 30-40% chapters cho worldbuilding và character establishment.",
         "Turning points có thể dãn cách nhau xa hơn.",
+        "Nếu premise nói mở đầu bằng đời sống thường nhật hoặc slow-burn, không đặt turning point lớn vào chương 1; chương 1 nên dựng baseline trước.",
       ],
-      avoid: ["Nhồi nhét quá nhiều events trong ít chương"],
+      avoid: ["Nhồi nhét quá nhiều events trong ít chương", "Biến chương mở đầu thành biến cố/điều tra ngay lập tức"],
     },
     arc: {
       label: "Chậm chắc",
@@ -256,7 +257,7 @@ const PACING_GUIDANCE: ValueGuidanceMap = {
       rules: [
         "Goal có thể focused vào character development hoặc world exploration, không bắt buộc mỗi chương phải advance main plot.",
         "Cho phép scenes thuần dialogue hoặc thuần observation.",
-        "Cliffhanger có thể là emotional hook hoặc question, không nhất thiết action.",
+        "Kết chương có thể là emotional aftertaste, quiet transition, question nhỏ, hoặc resolved beat; không cần cliffhanger.",
       ],
       avoid: ["Rush qua events", "nhồi 3-4 plot developments vào 1 chương"],
     },
@@ -367,7 +368,7 @@ const PACING_GUIDANCE: ValueGuidanceMap = {
       rules: [
         'Goal phải cụ thể và measurable — "something happens" is not enough.',
         "RequiredEvents: tối thiểu 2 events có impact.",
-        "Cliffhanger: phải tạo urgency, không chỉ question.",
+        "Nếu dùng hook cuối chương thì nên tạo urgency; nếu không, kết resolved/transition vẫn hợp lệ khi chapterPurpose rõ.",
       ],
       mustInclude: ["1 action/decision beat + 1 consequence reveal mỗi chương"],
       avoid: [
@@ -428,7 +429,7 @@ const PACING_GUIDANCE: ValueGuidanceMap = {
         "Chapter plan luôn high-tension — vào scene nhanh, exit scene với stakes cao hơn.",
       rules: [
         "Conflict: phải ESCALATE hoặc COMPOUND mỗi chương.",
-        "Cliffhanger: urgent, life-or-death hoặc major revelation.",
+        "Nếu dùng cliffhanger thì phải urgent, life-or-death hoặc major revelation; nếu không dùng, endingMode phải cho thấy escalation bằng cách khác.",
         "RequiredEvents: phải có ít nhất 1 high-impact event.",
       ],
       avoid: [
@@ -658,11 +659,12 @@ const MAIN_CONFLICT_GUIDANCE: ValueGuidanceMap = {
     writer: {
       label: "Khám phá bí mật",
       semanticIntent:
-        "Prose phải maintain curiosity — plant clues, raise questions, partial reveals.",
+        "Prose duy trì tò mò theo nhịp dài tập — đời sống bình thường có thể đi trước clue/reveal.",
       rules: [
-        "Scenes: investigation, deduction, discovery, reaction to new info.",
+        "Scenes có thể là đời sống, quan sát, quan hệ hoặc công việc; investigation/deduction/discovery chỉ bắt buộc khi chapterPurpose hoặc packet yêu cầu.",
         "Dialogue: characters may lie, omit, or accidentally reveal.",
-        "Pacing: clues come at steady rate — reader never goes too long without new info.",
+        "Pacing: clue/reveal đến theo nhịp arc; 1-2 chương mở đầu có thể chỉ dựng baseline trước khi bí mật thật sự hiện hình.",
+        "Không biến mọi chi tiết nghề nghiệp/đời sống thành vật chứng, lời cảnh báo, hoặc reveal.",
         "CẢNH BÁO: KHÔNG thay thế mystery bằng generic power-up arc. Investigation/discovery là engine.",
       ],
       avoid: [

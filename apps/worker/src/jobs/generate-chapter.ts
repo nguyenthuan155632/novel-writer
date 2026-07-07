@@ -177,6 +177,9 @@ export function serializeContextForWriter(
   if (ctx.hot.genreContract) parts.push(ctx.hot.genreContract);
   if (ctx.hot.personalityContract) parts.push(ctx.hot.personalityContract);
   if (ctx.hot.storyOptionsBlock) parts.push(ctx.hot.storyOptionsBlock);
+  if ((ctx.hot.lifeTextureBank ?? []).length > 0) {
+    parts.push(`# LIFE / WORLD TEXTURE BANK\n${ctx.hot.lifeTextureBank!.map((item) => `- ${item}`).join("\n")}`);
+  }
 
   const progressLines: string[] = [];
   if (ctx.meta.sagaProgressPercent != null) {
@@ -200,7 +203,9 @@ export function serializeContextForWriter(
     );
   }
   if (ctx.meta.activeTurningPoint) {
-    progressLines.push(`Active turning point: ${ctx.meta.activeTurningPoint}`);
+    progressLines.push(
+      `Future turning-point direction (not a current-chapter requirement unless CHAPTER PLAN says so): ${ctx.meta.activeTurningPoint}`,
+    );
   }
   if (progressLines.length > 0) {
     parts.push(`# STORY PROGRESS\n${progressLines.join("\n")}`);
@@ -234,10 +239,19 @@ export function serializeContextForWriter(
     parts.push(`# OPEN THREADS\n${threads}`);
   }
   if (ctx.warm.arcPlantedSeeds.length > 0) {
-    const seeds = ctx.warm.arcPlantedSeeds
+    const pendingCount = ctx.warm.arcPlantedSeeds.filter((s) => s.status === "pending").length;
+    const nonPending = ctx.warm.arcPlantedSeeds
+      .filter((s) => s.status !== "pending")
       .map((s) => `- "${s.seedText}" → ${s.payoffDescription} [${s.status}]`)
       .join("\n");
-    parts.push(`# PLANTED SEEDS\n${seeds}`);
+    parts.push(
+      [
+        "# FUTURE SEED REFERENCE (redacted for writer)",
+        `${pendingCount} pending future seed(s) hidden from this writer prompt. Only OPTIONAL SEED TEXTURE contains seeds allowed for this chapter.`,
+        "KHONG tu tao seed/reveal/payoff tu saga/arc summary neu CHAPTER PLAN khong yeu cau.",
+        nonPending,
+      ].filter(Boolean).join("\n"),
+    );
   }
 
   if (ctx.warm.parallelThreads && ctx.warm.parallelThreads.length > 0) {
@@ -280,10 +294,10 @@ export function serializeContextForWriter(
     const due = ctx.cold.seedsToPlantNow
       .map(
         (s) =>
-          `- Nên plant trong chương này: "${s.seedText}" (id=${s.id}) → ${s.payoffDescription} — cửa sổ kết thúc ch${s.plantWindowEnd}`,
+          `- Optional texture/seed nếu thật tự nhiên với chapterPurpose: "${s.seedText}" (id=${s.id}) → ${s.payoffDescription} — cửa sổ kết thúc ch${s.plantWindowEnd}. Không biến thành reveal/chuyển hướng chính nếu packet không yêu cầu.`,
       )
       .join("\n");
-    parts.push(`# SEEDS DUE THIS CHAPTER\n${due}`);
+    parts.push(`# OPTIONAL SEED TEXTURE\n${due}`);
   }
 
   if (ctx.cold.timelineEvents && ctx.cold.timelineEvents.length > 0) {
@@ -311,12 +325,24 @@ export function serializeContextForWriter(
     parts.push(`# CHAPTER PLAN (packet)`);
     parts.push(`Goal: ${p.goal}`);
     parts.push(`Conflict: ${p.conflict}`);
-    parts.push(`Cliffhanger: ${p.cliffhanger}`);
+    if (p.chapterPurpose) parts.push(`Purpose: ${p.chapterPurpose}`);
+    if (p.endingMode) parts.push(`Ending mode: ${p.endingMode}`);
+    if (p.cliffhanger) parts.push(`Optional hook: ${p.cliffhanger}`);
     parts.push(`Characters present: ${p.charactersPresent.join(", ")}`);
     if (p.requiredEvents.length > 0)
       parts.push(
         `Required events (nên xảy ra trong chương này):\n${p.requiredEvents.map((e, i) => `  ${i + 1}. ${e.description}`).join("\n")}`,
       );
+    if (p.chapterPurpose === "slice_of_life" || p.endingMode === "quiet_transition") {
+      parts.push(
+        [
+          "# CURRENT CHAPTER BOUNDARY",
+          "Viet dung quy mo packet: uu tien sinh hoat, cong viec, quan he nho, khong khi va noi tam.",
+          "KHONG tu them vat chung bi an, giay nho, dong chu la, loi canh bao, cuoc gap/hoi chuyen dieu tra, reveal ve qua khu, hoac payoff seed neu Required events khong yeu cau ro.",
+          "Ket chuong bang aftertaste/transition trong POV cua nhan vat, khong bang thong tin doc gia biet nhung POV khong biet.",
+        ].join("\n"),
+      );
+    }
     if (p.forbiddenMoves.length > 0)
       parts.push(`Forbidden: ${p.forbiddenMoves.join("; ")}`);
   }
@@ -326,15 +352,24 @@ export function serializeContextForWriter(
 
 /**
  * Resolve the realm ladder for a story bible with fallback cascade:
- * 1. bible.realmLadder (structured, from LLM at bible-gen time)
- * 2. parseRealmLadder(bible.cultivationSystem) (heuristic parse of free-form text)
- * 3. DEFAULT_REALM_LADDER only if genreFamily === 'cultivation' (backward-compat)
- * 4. [] (empty) for non-cultivation stories without a ladder
+ * 1. [] for non-realm power systems, even if bible-gen emitted a generic ladder
+ * 2. bible.realmLadder (structured, from LLM at bible-gen time)
+ * 3. parseRealmLadder(bible.cultivationSystem) (heuristic parse of free-form text)
+ * 4. DEFAULT_REALM_LADDER only if genreFamily === 'cultivation' (backward-compat)
+ * 5. [] (empty) for non-cultivation stories without a ladder
  */
 function resolveRealmLadder(
-  bible: { realmLadder?: string[] | null; cultivationSystem?: string | null },
+  bible: {
+    realmLadder?: string[] | null;
+    cultivationSystem?: string | null;
+    powerSystemKind?: string | null;
+  },
   genreFamily: string,
 ): string[] {
+  const kind = bible.powerSystemKind ?? "";
+  const supportsRealmLadder =
+    kind === "cultivation" || kind === "martial" || kind === "mixed";
+  if (!supportsRealmLadder) return [];
   if (bible.realmLadder && bible.realmLadder.length > 0) {
     return bible.realmLadder;
   }
@@ -355,7 +390,9 @@ function buildConsistentChronology(ctx: ChapterContext): string[] {
     lines.push(`Arc progress ${ctx.meta.arcProgressPercent}%`);
   }
   if (ctx.meta.activeTurningPoint) {
-    lines.push(`Active turning point: ${ctx.meta.activeTurningPoint}`);
+    lines.push(
+      `Future turning-point direction only unless packet requires it: ${ctx.meta.activeTurningPoint}`,
+    );
   }
   if (ctx.cold.recentSummaries[0]) {
     lines.push(
@@ -794,7 +831,7 @@ function buildSlotSerializedContext(
   packet: PacketGenerationResult["packet"],
   chapterNumber: number,
 ): string {
-  return `${serializedContext}\n\n# SLOT PIPELINE BRIEF\nChương ${chapterNumber} phải bám sát cấu trúc slot-based.\nGoal: ${packet.goal}\nConflict: ${packet.conflict}\nCliffhanger: ${packet.cliffhanger}`;
+  return `${serializedContext}\n\n# SLOT PIPELINE BRIEF\nChương ${chapterNumber} phải bám sát cấu trúc slot-based.\nGoal: ${packet.goal}\nPurpose: ${packet.chapterPurpose}\nConflict: ${packet.conflict}\nEnding mode: ${packet.endingMode}\nOptional hook: ${packet.cliffhanger ?? "(none)"}`;
 }
 
 function buildWorkerProvider(data: GenerateChapterJob): LLMProvider {
@@ -1046,10 +1083,10 @@ export async function executeGenerateChapterPipeline(
     if (arcProgress) {
       const urgency =
         arcProgress.percent >= 80
-          ? `Chỉ còn ${chaptersRemainingInArc} chương trong arc — nên đẩy plot về phía climax, tránh filler hoặc kéo dài không cần thiết.`
+          ? `Chỉ còn ${chaptersRemainingInArc} chương trong arc — nên thu xếp thread chính về phía climax, nhưng vẫn ưu tiên nhịp tự nhiên và hậu quả nhân vật hơn twist mới.`
           : arcProgress.percent >= 50
-            ? `Đã qua nửa arc — mỗi chương nên có tiến triển rõ rệt về nhân vật hoặc resolve ít nhất 1 thread.`
-            : `Giai đoạn xây dựng arc — mỗi chương nên đẩy ít nhất 1 thread tiến lên.`;
+            ? `Đã qua nửa arc — chương nên có giá trị đọc rõ: nhân vật, quan hệ, thế giới, chuẩn bị, hoặc plot; không bắt buộc resolve thread mỗi chương.`
+            : `Giai đoạn xây dựng arc — được phép ưu tiên đời sống, quan hệ, nghề nghiệp, không khí và seed nhỏ; tiến triển có thể rất nhỏ nếu chương có texture tốt.`;
       pacingHint = `\n\n# PACING (arc ${arcProgress.range} ≈ ${arcProgress.percent}%, source=${arcProgress.source})\n${urgency}`;
     }
 
@@ -1086,10 +1123,19 @@ export async function executeGenerateChapterPipeline(
         upcoming: "[sắp tới]",
       } as const;
       const tpList = tpStatuses
-        .map((s) => `${s.index + 1}. ${markerFor[s.state]} ${s.text}`)
+        .map((s) => {
+          const plannedChapter = extractPlannedChapterMarker(s.text);
+          const marker =
+            s.state !== "done" &&
+            plannedChapter != null &&
+            plannedChapter > data.chapterNumber
+              ? markerFor.upcoming
+              : markerFor[s.state];
+          return `${s.index + 1}. ${marker} ${s.text}`;
+        })
         .join("\n");
       pacingHint += `\n\n# SAGA PACING (saga ${sagaProgress.range} ≈ ${sagaProgress.percent}%, source=${sagaProgress.source})
-Đối chiếu với # 5 CHƯƠNG GẦN NHẤT: nếu turning point được đánh dấu [trễ tiến độ] mà chưa thấy trong các chương đó, chương này nên đẩy nó xảy ra để truyện bắt kịp nhịp saga.
+Đối chiếu với # 5 CHƯƠNG GẦN NHẤT: turning point là hướng dài hạn, không phải mệnh lệnh cho từng chương. Chỉ xử lý turning point nếu tự nhiên với chapterPurpose và nhịp hiện tại.
 Turning points của saga:
 ${tpList}`;
 
@@ -1177,9 +1223,12 @@ Trạng thái hiện tại: ${currentRealms || "(chưa xác định)"}`;
     let packetResult: PacketGenerationResult = undefined!;
     let attemptCount = 0;
 
-    const overdueTurningPoints: string[] = tpStatuses
-      .filter((s) => s.state === "overdue")
-      .map((s) => s.text);
+      const overdueTurningPoints: string[] = tpStatuses
+        .filter((s) => s.state === "overdue")
+        .map((s) => s.text);
+      const futureTurningPoints: string[] = tpStatuses
+        .filter((s) => s.state === "current" || s.state === "upcoming")
+        .map((s) => s.text);
 
     // §1.8 — two-attempt regenerate loop
     let auditResult: ReturnType<typeof auditPacket> = undefined!;
@@ -1228,6 +1277,7 @@ Trạng thái hiện tại: ${currentRealms || "(chưa xác định)"}`;
           plantWindowEnd: s.plantWindowEnd,
         })),
         overdueTurningPoints,
+        futureTurningPoints,
         lockedFactCandidates,
       };
 
@@ -1272,6 +1322,8 @@ Trạng thái hiện tại: ${currentRealms || "(chưa xác định)"}`;
           charactersInScene: packetResult.packet.charactersPresent,
           conflict: packetResult.packet.conflict,
           cliffhanger: packetResult.packet.cliffhanger,
+          chapterPurpose: packetResult.packet.chapterPurpose,
+          endingMode: packetResult.packet.endingMode,
           forbiddenMoves: packetResult.packet.forbiddenMoves,
           highStakes: packetHighStakes,
         });
@@ -1302,6 +1354,8 @@ Trạng thái hiện tại: ${currentRealms || "(chưa xác định)"}`;
       charactersInScene: packetResult.packet.charactersPresent,
       conflict: packetResult.packet.conflict,
       cliffhanger: packetResult.packet.cliffhanger,
+      chapterPurpose: packetResult.packet.chapterPurpose,
+      endingMode: packetResult.packet.endingMode,
       forbiddenMoves: packetResult.packet.forbiddenMoves,
       highStakes: packetHighStakes,
     });
@@ -1373,7 +1427,8 @@ Trạng thái hiện tại: ${currentRealms || "(chưa xác định)"}`;
         characterPlans,
         conflict: packetResult.packet.conflict,
         requiredEvents: packetResult.packet.requiredEvents.map((event) => event.description),
-        cliffhanger: packetResult.packet.cliffhanger,
+        cliffhanger: packetResult.packet.cliffhanger ?? "",
+        endingMode: packetResult.packet.endingMode,
       });
       writerResult = await synthesisAgent.write({
         serializedContext: buildSlotSerializedContext(serializedContext, packetResult.packet, data.chapterNumber),
@@ -2055,6 +2110,8 @@ Trạng thái hiện tại: ${currentRealms || "(chưa xác định)"}`;
           turningPointsCompleted: [],
           arcChangesCompleted: [],
         },
+        promptVersion: "canon-extractor-fallback",
+        rawContent: "",
         usage: {
           inputTokens: 0,
           outputTokens: 0,
@@ -2436,6 +2493,10 @@ function isAutoFixableDeterministicCheck(check: {
     (issue) =>
       issue.includes("thuật ngữ hiện đại không hợp bối cảnh") ||
       issue.includes("xưng hô hiện đại không hợp bối cảnh") ||
+      issue.includes("ranh giới chương hiện tại") ||
+      issue.includes("turning point tương lai") ||
+      issue.includes("payoff seed dài hạn") ||
+      issue.includes("khám phá/vật chứng tương đương") ||
       issue.includes("dấu ngoặc kép tiếng Việt không cân bằng"),
   );
 }
@@ -2546,4 +2607,11 @@ export async function runGenerateChapterJob(
 
   // All attempts exhausted — re-throw the last error so BullMQ marks the job as failed.
   throw lastError;
+}
+
+function extractPlannedChapterMarker(text: string): number | null {
+  const match = text.match(/\(chương\s*(\d+)\)/iu);
+  if (!match?.[1]) return null;
+  const chapter = Number(match[1]);
+  return Number.isFinite(chapter) ? chapter : null;
 }

@@ -23,6 +23,7 @@ describe("slot pipeline", () => {
       conflict: "Bị dồn vào trận địa trên đỉnh núi",
       requiredEvents: ["Lam Trạch đột phá cảnh giới", "Mộc Thanh cứu viện"],
       cliffhanger: "Kẻ đứng sau lộ diện",
+      endingMode: "ominous_hook",
     });
     const result = await synthesisAgent.write({
       serializedContext: "ctx",
@@ -41,5 +42,28 @@ describe("slot pipeline", () => {
     expect(scenePlan.filledSlots["[DIALOGUE_SLOT_2]"]).toContain("Mộc Thanh");
     expect(result.title).toBe("Đỉnh Núi");
     expect(result.content).toContain("Lam Trạch");
+  });
+
+  it("does not force action or cliffhanger language for quiet chapters", async () => {
+    const provider = new MockProvider({ responder: { kind: "fixed", content: "TITLE: Một Ngày Chậm\n\nLâm Triều ghi sổ trong mùi gạo ẩm." } });
+    const structureAgent = new SlotStructureAgent({ provider });
+    const sceneAgent = new SlotSceneAgent({ provider });
+
+    const structure = await structureAgent.plan({ serializedContext: "ctx", chapterNumber: 1 });
+    const scenePlan = await sceneAgent.plan({
+      structure,
+      characterPlans: [],
+      conflict: "Một dòng chữ trong sổ nhạt màu hơn hôm trước",
+      requiredEvents: ["Lâm Triều mở kho nghĩa thương lúc sáng sớm"],
+      cliffhanger: "",
+      endingMode: "quiet_transition",
+    });
+
+    expect(structure.endingBeat).toContain("endingMode");
+    expect(structure.endingBeat).not.toContain("Kết bằng cliffhanger");
+    expect(scenePlan.filledSlots["[ACTION_SLOT_1]"]).toContain("Nhịp mở");
+    expect(scenePlan.filledSlots["[ACTION_SLOT_1]"]).not.toContain("lao vào xung đột");
+    expect(scenePlan.filledSlots["[DESCRIPTION_SLOT_2]"]).toContain("quiet_transition");
+    expect(scenePlan.filledSlots["[DESCRIPTION_SLOT_2]"]).toContain("không tự thêm cliffhanger");
   });
 });

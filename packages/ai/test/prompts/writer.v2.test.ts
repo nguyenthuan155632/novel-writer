@@ -79,14 +79,33 @@ describe('writerPromptV2', () => {
     expect(built.system).toContain('tự rà soát và thay mọi xưng hô hiện đại sai bối cảnh');
   });
 
-  it('sets a hard minimum below the requested chapter length range', () => {
+  it('uses soft length guidance and supports quiet endings', () => {
     const built = writerPromptV2.build({
       serializedContext: 'CTX',
       genreDef: findGenre('huyen_huyen'),
     } as unknown as Record<string, unknown>);
 
-    expect(built.system).toContain('Viết 2200-2600 từ; không được dưới 2000 từ hoặc vượt 3000 từ');
+    expect(built.system).toContain('Ưu tiên khoảng 1800-2800 từ');
+    expect(built.system).toContain('không cần ép đủ chữ');
     expect(built.system).toContain('Không viết dạng tóm tắt nén');
-    expect(built.system).toContain('tự mở rộng trước khi trả lời');
+    expect(built.system).toContain('Không bắt buộc cliffhanger');
+    expect(built.system).toContain('quiet_transition');
+  });
+
+  it('keeps future seeds and turning points out of the current chapter unless the packet asks for them', () => {
+    const built = writerPromptV2.build({
+      serializedContext: 'CTX',
+      genreDef: findGenre('dong_phuong_huyen_bi'),
+    } as unknown as Record<string, unknown>);
+
+    expect(built.system).toContain('CHAPTER PLAN / PACKET là ranh giới cụ thể của chương này');
+    expect(built.system).toContain('Không tự thêm nhân vật, cuộc gặp, reveal, seed payoff, turning point');
+    expect(built.system).toContain('KHÔNG đưa sự kiện đó xảy ra sớm');
+    expect(built.system).toContain('Nếu chapterPurpose là mystery_setup ở đầu arc');
+    expect(built.system).toContain('KHÔNG tự tăng thành vật chứng mới, máu');
+    expect(built.system).toContain('KHÔNG kết bằng thông tin nhân vật POV không biết');
+    expect(built.system).toContain('KHÔNG kết bằng lời hứa mơ hồ của người kể');
+    expect(built.system).toContain('ARC SUMMARY + SAGA SUMMARY (narrative direction dài hạn, không phải checklist');
+    expect(built.system).toContain('chỉ gieo seed khi packet/OPTIONAL SEED TEXTURE yêu cầu rõ');
   });
 });
