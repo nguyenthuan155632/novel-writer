@@ -65,30 +65,34 @@ function makeInput(content: string): CheckInput {
 }
 
 describe("wordCountCheck", () => {
+  it("is advisory so length drift does not force retries", () => {
+    expect(wordCountCheck.severity).toBe("low");
+  });
+
   it("passes for content within word range", () => {
     const words = Array(2000).fill("word").join(" ");
     const result = wordCountCheck.run(makeInput(words));
     expect(result.pass).toBe(true);
   });
 
-  it("fails for content too short", () => {
+  it("warns for content too short without failing", () => {
     const result = wordCountCheck.run(makeInput("short content"));
-    expect(result.pass).toBe(false);
+    expect(result.pass).toBe(true);
     expect(result.issues.length).toBeGreaterThan(0);
     expect(result.issues[0]).toContain("quá ngắn");
   });
 
-  it("fails for content too long", () => {
+  it("warns for content too long without failing", () => {
     const words = Array(5000).fill("word").join(" ");
     const result = wordCountCheck.run(makeInput(words));
-    expect(result.pass).toBe(false);
+    expect(result.pass).toBe(true);
     expect(result.issues[0]).toContain("quá dài");
   });
 });
 
 describe("targetWordCountCheck", () => {
-  it("is high severity so target misses fail chapter completion", () => {
-    expect(targetWordCountCheck.severity).toBe("high");
+  it("is advisory so target misses do not fail chapter completion", () => {
+    expect(targetWordCountCheck.severity).toBe("low");
   });
 
   it("passes for content within target range", () => {
@@ -97,17 +101,17 @@ describe("targetWordCountCheck", () => {
     expect(result.pass).toBe(true);
   });
 
-  it("flags content below target but above hard minimum", () => {
+  it("warns for content below target but above hard minimum", () => {
     const words = Array(1600).fill("word").join(" ");
     const result = targetWordCountCheck.run(makeInput(words));
-    expect(result.pass).toBe(false);
+    expect(result.pass).toBe(true);
     expect(result.issues[0]).toContain("dưới mục tiêu");
   });
 
-  it("flags content above target but below hard maximum", () => {
+  it("warns for content above target but below hard maximum", () => {
     const words = Array(3200).fill("word").join(" ");
     const result = targetWordCountCheck.run(makeInput(words));
-    expect(result.pass).toBe(false);
+    expect(result.pass).toBe(true);
     expect(result.issues[0]).toContain("vượt mục tiêu");
   });
 });

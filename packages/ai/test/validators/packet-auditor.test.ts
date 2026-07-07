@@ -47,7 +47,7 @@ describe("auditPacket", () => {
     expect(r.issues[0]!.code).toBe("dead_character");
   });
 
-  it("flags missing cliffhanger", () => {
+  it("allows missing cliffhanger", () => {
     const r = auditPacket(
       {
         packet: { ...basePacket, cliffhanger: "" } as any,
@@ -57,8 +57,8 @@ describe("auditPacket", () => {
       },
       { genreFamily: "cultivation" },
     );
-    expect(r.pass).toBe(false);
-    expect(r.issues.find((i) => i.code === "missing_cliffhanger")).toBeTruthy();
+    expect(r.pass).toBe(true);
+    expect(r.issues.find((i) => i.code === "missing_cliffhanger")).toBeUndefined();
   });
 
   it("flags unresolved due seed at last-window-chapter", () => {
@@ -77,6 +77,100 @@ describe("auditPacket", () => {
     expect(
       r.issues.find((i) => i.code === "unresolved_due_seed")!.severity,
     ).toBe("critical");
+  });
+
+  it("requires regeneration when packet pulls a named future turning point early", () => {
+    const r = auditPacket(
+      {
+        packet: {
+          ...basePacket,
+          chapterNumber: 9,
+          goal: "Lâm Triều đến thăm cụ Tú để hỏi chuyện xưa",
+          requiredEvents: [{ description: "Lâm Triều hỏi thăm nhà cụ Tú ở bến sông." }],
+        } as any,
+        characters: [aliveChar],
+        forbiddenRules: "",
+        duePlantedSeeds: [],
+        futureTurningPoints: ["Gặp cụ Tú - người biết chuyện xưa (chương 12)"],
+      },
+      { genreFamily: "mixed" },
+    );
+
+    expect(r.pass).toBe(false);
+    expect(r.requiresRegenerate).toBe(true);
+    expect(r.issues.some((i) => i.code === "future_turning_point")).toBe(true);
+  });
+
+  it("allows future turning point anchors at their planned chapter", () => {
+    const r = auditPacket(
+      {
+        packet: {
+          ...basePacket,
+          chapterNumber: 12,
+          goal: "Lâm Triều gặp cụ Tú để hỏi chuyện xưa",
+          requiredEvents: [{ description: "Lâm Triều gặp cụ Tú ở bến sông." }],
+        } as any,
+        characters: [aliveChar],
+        forbiddenRules: "",
+        duePlantedSeeds: [],
+        futureTurningPoints: ["Gặp cụ Tú - người biết chuyện xưa (chương 12)"],
+      },
+      { genreFamily: "mixed" },
+    );
+
+    expect(r.issues.some((i) => i.code === "future_turning_point")).toBe(false);
+  });
+
+  it("requires regeneration when a quiet slice packet plans active night investigation", () => {
+    const r = auditPacket(
+      {
+        packet: {
+          ...basePacket,
+          chapterPurpose: "slice_of_life",
+          endingMode: "quiet_transition",
+          goal: "Khắc họa đời sống thường ngày",
+          conflict: "Lâm Triều muốn giữ bình tĩnh nhưng nghe tin đồn lạ",
+          requiredEvents: [
+            {
+              description:
+                "Buổi trưa hắn quyết định tối nay tự mình ra bờ sông quan sát bóng người áo đen biến mất gần miếu hoang.",
+            },
+          ],
+        } as any,
+        characters: [aliveChar],
+        forbiddenRules: "",
+        duePlantedSeeds: [],
+      },
+      { genreFamily: "mixed" },
+    );
+
+    expect(r.pass).toBe(false);
+    expect(r.requiresRegenerate).toBe(true);
+    expect(r.issues.some((i) => i.code === "purpose_ending_mismatch")).toBe(true);
+  });
+
+  it("allows quiet slice packets with ordinary observation and work texture", () => {
+    const r = auditPacket(
+      {
+        packet: {
+          ...basePacket,
+          chapterPurpose: "slice_of_life",
+          endingMode: "quiet_transition",
+          goal: "Khắc họa một ngày làm việc ở kho",
+          conflict: "Lâm Triều giữ bình tĩnh sau chuyện cũ",
+          requiredEvents: [
+            { description: "Lâm Triều cân gạo cho dân phố, ghi sổ và nghe vài lời than mùa màng." },
+            { description: "Buổi chiều hắn ngồi câu cá, quan sát dòng nước và tự nhắc mình không vội." },
+          ],
+        } as any,
+        characters: [aliveChar],
+        forbiddenRules: "",
+        duePlantedSeeds: [],
+      },
+      { genreFamily: "mixed" },
+    );
+
+    expect(r.issues.some((i) => i.code === "purpose_ending_mismatch")).toBe(false);
   });
 });
 
@@ -222,6 +316,8 @@ describe("MANDATORY_REGEN_CODES and requiresRegenerate", () => {
   it("MANDATORY_REGEN_CODES contains locked_fact, dead_character, realm_jump_excess", () => {
     expect(MANDATORY_REGEN_CODES.has("locked_fact")).toBe(true);
     expect(MANDATORY_REGEN_CODES.has("dead_character")).toBe(true);
+    expect(MANDATORY_REGEN_CODES.has("future_turning_point")).toBe(true);
+    expect(MANDATORY_REGEN_CODES.has("purpose_ending_mismatch")).toBe(true);
     expect(MANDATORY_REGEN_CODES.has("realm_jump_excess")).toBe(true);
   });
 
@@ -248,6 +344,8 @@ const baseRealmPacket: ChapterPacket = {
   goal: "Một mục tiêu rõ ràng",
   conflict: "Mâu thuẫn rõ ràng",
   cliffhanger: "Cliffhanger rõ ràng",
+  chapterPurpose: "plot_progression",
+  endingMode: "open_question",
   setting: "s",
   notes: "n",
   charactersPresent: ["Lý Phong"],

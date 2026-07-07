@@ -738,7 +738,7 @@ describe('executeGenerateChapterPipeline', () => {
       }),
     ]));
     const summaryInsert = inserts.find((insert) => insert.table === chapterSummaries);
-    expect(summaryInsert?.value.summary).not.toContain('Middle detail that should not be copied wholesale');
+    expect((summaryInsert?.value as any).summary).not.toContain('Middle detail that should not be copied wholesale');
     expect(updates).toEqual(expect.arrayContaining([
       expect.objectContaining({
         table: chapters,

@@ -95,9 +95,15 @@ function normalizePacketPayload(
     delete packet.entryState;
   }
 
+  for (const key of ['cliffhanger', 'chapterPurpose', 'endingMode'] as const) {
+    if (packet[key] === null) delete packet[key];
+  }
+
   packet.goal = truncateAtBoundary(packet.goal, PACKET_LIMITS.goal);
   packet.conflict = truncateAtBoundary(packet.conflict, PACKET_LIMITS.conflict);
   packet.cliffhanger = truncateAtBoundary(packet.cliffhanger, PACKET_LIMITS.cliffhanger);
+  packet.chapterPurpose = truncateAtBoundary(packet.chapterPurpose, PACKET_LIMITS.chapterPurpose);
+  packet.endingMode = truncateAtBoundary(packet.endingMode, PACKET_LIMITS.endingMode);
   packet.setting = truncateAtBoundary(packet.setting, PACKET_LIMITS.setting);
   packet.notes = truncateAtBoundary(packet.notes, PACKET_LIMITS.notes);
 
@@ -131,8 +137,21 @@ function parsePacketContent(
   content: string,
   opts?: { chapterNumber?: number },
 ): ChapterPacket {
-  const payload = JSON.parse(content);
+  const payload = JSON.parse(dropEmptyDuplicateStringFields(content, ['goal', 'conflict']));
   return ChapterPacketSchema.parse(normalizePacketPayload(payload, opts));
+}
+
+function dropEmptyDuplicateStringFields(content: string, keys: string[]): string {
+  let next = content;
+  for (const key of keys) {
+    const keyPattern = new RegExp(`"${key}"\\s*:`, 'g');
+    const matches = [...next.matchAll(keyPattern)];
+    if (matches.length < 2) continue;
+    const hasNonEmptyValue = new RegExp(`"${key}"\\s*:\\s*"(?:\\\\.|[^"\\\\])*\\S(?:\\\\.|[^"\\\\])*"`, 'u').test(next);
+    if (!hasNonEmptyValue) continue;
+    next = next.replace(new RegExp(`,\\s*"${key}"\\s*:\\s*""(?=\\s*[,}\\]])`, 'gu'), '');
+  }
+  return next;
 }
 
 function hasLengthOnlyIssues(err: unknown): err is ZodError {
@@ -165,7 +184,7 @@ export class PacketGenerator {
             role: 'user',
             content: [
               'Sửa JSON sau để đúng schema ChapterPacket và giữ nguyên ý chính.',
-              'Giới hạn: goal<=500, conflict<=500, cliffhanger<=500, mỗi requiredEvents.description<=500.',
+              'Giới hạn: goal<=500, conflict<=500, cliffhanger nếu có <=500, mỗi requiredEvents.description<=500.',
               'Nếu quá dài, rút gọn mạch lạc, không cắt cụt giữa ý.',
               'Nếu JSON gốc thiếu field bắt buộc, dùng context dưới đây để điền giá trị tối thiểu, đúng kế hoạch.',
               '# PACKET REPAIR CONTEXT',

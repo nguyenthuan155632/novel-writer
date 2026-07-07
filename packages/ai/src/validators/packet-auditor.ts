@@ -7,6 +7,8 @@ import { parseForbiddenRules, MUTATION_VERBS } from "./utils.ts";
 export const MANDATORY_REGEN_CODES = new Set([
   "locked_fact",
   "dead_character",
+  "future_turning_point",
+  "purpose_ending_mismatch",
   "realm_jump_excess",
 ]);
 
@@ -16,6 +18,7 @@ export type AuditInput = {
   forbiddenRules: string;
   duePlantedSeeds: { id: string; seedText: string; plantWindowEnd: number }[];
   overdueTurningPoints?: string[];
+  futureTurningPoints?: string[];
   /** Locked canon fact candidates near this packet (from retrieval, not hard embedding). */
   lockedFactCandidates?: {
     id: string;
@@ -90,7 +93,7 @@ export function auditPacket(input: AuditInput, ctx: AuditCtx): AuditResult {
     }
   }
 
-  // --- Missing conflict / cliffhanger (structural, not cosmetic) ---
+  // --- Missing conflict (structural, not cosmetic). Cliffhanger is intentionally optional for long-form pacing. ---
   if (!input.packet.conflict || input.packet.conflict.trim().length < 8) {
     issues.push({
       code: "missing_conflict",
@@ -98,11 +101,19 @@ export function auditPacket(input: AuditInput, ctx: AuditCtx): AuditResult {
       message: "Packet thiếu conflict rõ ràng.",
     });
   }
-  if (!input.packet.cliffhanger || input.packet.cliffhanger.trim().length < 8) {
+
+  // --- Purpose/ending semantic consistency ---
+  const chapterPurpose = normalizeVietnameseForMatch(input.packet.chapterPurpose ?? "");
+  const endingMode = normalizeVietnameseForMatch(input.packet.endingMode ?? "");
+  if (
+    isQuietPurpose(chapterPurpose, endingMode) &&
+    hasActiveInvestigationEscalation(input.packet)
+  ) {
     issues.push({
-      code: "missing_cliffhanger",
+      code: "purpose_ending_mismatch",
       severity: "high",
-      message: "Packet thiếu cliffhanger rõ ràng.",
+      message:
+        "Packet khai báo slice/quiet nhưng lại đưa cảnh rình rập, tự điều tra ban đêm, bóng người biến mất, hoặc địa điểm nguy hiểm vào requiredEvents.",
     });
   }
 
@@ -155,6 +166,33 @@ export function auditPacket(input: AuditInput, ctx: AuditCtx): AuditResult {
         severity: "high",
         message: `Packet không đề cập tới turning point quá hạn: ${missedTps.map((tp) => `"${tp}"`).join("; ")}. Goal/requiredEvents phải thể hiện ít nhất 1 TP này.`,
       });
+    }
+  }
+
+  // --- Future turning point boundary check ---
+  if (input.futureTurningPoints && input.futureTurningPoints.length > 0) {
+    const packetText = normalizeVietnameseForMatch(
+      [
+        input.packet.goal,
+        input.packet.conflict,
+        input.packet.cliffhanger ?? "",
+        ...input.packet.requiredEvents.map((e) => e.description),
+      ].join(" "),
+    );
+
+    for (const turningPoint of input.futureTurningPoints) {
+      const plannedChapter = extractPlannedChapter(turningPoint);
+      if (plannedChapter == null || plannedChapter <= input.packet.chapterNumber) continue;
+      const anchor = futureTurningPointAnchor(turningPoint);
+      if (!anchor) continue;
+      const normalizedAnchor = normalizeVietnameseForMatch(anchor);
+      if (normalizedAnchor.length >= 4 && packetText.includes(normalizedAnchor)) {
+        issues.push({
+          code: "future_turning_point",
+          severity: "high",
+          message: `Packet kéo turning point tương lai "${anchor}" vào chương ${input.packet.chapterNumber} trước mốc chương ${plannedChapter}.`,
+        });
+      }
     }
   }
 
@@ -234,4 +272,83 @@ export function auditPacket(input: AuditInput, ctx: AuditCtx): AuditResult {
     issues,
     requiresRegenerate,
   };
+}
+
+function extractPlannedChapter(text: string): number | null {
+  const match = text.match(/\(chương\s*(\d+)\)/iu);
+  if (!match?.[1]) return null;
+  const chapter = Number(match[1]);
+  return Number.isFinite(chapter) ? chapter : null;
+}
+
+function futureTurningPointAnchor(text: string): string | null {
+  const normalized = text
+    .replace(/\s*\(chương\s*\d+\)\s*/iu, "")
+    .replace(/\s*[-:–—]\s*.*/u, "")
+    .replace(/\s+/g, " ")
+    .trim();
+  const patterns = [
+    /^gặp\s+(.+)$/iu,
+    /^tìm\s+thấy\s+(.+?)(?:\s+trong|\s+ở|$)/iu,
+    /^bước\s+chân\s+xuống\s+(.+)$/iu,
+    /^mở\s+(.+)$/iu,
+    /^giải\s+mã\s+(.+)$/iu,
+  ];
+
+  for (const pattern of patterns) {
+    const match = normalized.match(pattern);
+    const anchor = match?.[1]?.trim();
+    if (anchor) return anchor;
+  }
+
+  return null;
+}
+
+function normalizeVietnameseForMatch(value: string): string {
+  return value
+    .toLocaleLowerCase("vi-VN")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/đ/g, "d")
+    .replace(/Đ/g, "D")
+    .replace(/[^\p{L}\p{N}\s]/gu, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function isQuietPurpose(chapterPurpose: string, endingMode: string): boolean {
+  return (
+    chapterPurpose.includes("slice_of_life") ||
+    chapterPurpose.includes("slice of life") ||
+    chapterPurpose.includes("aftermath") ||
+    chapterPurpose.includes("relationship") ||
+    chapterPurpose.includes("worldbuilding") ||
+    endingMode.includes("quiet_transition") ||
+    endingMode.includes("quiet transition") ||
+    endingMode.includes("emotional_aftertaste") ||
+    endingMode.includes("emotional aftertaste") ||
+    endingMode.includes("resolved")
+  );
+}
+
+function hasActiveInvestigationEscalation(packet: ChapterPacket): boolean {
+  const plain = normalizeVietnameseForMatch(
+    [
+      packet.goal,
+      packet.conflict,
+      packet.cliffhanger ?? "",
+      ...packet.requiredEvents.map((e) => e.description),
+    ].join(" "),
+  );
+
+  const activeInvestigation =
+    /\b(rinh|theo doi|quan sat|canh gac|mai phuc|dot nhap|lan vao|tu minh ra|di dem|ban dem|dem khuya|canh ba)\b/u.test(
+      plain,
+    );
+  const threatOrSecretLocation =
+    /\b(bong nguoi|ao den|bien mat|mieu hoang|am binh|vat chung|dau vet|mau kho|ngan bi mat|tai lieu cu)\b/u.test(
+      plain,
+    );
+
+  return activeInvestigation && threatOrSecretLocation;
 }

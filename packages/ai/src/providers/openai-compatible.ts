@@ -4,6 +4,7 @@ export interface OpenAICompatibleConfig {
   apiKey: string;
   baseUrl: string;
   fetchImpl?: typeof fetch;
+  timeoutMs?: number;
 }
 
 interface OpenAICompatibleChatPayload {
@@ -39,10 +40,12 @@ interface OpenAICompatibleChatEnvelope {
 
 export class OpenAICompatibleProvider implements LLMProvider {
   readonly name = 'openai-compatible';
+  private readonly timeoutMs: number;
 
   constructor(private config: OpenAICompatibleConfig) {
     if (!config.apiKey) throw new Error('OpenAI-compatible apiKey is required');
     if (!config.baseUrl) throw new Error('OpenAI-compatible baseUrl is required');
+    this.timeoutMs = Math.max(1, config.timeoutMs ?? 300_000);
   }
 
   async complete(req: CompletionRequest): Promise<CompletionResponse> {
@@ -62,14 +65,27 @@ export class OpenAICompatibleProvider implements LLMProvider {
       };
     }
     const url = `${this.config.baseUrl.replace(/\/+$/, '')}/chat/completions`;
-    const res = await fetchFn(url, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${this.config.apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(body),
-    });
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), this.timeoutMs);
+    let res: Response;
+    try {
+      res = await fetchFn(url, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${this.config.apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(body),
+        signal: controller.signal,
+      });
+    } catch (err) {
+      if (controller.signal.aborted) {
+        throw new Error(`OpenAI-compatible request timed out after ${this.timeoutMs}ms`);
+      }
+      throw err;
+    } finally {
+      clearTimeout(timeout);
+    }
     if (!res.ok) {
       const text = await res.text();
       throw new Error(`OpenAI-compatible error ${res.status}: ${text}`);

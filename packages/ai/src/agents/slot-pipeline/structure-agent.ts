@@ -15,10 +15,10 @@ export class SlotStructureAgent {
     void this.deps;
     void input.serializedContext;
     return {
-      openingBeat: `Chương ${input.chapterNumber} mở bằng mục tiêu trực diện từ packet.`,
-      midpointBeat: "Giữa chương tăng áp lực và khóa lựa chọn của nhân vật chính.",
-      climaxBeat: "Cao trào giải quyết xung đột chính hoặc bẻ hướng tình thế.",
-      endingBeat: "Kết bằng cliffhanger đúng packet, giữ đà sang chương sau.",
+      openingBeat: `Chương ${input.chapterNumber} mở bằng tình huống phù hợp mục tiêu trong packet.`,
+      midpointBeat: "Giữa chương đào sâu lựa chọn, quan hệ, đời sống hoặc áp lực chính tùy chapterPurpose.",
+      climaxBeat: "Điểm nhấn của chương giải quyết hoặc làm rõ conflict ở đúng quy mô packet.",
+      endingBeat: "Kết theo endingMode trong packet; chỉ dùng cliffhanger khi packet có optional hook rõ ràng.",
       framework: [
         "[DESCRIPTION_SLOT_1]",
         "[ACTION_SLOT_1]",

@@ -40,12 +40,12 @@ Kiểm tra:
 1. Canon nhất quán — nhân vật đã chết không xuất hiện, fact đã lock không trái phép.
 2. Logic cốt truyện — mâu thuẫn nội tại, seed unresolved, plot hole.
 3. Phong cách — đúng STYLE GUIDE, không lặp từ, không exposition dump, show-don't-tell.
-4. Bám sát kế hoạch — arc expected changes, turning points, ${progressionCriterion}. Filler chương → severity=high.
+4. Bám sát kế hoạch — arc expected changes, turning points, ${progressionCriterion}. Chương chậm nhịp KHÔNG phải lỗi nếu có giá trị đọc rõ: đời sống, quan hệ, hậu quả, chuẩn bị, khám phá thế giới, hoặc nội tâm.
 5. Mức độ nghiêm trọng: low / medium / high / critical.
 6. Genre drift — kiểm tra trope bị "Avoid unless explicitly in canon" của Genre Contract xuất hiện không có lý do canon. Nếu có → severity=medium hoặc high.
 7. Personality drift — kiểm tra main character có hành xử trùng với "Drift signals to avoid" của Personality Contract không. Nếu có và không có character development hợp lý → severity=medium.
-8. Cliffhanger strength — cuối chương có hook đủ mạnh để giữ độc giả không (thay thế cho deterministic cliffhanger check). Cliffhanger yếu/thiếu → severity=low.
-9. Conflict presence — mỗi scene có mâu thuẫn/tension không (thay thế cho deterministic conflict_presence check). Thiếu conflict rõ → severity=medium.
+8. Ending fit — kiểu kết chương có hợp chapterPurpose/endingMode và mạch truyện không. Không bắt buộc cliffhanger; chỉ cảnh báo nếu kết cụt, lạc mạch, hoặc hứa hẹn giả. Với endingMode resolved/quiet_transition/emotional_aftertaste/comic_beat, coi các câu người kể hứa mơ hồ về tai họa/bí mật tương lai kiểu "một ngày nào đó..." hoặc "hắn chưa biết rằng..." là pacing_ending_mismatch severity=low/medium.
+9. Scene purpose — mỗi scene có chức năng đọc được không: đời sống, quan hệ, chuẩn bị, khám phá, nội tâm, bí ẩn, hành động, hoặc chuyển trạng thái. Không coi slice-of-life là filler.
 10. Style red flags — kiểm tra vi phạm style guide từ Bible (lặp cụm từ, exposition dump, purple prose, v.v.) — thay thế cho deterministic style_red_flags check. Vi phạm → severity=low hoặc medium.
 11. Repetition — phát hiện lặp từ/cụm từ/ý tưởng trong cùng chương (thay thế cho deterministic repetition check). Lặp nhiều → severity=low.
 12. Tone-shift và dialogue-vs-description balance — tone thay đổi đột ngột không có lý do, hoặc tỷ lệ dialogue/description mất cân đối so với genre. → severity=low hoặc medium.
@@ -55,8 +55,8 @@ Dưới đây là các mã lỗi chuẩn và message tiếng Việt ASCII — d�
 - pacing_description_slot_empty: "Slot mo ta trong, thieu chi tiet"
 - pacing_action_slot_empty: "Slot hanh dong trong, thieu canh"
 - pacing_dialogue_slot_empty: "Slot hoi thoai trong, thieu thoai"
-- pacing_cliffhanger_missing: "Thieu cliffhanger cuoi chuong"
-- pacing_filler_chapter: "Chuong dem, khong co tien trien"
+- pacing_ending_mismatch: "Ket chuong khong hop muc dich chuong"
+- pacing_scene_purpose_missing: "Canh thieu chuc nang ke chuyen"
 - protagonist_personality_drift: "Nhan vat chinh drift tinh cach"
 - antagonist_personality_drift: "Phan dien drift tinh cach"
 - story_option_comedy_stakes: "Can bang hai kich-stakes chua dung"

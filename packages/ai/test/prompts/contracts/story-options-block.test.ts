@@ -49,6 +49,18 @@ describe("buildStoryOptionsBlock", () => {
       expect(out).toContain("câu ngắn");
     });
 
+    it("mystery writer guidance allows baseline opening chapters before clues", () => {
+      const out = buildStoryOptionsBlock({
+        storyOptions: { mainConflictType: "mystery" },
+        target: "writer",
+      });
+
+      expect(out).toContain("đời sống bình thường có thể đi trước clue/reveal");
+      expect(out).toContain("1-2 chương mở đầu có thể chỉ dựng baseline");
+      expect(out).toContain("Không biến mọi chi tiết nghề nghiệp/đời sống thành vật chứng");
+      expect(out).not.toContain("reader never goes too long without new info");
+    });
+
     it("validator target renders check criteria", () => {
       const out = buildStoryOptionsBlock({
         storyOptions: { pov: "third_limited" },

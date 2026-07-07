@@ -46,6 +46,7 @@ describe('OpenAICompatibleProvider', () => {
       Authorization: 'Bearer k',
       'Content-Type': 'application/json',
     });
+    expect(captured.init?.signal).toBeInstanceOf(AbortSignal);
     expect(JSON.parse(captured.init?.body as string)).toEqual({
       model: 'provider/model-a',
       messages: [{ role: 'user', content: 'hi' }],
@@ -68,6 +69,25 @@ describe('OpenAICompatibleProvider', () => {
     });
     await expect(p.complete({ model: 'provider/model-a', messages: [{ role: 'user', content: 'hi' }] }))
       .rejects.toThrow(/OpenAI-compatible error 500/);
+  });
+
+  it('times out hung requests', async () => {
+    vi.useFakeTimers();
+    const fetchImpl = vi.fn((_url: string, init: RequestInit) => new Promise<Response>((_resolve, reject) => {
+      init.signal?.addEventListener('abort', () => reject(new Error('aborted')));
+    })) as unknown as typeof fetch;
+    const p = new OpenAICompatibleProvider({
+      apiKey: 'k',
+      baseUrl: 'https://llm.example/v1',
+      fetchImpl,
+      timeoutMs: 25,
+    });
+
+    const pending = expect(p.complete({ model: 'provider/model-a', messages: [{ role: 'user', content: 'hi' }] }))
+      .rejects.toThrow(/timed out after 25ms/);
+    await vi.advanceTimersByTimeAsync(25);
+    await pending;
+    vi.useRealTimers();
   });
 
   it('unwraps data-wrapped chat completion responses', async () => {

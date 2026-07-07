@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { getStoryBible, getSagaForChapter, getArcForChapter, getArcById, getActiveCharacters, getOpenThreadsForStory, getPlantedSeedsForStory, getSeedsDueForChapter, getRecentSummaries, getPastChapterSummaries, getTopKCanonFactsHybrid, getTimelineEventsForChapter } from '../../src/context/retrieval.js';
+import { getStoryBible, getSagaForChapter, getArcForChapter, getArcById, getActiveCharacters, getOpenThreadsForStory, getPlantedSeedsForStory, getSeedsDueForChapter, getSeedsApproachingPlantDeadline, getRecentSummaries, getPastChapterSummaries, getTopKCanonFactsHybrid, getTimelineEventsForChapter } from '../../src/context/retrieval.js';
 
 describe('getStoryBible (unit)', () => {
   it('exports getStoryBible as a function', () => {
@@ -154,6 +154,127 @@ describe('getSeedsDueForChapter (unit)', () => {
     expect(text).toContain('status');
     expect(text).toContain('=');
     expect(text).not.toContain('NOT IN');
+  });
+
+  it('keeps only near-payoff seed texture instead of dragging far-payoff seeds forward', async () => {
+    const rows = [
+      {
+        id: 'seed-window',
+        storyId: 'story-1',
+        seedText: 'current texture',
+        payoffDescription: 'later',
+        plantWindowStart: 1,
+        plantWindowEnd: 5,
+        payoffChapter: 20,
+        status: 'pending',
+      },
+      {
+        id: 'seed-far',
+        storyId: 'story-1',
+        seedText: 'far clue',
+        payoffDescription: 'much later',
+        plantWindowStart: 1,
+        plantWindowEnd: 5,
+        payoffChapter: 110,
+        status: 'pending',
+      },
+      {
+        id: 'seed-near-payoff',
+        storyId: 'story-1',
+        seedText: 'near payoff clue',
+        payoffDescription: 'very soon',
+        plantWindowStart: 1,
+        plantWindowEnd: 3,
+        payoffChapter: 10,
+        status: 'pending',
+      },
+    ];
+    const db = {
+      select: vi.fn(() => ({
+        from: vi.fn(() => ({
+          where: vi.fn(async () => rows),
+        })),
+      })),
+    } as unknown as import('@novel/db').Db;
+
+    const dueAtFive = await getSeedsDueForChapter(db, 'story-1', 5);
+
+    expect(dueAtFive.map((s) => s.id)).toEqual(['seed-near-payoff']);
+  });
+
+  it('only hard-enforces pending seeds near payoff', async () => {
+    const rows = [
+      {
+        id: 'seed-planted',
+        seedText: 'already planted',
+        status: 'planted',
+        plantWindowEnd: 3,
+        payoffChapter: 10,
+      },
+      {
+        id: 'seed-far-payoff',
+        seedText: 'far clue',
+        status: 'pending',
+        plantWindowEnd: 8,
+        payoffChapter: 35,
+      },
+      {
+        id: 'seed-near-payoff',
+        seedText: 'near payoff clue',
+        status: 'pending',
+        plantWindowEnd: 8,
+        payoffChapter: 12,
+      },
+    ];
+    let whereCondition: unknown;
+    const db = {
+      select: vi.fn(() => ({
+        from: vi.fn(() => ({
+          where: vi.fn((condition) => {
+            whereCondition = condition;
+            return Promise.resolve(rows);
+          }),
+        })),
+      })),
+    } as unknown as import('@novel/db').Db;
+
+    const mustInclude = await getSeedsApproachingPlantDeadline(db, 'story-1', 8);
+
+    const readSqlText = (value: unknown): string => {
+      if (
+        value &&
+        typeof value === 'object' &&
+        'queryChunks' in value &&
+        Array.isArray((value as { queryChunks: unknown[] }).queryChunks)
+      ) {
+        return (value as { queryChunks: unknown[] }).queryChunks
+          .map((chunk) => readSqlText(chunk))
+          .join(' ');
+      }
+      if (
+        value &&
+        typeof value === 'object' &&
+        'value' in value &&
+        Array.isArray((value as { value: unknown[] }).value)
+      ) {
+        return (value as { value: unknown[] }).value.join('');
+      }
+      if (
+        value &&
+        typeof value === 'object' &&
+        'name' in value &&
+        typeof (value as { name: unknown }).name === 'string'
+      ) {
+        return (value as { name: string }).name;
+      }
+      if (typeof value === 'string') return value;
+      if (typeof value === 'number') return String(value);
+      return '';
+    };
+
+    expect(readSqlText(whereCondition)).toContain('status');
+    expect(readSqlText(whereCondition)).not.toContain('NOT IN');
+    expect(mustInclude.map((s) => s.id)).toEqual(['seed-near-payoff']);
   });
 });
 

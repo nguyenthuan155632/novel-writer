@@ -59,6 +59,10 @@ QUY TẮC:
 - payoffChapter PHẢI lớn hơn plantWindowEnd ít nhất ${seedDistance} chương.
 - Seeds importance: minor (chi tiết bổ trợ), major (ảnh hưởng nhiều chương), climax (payoff cho saga / toàn truyện).
 - Sagas và seeds PHẢI bám đúng Genre Contract — không tự ý đưa trope của thể loại khác.
+- Đừng dồn seed vào các chương 1-5. Với tiểu thuyết dài tập, seed mở đầu nên rải qua toàn arc đầu; trong 3 chương đầu tối đa 1 seed quan trọng trừ khi premise bắt buộc.
+- Seed mở đầu nên là chi tiết đời sống có hai lớp nghĩa (vật dụng, thói quen, lời nói, địa danh, nợ nần, nghề nghiệp, quan hệ xóm giềng), không phải chuỗi dấu hiệu bí ẩn ép nhân vật lập tức điều tra.
+- Turning point đầu của saga có thể là vết nứt chậm trong đời sống đã được thiết lập. Tránh lập kế hoạch khiến chương đầu phải mở bằng biến cố lớn, truy đuổi, giao chiến hoặc nhiệm vụ điều tra.
+- Nếu premise yêu cầu mở đầu bằng sinh hoạt thường ngày, phải tôn trọng điều đó: turning point đầu không được ghi rõ "(chương 1)" hoặc ép chương 1 chứa biến cố chính. Chương 1 có thể chỉ thiết lập nơi chốn, nghề nghiệp, quan hệ và một chi tiết lệch rất nhỏ.
 - Trả về JSON đúng schema. KHÔNG giải thích gì thêm.`,
       user: `Tiểu thuyết mục tiêu: ${targetChapters} chương.\n\nBible (compact):\n${String(input.bibleCompact)}\n\nLập kế hoạch saga + planted seeds.`,
     };

@@ -15,6 +15,7 @@ export type HotTier = {
   genreContract: string;
   personalityContract: string;
   storyOptionsBlock: string;
+  lifeTextureBank?: string[];
 };
 
 export type CharacterCompact = {
