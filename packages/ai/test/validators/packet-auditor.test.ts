@@ -99,8 +99,8 @@ describe("auditPacket forbidden_move", () => {
     expect(r.issues.some((i) => i.code === "forbidden_move")).toBe(true);
   });
 
-  it("flags forbidden phrase found in forbiddenMoves field", () => {
-    // packet.forbiddenMoves echoes the exact banned phrase from rules
+  it("does not flag forbidden phrase found only in forbiddenMoves field", () => {
+    // packet.forbiddenMoves describes what the writer must avoid, not planned story content.
     const r = auditPacket(
       {
         packet: {
@@ -113,7 +113,7 @@ describe("auditPacket forbidden_move", () => {
       },
       { genreFamily: "cultivation" },
     );
-    expect(r.issues.some((i) => i.code === "forbidden_move")).toBe(true);
+    expect(r.issues.some((i) => i.code === "forbidden_move")).toBe(false);
   });
 
   it("no false positive when forbiddenRules is empty", () => {

@@ -27,7 +27,6 @@ import {
   findAntiLlmPatternHits,
   CanonExtractor,
   type CanonExtractionResult,
-  type ExtractorOutput,
   SummaryCompactor,
   extractTailContent,
   auditPacket,
@@ -135,28 +134,21 @@ export function validationStatusForDeterministicResult(
 
 function buildFallbackChapterSummary(title: string, content: string): string {
   const normalized = content.replace(/\s+/g, " ").trim();
-  const excerpt =
-    normalized.length > 1200 ? `${normalized.slice(0, 1199).trimEnd()}…` : normalized;
-  return [`${title}:`, excerpt].filter(Boolean).join(" ").trim();
+  const sentences = normalized
+    .split(/(?<=[.!?。！？])\s+/)
+    .map((sentence) => sentence.trim())
+    .filter(Boolean);
+  const opening = truncateForFallbackSummary(sentences[0] ?? normalized);
+  const ending = truncateForFallbackSummary(sentences.at(-1) ?? "");
+  const parts = [`${title}.`];
+  if (opening) parts.push(`Opening: ${opening}`);
+  if (ending && ending !== opening) parts.push(`Ending: ${ending}`);
+  return parts.join(" ").trim() || title || "Summary unavailable.";
 }
 
-function buildEmptyExtractionResult(): CanonExtractionResult {
-  const output: ExtractorOutput = {
-    characterUpdates: [],
-    newCanonFacts: [],
-    threadUpdates: [],
-    newTimelineEvents: [],
-    factionUpdates: [],
-    seedsResolvedThisChapter: [],
-    turningPointsCompleted: [],
-    arcChangesCompleted: [],
-  };
-  return {
-    output,
-    promptVersion: "fallback-empty",
-    rawContent: "",
-    usage: { inputTokens: 0, outputTokens: 0, cachedInputTokens: 0 },
-  };
+function truncateForFallbackSummary(text: string, maxLength = 260): string {
+  if (text.length <= maxLength) return text;
+  return `${text.slice(0, maxLength - 1).trimEnd()}…`;
 }
 
 export function serializeContextForWriter(
@@ -574,6 +566,193 @@ function extractorOutputToRows(
   }
 
   return rows;
+}
+
+function findMissedCharacterDeathUpdates(
+  content: string,
+  ctx: ChapterContext,
+  characterUpdates: CanonExtractionResult["output"]["characterUpdates"],
+  knownAliveCharacterNames: string[] = [],
+): string[] {
+  const explicitDeathNames = uniqueNames([
+    ...ctx.warm.activeCharacters
+      .filter((character) => character.status !== "dead" && character.status !== "missing")
+      .map((character) => character.name),
+    ...knownAliveCharacterNames,
+  ])
+    .filter((name) =>
+      hasExplicitDeathOrApparentDeathForName(content, name) &&
+      !hasAliveContinuationAfterDeath(content, name),
+    );
+
+  return explicitDeathNames.filter((name) => {
+    const update = characterUpdates.find(
+      (candidate) =>
+        sameVietnameseName(candidate.name, name) &&
+        (candidate.fields.status === "dead" ||
+          candidate.fields.status === "missing"),
+    );
+    return !update;
+  });
+}
+
+function findMissedCharacterIdentityReveals(
+  content: string,
+  ctx: ChapterContext,
+  extractionOutput: CanonExtractionResult["output"],
+  knownAliveCharacterNames: string[] = [],
+): string[] {
+  const revealedNames = uniqueNames([
+    ...ctx.warm.activeCharacters
+      .filter((character) => character.status !== "dead")
+      .map((character) => character.name),
+    ...knownAliveCharacterNames,
+  ])
+    .filter((name) => hasExplicitIdentityRevealForName(content, name));
+
+  return revealedNames.filter((name) => {
+    const capturedByCharacterUpdate = extractionOutput.characterUpdates.some(
+      (candidate) => sameVietnameseName(candidate.name, name),
+    );
+    if (capturedByCharacterUpdate) return false;
+
+    return !extractionOutput.newCanonFacts.some((fact) =>
+      sameVietnameseTextContains(fact.fact, name),
+    );
+  });
+}
+
+function findMissedCharacterReturnUpdates(
+  content: string,
+  ctx: ChapterContext,
+  characterUpdates: CanonExtractionResult["output"]["characterUpdates"],
+  knownTerminalCharacterNames: string[] = [],
+): string[] {
+  const returnedNames = uniqueNames([
+    ...ctx.warm.activeCharacters
+      .filter((character) => character.status === "dead" || character.status === "missing")
+      .map((character) => character.name),
+    ...knownTerminalCharacterNames,
+  ])
+    .filter((name) => hasExplicitAliveReturnForName(content, name));
+
+  return returnedNames.filter((name) => {
+    const update = characterUpdates.find(
+      (candidate) =>
+        sameVietnameseName(candidate.name, name) &&
+        candidate.fields.status === "alive",
+    );
+    return !update;
+  });
+}
+
+function hasExplicitDeathOrApparentDeathForName(
+  content: string,
+  name: string,
+): boolean {
+  const segments = content
+    .split(/\n{2,}/)
+    .flatMap((part) => part.split(/(?<=[.!?])\s+/))
+    .map((part) => part.trim())
+    .filter(Boolean);
+
+  return segments.some((segment) => {
+    if (!sameVietnameseTextContains(segment, name)) return false;
+    const escapedName = escapeRegExp(name);
+    const deathPhrase = "(?:đã chết|chết rồi|ngừng thở|không mạch đập|không còn mạch|hy sinh|hi sinh|tử trận|tưởng chết)";
+    if (new RegExp(`${escapedName}[\\s\\S]{0,80}${deathPhrase}`, "iu").test(segment)) {
+      return true;
+    }
+
+    const reversePattern = new RegExp(`${deathPhrase}([\\s\\S]{0,80})${escapedName}`, "giu");
+    for (const match of segment.matchAll(reversePattern)) {
+      const between = match[1] ?? "";
+      const afterName = segment.slice((match.index ?? 0) + match[0].length, (match.index ?? 0) + match[0].length + 40);
+      const attribution = /(nói|hỏi|gầm|thì thầm|cười|quát|thở dài|lẩm bẩm|ngắt lời|giọng)/iu;
+      if (!attribution.test(between) && !attribution.test(afterName)) {
+        return true;
+      }
+    }
+    return false;
+  });
+}
+
+function hasAliveContinuationAfterDeath(content: string, name: string): boolean {
+  const escapedName = escapeRegExp(name);
+  const deathPhrase = "(?:đã chết|chết rồi|ngừng thở|không mạch đập|không còn mạch|hy sinh|hi sinh|tử trận|tưởng chết)";
+  const deathMatches = Array.from(content.matchAll(new RegExp(deathPhrase, "giu")));
+  const lastDeathIndex = deathMatches.at(-1)?.index;
+  if (lastDeathIndex === undefined) return false;
+
+  const afterDeath = content.slice(lastDeathIndex);
+  const continuationPattern = new RegExp(
+    `${escapedName}[\\s\\S]{0,120}(mở\\s+mắt|tỉnh\\s+rồi|tỉnh\\s+lại|ngồi\\s+dậy|đứng\\s+dậy)`,
+    "iu",
+  );
+  const continuation = afterDeath.match(continuationPattern);
+  if (!continuation || continuation.index === undefined) return false;
+
+  const continuationText = afterDeath.slice(
+    continuation.index,
+    continuation.index + continuation[0].length + 80,
+  );
+  return !/tàn\s+ảnh/i.test(continuationText);
+}
+
+function hasExplicitAliveReturnForName(
+  content: string,
+  name: string,
+): boolean {
+  const escapedName = escapeRegExp(name);
+  const patterns = [
+    new RegExp(`${escapedName}[^\\n.?!]{0,80}(còn\\s+sống|đã\\s+trở\\s+lại|trở\\s+về)`, "iu"),
+    new RegExp(`đúng\\s+rồi[\\s\\S]{0,80}${escapedName}\\s+thật\\s*(?:[.!?]|$)`, "iu"),
+  ];
+  return patterns.some((pattern) => pattern.test(content));
+}
+
+function hasExplicitIdentityRevealForName(
+  content: string,
+  name: string,
+): boolean {
+  const escapedName = escapeRegExp(name);
+  const identityPatterns = [
+    new RegExp(`tên\\s+ta\\s+không\\s+phải\\s+${escapedName}`, "iu"),
+    new RegExp(`${escapedName}[^\\n.?!]{0,80}thực\\s+chất\\s+là`, "iu"),
+    new RegExp(`${escapedName}[^\\n.?!]{0,80}giả\\s+làm`, "iu"),
+    new RegExp(`${escapedName}[^\\n.?!]{0,80}kẻ\\s+phản\\s+bội\\s+thực\\s+sự`, "iu"),
+  ];
+  return identityPatterns.some((pattern) => pattern.test(content));
+}
+
+function sameVietnameseName(a: string, b: string): boolean {
+  return normalizeVietnameseForMatch(a) === normalizeVietnameseForMatch(b);
+}
+
+function uniqueNames(names: string[]): string[] {
+  const seen = new Set<string>();
+  const result: string[] = [];
+  for (const name of names) {
+    const key = normalizeVietnameseForMatch(name);
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    result.push(name);
+  }
+  return result;
+}
+
+function sameVietnameseTextContains(text: string, needle: string): boolean {
+  return normalizeVietnameseForMatch(text).includes(
+    normalizeVietnameseForMatch(needle),
+  );
+}
+
+function normalizeVietnameseForMatch(value: string): string {
+  return value.normalize("NFC").toLocaleLowerCase("vi-VN");
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 function accumulateUsage(
@@ -1271,10 +1450,11 @@ Trạng thái hiện tại: ${currentRealms || "(chưa xác định)"}`;
     };
 
     const checks = buildChecks(bible.forbiddenRules, domain.genreFamily);
-    const detResult: DeterministicValidatorResult = runDeterministicValidator(
+    let detResult: DeterministicValidatorResult = runDeterministicValidator(
       checkInput,
       checks,
     );
+    let contentChangedAfterValidation = false;
 
     // Phase 2: LLM verification of flagged candidates (unknown_character, unknown_location, etc.)
     if (detResult.pendingVerification.length > 0) {
@@ -1324,7 +1504,7 @@ Trạng thái hiện tại: ${currentRealms || "(chưa xác định)"}`;
       validatorModel: "deterministic",
     });
     const deterministicFixIssues = detResult.checks
-      .filter((c) => !c.pass && c.id === "word_count_target")
+      .filter(isAutoFixableDeterministicCheck)
       .flatMap((c) => c.issues.map((message) => ({
         code: c.id,
         severity: c.severity,
@@ -1333,7 +1513,10 @@ Trạng thái hiện tại: ${currentRealms || "(chưa xác định)"}`;
 
     if (detResult.shortCircuited || !detResult.pass) {
       const criticalIssues = detResult.checks.filter(
-        (c) => !c.pass && (c.severity === "critical" || c.severity === "high"),
+        (c) =>
+          !c.pass &&
+          !isAutoFixableDeterministicCheck(c) &&
+          (c.severity === "critical" || c.severity === "high"),
       );
       if (criticalIssues.length > 0) {
         log.error(
@@ -1379,7 +1562,37 @@ Trạng thái hiện tại: ${currentRealms || "(chưa xác định)"}`;
       }
     }
 
-    if (!detResult.shortCircuited) {
+    if (detResult.shortCircuited && deterministicFixIssues.length > 0) {
+      log.info(
+        { deterministicFixIssues },
+        "short-circuited deterministic issues found, auto-fixing",
+      );
+      const autoFixerModel = modelForRole(effectiveConfig, "auto_fixer");
+      const autoFixer = new AutoFixerAgent({
+        provider,
+        logger: log,
+        model: autoFixerModel,
+      });
+      const fixResult = await autoFixer.fix({
+        serializedContext,
+        chapterContent: writerResult.content,
+        chapterTitle: writerResult.title,
+        chapterNumber: data.chapterNumber,
+        issues: deterministicFixIssues,
+        storyId: data.storyId,
+        traceId,
+        genreDef: domain.genreDef,
+      });
+      accumulateUsage(fixResult.usage, tokenAcc);
+      totalCost += estimateCostUsd(autoFixerModel, fixResult.usage);
+      writerResult = {
+        title: fixResult.title,
+        content: fixResult.content,
+        usage: fixResult.usage,
+        cost: fixResult.cost,
+      };
+      contentChangedAfterValidation = true;
+    } else if (!detResult.shortCircuited) {
       const llmValidatorModel = modelForRole(effectiveConfig, "llm_validator");
       const llmValidator = new LlmValidatorAgent({
         provider,
@@ -1566,6 +1779,7 @@ Trạng thái hiện tại: ${currentRealms || "(chưa xác định)"}`;
             usage: fixResult.usage,
             cost: fixResult.cost,
           };
+          contentChangedAfterValidation = true;
         }
 
         const polishModel = modelForRole(effectiveConfig, "polish_pass");
@@ -1588,6 +1802,7 @@ Trạng thái hiện tại: ${currentRealms || "(chưa xác định)"}`;
             title: polishResult.title,
             content: polishResult.content,
           };
+          contentChangedAfterValidation = true;
           polishPassStatus = "applied";
           incrementMetric(METRIC_NAMES.polishPassAppliedTotal);
           log.info({ metric: METRIC_NAMES.polishPassAppliedTotal }, "worker metric incremented");
@@ -1628,6 +1843,154 @@ Trạng thái hiện tại: ${currentRealms || "(chưa xác định)"}`;
           content: fixResult.content,
           usage: fixResult.usage,
           cost: fixResult.cost,
+        };
+        contentChangedAfterValidation = true;
+      }
+    }
+
+    if (contentChangedAfterValidation) {
+      detResult = runDeterministicValidator(
+        {
+          ...checkInput,
+          content: writerResult.content,
+        },
+        checks,
+      );
+      await db
+        .update(chapters)
+        .set({
+          deterministicValidation: detResult.checks,
+          validationStatus: validationStatusForDeterministicResult(detResult.checks),
+          updatedAt: new Date(),
+        })
+        .where(eq(chapters.id, chapterId));
+      await persistValidationRows(db, {
+        storyId: data.storyId,
+        chapterId,
+        checks: detResult.checks,
+        validatorModel: "deterministic",
+      });
+
+      let criticalIssues = detResult.checks.filter(
+        (c) => !c.pass && (c.severity === "critical" || c.severity === "high"),
+      );
+      const retryablePostFixIssues = criticalIssues
+        .filter(isAutoFixableDeterministicCheck)
+        .flatMap((c) => c.issues.map((message) => ({
+          code: c.id,
+          severity: c.severity,
+          message,
+        })));
+      if (
+        retryablePostFixIssues.length > 0 &&
+        criticalIssues.every(isAutoFixableDeterministicCheck)
+      ) {
+        log.info(
+          { retryablePostFixIssues },
+          "post-fix deterministic issues remained, retrying auto-fix once",
+        );
+        const autoFixerModel = modelForRole(effectiveConfig, "auto_fixer");
+        const autoFixer = new AutoFixerAgent({
+          provider,
+          logger: log,
+          model: autoFixerModel,
+        });
+        const fixResult = await autoFixer.fix({
+          serializedContext,
+          chapterContent: writerResult.content,
+          chapterTitle: writerResult.title,
+          chapterNumber: data.chapterNumber,
+          issues: retryablePostFixIssues,
+          storyId: data.storyId,
+          traceId,
+          genreDef: domain.genreDef,
+        });
+        accumulateUsage(fixResult.usage, tokenAcc);
+        totalCost += estimateCostUsd(autoFixerModel, fixResult.usage);
+        writerResult = {
+          title: fixResult.title,
+          content: fixResult.content,
+          usage: fixResult.usage,
+          cost: fixResult.cost,
+        };
+        detResult = runDeterministicValidator(
+          {
+            ...checkInput,
+            content: writerResult.content,
+          },
+          checks,
+        );
+        await db
+          .update(chapters)
+          .set({
+            deterministicValidation: detResult.checks,
+            validationStatus: validationStatusForDeterministicResult(detResult.checks),
+            updatedAt: new Date(),
+          })
+          .where(eq(chapters.id, chapterId));
+        await persistValidationRows(db, {
+          storyId: data.storyId,
+          chapterId,
+          checks: detResult.checks,
+          validatorModel: "deterministic",
+        });
+        criticalIssues = detResult.checks.filter(
+          (c) => !c.pass && (c.severity === "critical" || c.severity === "high"),
+        );
+      }
+      if (detResult.shortCircuited || criticalIssues.length > 0) {
+        log.error(
+          { criticalIssues },
+          "post-fix deterministic validation had critical issues, marking chapter as failed",
+        );
+        try {
+          const reviewJobId = await enqueueHighStakesReview({
+            storyId: data.storyId,
+            chapterId,
+            chapterNumber: data.chapterNumber,
+            triggerReason: "critical_severity",
+            traceId: data.traceId,
+            llmProvider: data.llmProvider,
+            modelRoutes: data.modelRoutes,
+          });
+          log.info({ reviewJobId }, "enqueued high-stakes review for post-fix deterministic critical issues");
+        } catch (enqueueErr) {
+          log.warn({ err: enqueueErr }, "failed to enqueue post-fix deterministic critical-severity review");
+        }
+        await writeValidationLog(
+          {
+            storyId: data.storyId,
+            chapterNumber: data.chapterNumber,
+            chapterTitle: writerResult.title,
+            wordCount: writerResult.content.split(/\s+/).filter(Boolean).length,
+            deterministicResult: detResult,
+          },
+          log,
+        ).catch(() => {});
+        const failedWordCount = writerResult.content.trim()
+          ? writerResult.content.trim().split(/\s+/).length
+          : 0;
+        await db
+          .update(chapters)
+          .set({
+            title: writerResult.title,
+            content: writerResult.content,
+            status: "failed",
+            wordCount: failedWordCount,
+            generationMode: chapterGenerationMode,
+            polishPassStatus,
+            contextCacheKey: context.meta.hotHash,
+            tailContent: extractTailContent(writerResult.content),
+            updatedAt: new Date(),
+          })
+          .where(eq(chapters.id, chapterId));
+        return {
+          chapterId,
+          status: "failed",
+          attempts: attemptCount,
+          totalTokens: tokenAcc.inputTokens + tokenAcc.outputTokens,
+          totalCostUsd: totalCost,
+          durationMs: Date.now() - start,
         };
       }
     }
@@ -1680,11 +2043,147 @@ Trạng thái hiện tại: ${currentRealms || "(chưa xác định)"}`;
         { traceId, storyId: data.storyId },
       );
     } catch (err) {
-      extractionResult = buildEmptyExtractionResult();
-      log.warn({ err }, "canon extractor failed; using empty extraction result");
+      log.warn({ err }, "canon extractor failed; continuing with empty extraction");
+      extractionResult = {
+        output: {
+          characterUpdates: [],
+          newCanonFacts: [],
+          threadUpdates: [],
+          newTimelineEvents: [],
+          factionUpdates: [],
+          seedsResolvedThisChapter: [],
+          turningPointsCompleted: [],
+          arcChangesCompleted: [],
+        },
+        usage: {
+          inputTokens: 0,
+          outputTokens: 0,
+          cachedInputTokens: 0,
+        },
+      };
     }
     accumulateUsage(extractionResult.usage, tokenAcc);
     totalCost += estimateCostUsd(canonExtractorModel, extractionResult.usage);
+
+    const missedCharacterDeaths = findMissedCharacterDeathUpdates(
+      writerResult.content,
+      context,
+      extractionResult.output.characterUpdates,
+      activeCharacters
+        .filter((character) => character.status !== "dead" && character.status !== "missing")
+        .map((character) => character.name),
+    );
+    if (missedCharacterDeaths.length > 0) {
+      log.warn(
+        { missedCharacterDeaths },
+        "explicit character death or apparent death was not captured by canon extraction; marking chapter failed",
+      );
+      const failedWordCount = writerResult.content.trim()
+        ? writerResult.content.trim().split(/\s+/).length
+        : 0;
+      await db
+        .update(chapters)
+        .set({
+          title: writerResult.title,
+          content: writerResult.content,
+          status: "failed",
+          wordCount: failedWordCount,
+          generationMode: chapterGenerationMode,
+          polishPassStatus,
+          contextCacheKey: context.meta.hotHash,
+          tailContent: extractTailContent(writerResult.content),
+          updatedAt: new Date(),
+        })
+        .where(eq(chapters.id, chapterId));
+      return {
+        chapterId,
+        status: "failed",
+        attempts: attemptCount,
+        totalTokens: tokenAcc.inputTokens + tokenAcc.outputTokens,
+        totalCostUsd: totalCost,
+        durationMs: Date.now() - start,
+      };
+    }
+
+    const missedIdentityReveals = findMissedCharacterIdentityReveals(
+      writerResult.content,
+      context,
+      extractionResult.output,
+      activeCharacters
+        .filter((character) => character.status !== "dead")
+        .map((character) => character.name),
+    );
+    if (missedIdentityReveals.length > 0) {
+      log.warn(
+        { missedIdentityReveals },
+        "explicit character identity reveal was not captured by canon extraction; marking chapter failed",
+      );
+      const failedWordCount = writerResult.content.trim()
+        ? writerResult.content.trim().split(/\s+/).length
+        : 0;
+      await db
+        .update(chapters)
+        .set({
+          title: writerResult.title,
+          content: writerResult.content,
+          status: "failed",
+          wordCount: failedWordCount,
+          generationMode: chapterGenerationMode,
+          polishPassStatus,
+          contextCacheKey: context.meta.hotHash,
+          tailContent: extractTailContent(writerResult.content),
+          updatedAt: new Date(),
+        })
+        .where(eq(chapters.id, chapterId));
+      return {
+        chapterId,
+        status: "failed",
+        attempts: attemptCount,
+        totalTokens: tokenAcc.inputTokens + tokenAcc.outputTokens,
+        totalCostUsd: totalCost,
+        durationMs: Date.now() - start,
+      };
+    }
+
+    const missedCharacterReturns = findMissedCharacterReturnUpdates(
+      writerResult.content,
+      context,
+      extractionResult.output.characterUpdates,
+      activeCharacters
+        .filter((character) => character.status === "dead" || character.status === "missing")
+        .map((character) => character.name),
+    );
+    if (missedCharacterReturns.length > 0) {
+      log.warn(
+        { missedCharacterReturns },
+        "explicit dead or missing character return was not captured by canon extraction; marking chapter failed",
+      );
+      const failedWordCount = writerResult.content.trim()
+        ? writerResult.content.trim().split(/\s+/).length
+        : 0;
+      await db
+        .update(chapters)
+        .set({
+          title: writerResult.title,
+          content: writerResult.content,
+          status: "failed",
+          wordCount: failedWordCount,
+          generationMode: chapterGenerationMode,
+          polishPassStatus,
+          contextCacheKey: context.meta.hotHash,
+          tailContent: extractTailContent(writerResult.content),
+          updatedAt: new Date(),
+        })
+        .where(eq(chapters.id, chapterId));
+      return {
+        chapterId,
+        status: "failed",
+        attempts: attemptCount,
+        totalTokens: tokenAcc.inputTokens + tokenAcc.outputTokens,
+        totalCostUsd: totalCost,
+        durationMs: Date.now() - start,
+      };
+    }
 
     let completedTurningPointsUpdate: number[] | null = null;
     let completedChangesUpdate: number[] | null = null;
@@ -1923,6 +2422,23 @@ Trạng thái hiện tại: ${currentRealms || "(chưa xác định)"}`;
 const MAX_PIPELINE_ATTEMPTS = 3;
 /** Delay in ms before each retry attempt (index 0 = before attempt 2, index 1 = before attempt 3). */
 const PIPELINE_RETRY_BACKOFF_MS = [5_000, 15_000] as const;
+
+function isAutoFixableDeterministicCheck(check: {
+  id: string;
+  pass: boolean;
+  issues: string[];
+}): boolean {
+  if (check.pass) return false;
+  if (check.id === "word_count_target") return true;
+  if (check.id !== "forbidden_move" || check.issues.length === 0) return false;
+
+  return check.issues.every(
+    (issue) =>
+      issue.includes("thuật ngữ hiện đại không hợp bối cảnh") ||
+      issue.includes("xưng hô hiện đại không hợp bối cảnh") ||
+      issue.includes("dấu ngoặc kép tiếng Việt không cân bằng"),
+  );
+}
 
 export async function runGenerateChapterJob(
   data: GenerateChapterJob,

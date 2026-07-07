@@ -71,6 +71,8 @@ function normalizeArcPlannerOutput(
     const item = { ...(arc as Record<string, unknown>) };
     item.index =
       asNumber(item.index ?? item.arcNumber ?? item.arc_number) ?? i;
+    item.title =
+      item.title ?? item.arcTitle ?? item.arc_title ?? item.name ?? item.heading;
     item.startChapter = asNumber(item.startChapter ?? item.start_chapter);
     item.endChapter = asNumber(item.endChapter ?? item.end_chapter);
 

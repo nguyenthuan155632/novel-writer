@@ -53,6 +53,43 @@ describe('ExtractorOutputSchema', () => {
     expect(result.newTimelineEvents[0]!.significance).toBe('minor');
   });
 
+  it('normalizes importance-style timeline significance aliases', () => {
+    const result = ExtractorOutputSchema.parse({
+      characterUpdates: [],
+      newCanonFacts: [],
+      threadUpdates: [],
+      newTimelineEvents: [
+        { description: 'Sự kiện lớn', significance: 'high' },
+        { description: 'Sự kiện vừa', significance: 'medium' },
+        { description: 'Sự kiện then chốt', significance: 'critical' },
+        { description: 'Sự kiện đáng kể', significance: 'significant' },
+      ],
+      seedsResolvedThisChapter: [],
+    });
+
+    expect(result.newTimelineEvents.map((event) => event.significance)).toEqual([
+      'pivotal',
+      'major',
+      'pivotal',
+      'major',
+    ]);
+  });
+
+  it('normalizes timeline event description aliases', () => {
+    const result = ExtractorOutputSchema.parse({
+      newTimelineEvents: [
+        { event: 'Lộ Nhàn bước vào cánh cửa quá khứ.', significance: 'high' },
+      ],
+    });
+
+    expect(result.newTimelineEvents).toEqual([
+      expect.objectContaining({
+        description: 'Lộ Nhàn bước vào cánh cửa quá khứ.',
+        significance: 'pivotal',
+      }),
+    ]);
+  });
+
   it('drops invalid UUID placeholders from threadUpdates and seeds', () => {
     const valid = '11111111-1111-1111-1111-111111111111';
     const data = {
@@ -166,6 +203,24 @@ describe('ExtractorOutputSchema', () => {
       expect.objectContaining({
         action: 'create',
         title: 'Lưu gia gửi tín phù cầu viện.',
+      }),
+    ]);
+  });
+
+  it('normalizes pivotal canon fact importance to critical', () => {
+    const result = ExtractorOutputSchema.parse({
+      canonFacts: [
+        {
+          description: 'Lộ Nhàn là bản phác thảo cuối cùng.',
+          importance: 'pivotal',
+        },
+      ],
+    });
+
+    expect(result.newCanonFacts).toEqual([
+      expect.objectContaining({
+        fact: 'Lộ Nhàn là bản phác thảo cuối cùng.',
+        importance: 'critical',
       }),
     ]);
   });

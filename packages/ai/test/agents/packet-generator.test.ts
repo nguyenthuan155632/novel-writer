@@ -38,6 +38,39 @@ describe('PacketGenerator', () => {
     expect(r.packet.requiredEvents).toHaveLength(1);
   });
 
+  it('links must-include seed ids when the model embeds the UUID in event text', async () => {
+    const seedId = 'cba2f6bb-211b-4218-af76-b814252e1aa8';
+    const packetWithInlineSeedId = JSON.stringify({
+      chapterNumber: 6,
+      goal: 'reveal the old servant',
+      requiredEvents: [
+        {
+          description: `The old servant reveals why he waited for Mặc Lộ Đạo. (Seed: ${seedId})`,
+        },
+      ],
+      charactersPresent: ['Lo Nhan', 'Lao tap dich'],
+      conflict: 'the pursuers break into the archive',
+      cliffhanger: 'the first seal opens',
+      forbiddenMoves: [],
+    });
+
+    const provider = new MockProvider({
+      responder: { kind: 'fixed', content: packetWithInlineSeedId },
+    });
+    const gen = new PacketGenerator({ provider, logger: silentLogger });
+    const r = await gen.generate({
+      bibleCompact: 'b', arcSummary: 'a', recentChapterSummaries: [],
+      activeCharacters: [], openThreads: [], duePlantedSeeds: [], overdueThreads: [],
+      forbiddenRules: '', chapterNumber: 6, arcGoals: 'g',
+      genreDef: { slug: 'tien_hiep', viLabel: 'Tiên hiệp', viDescription: '', family: 'cultivation', allowedTropes: [], discouragedTropes: [], toneGuidance: '', worldbuildingGuidance: '', examplePremises: [] } as any,
+      personalityDef: { slug: 'tram_on', viLabel: '', viDescription: '', voiceHints: '', decisionStyle: '', dialogueStyle: '', conflictResponse: '', driftSignals: [] } as any,
+      storyOptions: {} as any,
+    }, { traceId: 't', storyId: 's', mustIncludeSeeds: [{ id: seedId }] });
+
+    expect(r.packet.requiredEvents[0]?.seedId).toBe(seedId);
+    expect(r.packet.seedsAutoEnforced).toEqual([seedId]);
+  });
+
   it('throws on schema-invalid JSON', async () => {
     const provider = new MockProvider({
       responder: { kind: 'fixed', content: '{"chapterNumber":-1}' },

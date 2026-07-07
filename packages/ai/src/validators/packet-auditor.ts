@@ -166,7 +166,6 @@ export function auditPacket(input: AuditInput, ctx: AuditCtx): AuditResult {
       input.packet.conflict,
       input.packet.cliffhanger ?? "",
       ...input.packet.requiredEvents.map((e) => e.description),
-      ...(input.packet.forbiddenMoves ?? []),
     ]
       .join(" ")
       .toLowerCase();

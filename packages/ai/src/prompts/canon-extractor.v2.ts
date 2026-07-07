@@ -25,6 +25,7 @@ Quy tắc:
 - Thread chỉ resolve khi có scene closure rõ ràng.
 - Canon fact importance='locked' chỉ dành cho quy tắc thế giới cốt lõi.
 - Ưu tiên các sự kiện làm thay đổi Relationship hoặc Knowledge State TRƯỚC sự kiện vật lý.
+- Nếu chương nói rõ một nhân vật chết, ngừng thở, không còn mạch đập, hy sinh, hoặc bị tưởng chết, BẮT BUỘC thêm characterUpdates cho nhân vật đó với fields.status='dead' hoặc fields.status='missing' (nếu chỉ là tưởng chết/chưa xác nhận), kèm newTimelineEvents significance='pivotal'.
 - Cho mỗi fact, quyết định visibility ("public" = ai cũng biết, "restricted" = chỉ vài người biết, "secret" = bí mật hoàn toàn) và liệt kê knownBy (danh sách tên nhân vật biết được fact này).
 - validUntilChapter CHỈ ghi (số chương) nếu đó là một fact tạm thời sắp hết hạn.
 - factionUpdates: dùng action='create' khi một môn phái / gia tộc / vương triều / liên minh MỚI thực sự xuất hiện và có tên riêng; action='update' khi một phái đã có trong CANON SNAPSHOT thay đổi status (active/destroyed/hidden/absorbed), thay đổi alliances/enemies, hoặc lộ thêm ideology/powerLevel. KHÔNG tạo create cho phái đã có (sẽ bị từ chối).

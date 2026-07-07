@@ -20,6 +20,7 @@ const mockGetArcById = vi.fn();
 const mockGetArcForChapter = vi.fn();
 const mockGetSagaForChapter = vi.fn();
 const mockGetStoryBible = vi.fn();
+const mockGetActiveCharacters = vi.fn();
 const mockBuildContext = vi.fn();
 const mockAuditPacket = vi.fn();
 const mockBuildChecks = vi.fn();
@@ -235,7 +236,7 @@ vi.mock('@novel/ai', () => ({
   getArcForChapter: mockGetArcForChapter,
   getSagaForChapter: mockGetSagaForChapter,
   getStoryTargetChapterCount: vi.fn().mockResolvedValue(100),
-  getActiveCharacters: vi.fn().mockResolvedValue([]),
+  getActiveCharacters: mockGetActiveCharacters,
   getOpenThreadsForStory: vi.fn().mockResolvedValue([]),
   getPlantedSeedsForStory: vi.fn().mockResolvedValue([]),
   getSeedsDueForChapter: vi.fn().mockResolvedValue([]),
@@ -325,6 +326,7 @@ describe('executeGenerateChapterPipeline', () => {
     mockGetArcForChapter.mockReset();
     mockGetSagaForChapter.mockReset();
     mockGetStoryBible.mockReset();
+    mockGetActiveCharacters.mockReset();
     mockBuildContext.mockReset();
     mockAuditPacket.mockReset();
     mockBuildChecks.mockReset();
@@ -347,6 +349,7 @@ describe('executeGenerateChapterPipeline', () => {
     mockVmlxProvider.mockImplementation(function VmlxProvider(this: object) {
       return this;
     });
+    mockGetActiveCharacters.mockResolvedValue([]);
     loggedInner = undefined;
   });
 
@@ -665,7 +668,16 @@ describe('executeGenerateChapterPipeline', () => {
     mockPacketGenerate.mockResolvedValue({ packet, usage });
     mockAuditPacket.mockReturnValue({ pass: true, issues: [], requiresRegenerate: false });
     mockBuildContext.mockResolvedValue(makeContext());
-    mockWriterWrite.mockResolvedValue({ title: 'Chapter 5', content: 'Chapter content', usage, cost: 0 });
+    mockWriterWrite.mockResolvedValue({
+      title: 'Chapter 5',
+      content: [
+        'Opening continuity detail.',
+        'Middle detail that should not be copied wholesale into fallback memory.',
+        'Ending cliffhanger detail.',
+      ].join('\n\n'),
+      usage,
+      cost: 0,
+    });
     mockBuildChecks.mockReturnValue([]);
     mockRunDeterministicValidator.mockReturnValue({
       pass: true,
@@ -721,16 +733,90 @@ describe('executeGenerateChapterPipeline', () => {
       expect.objectContaining({
         table: chapterSummaries,
         value: expect.objectContaining({
-          summary: expect.stringContaining('Chapter 5: Chapter content'),
+          summary: expect.stringContaining('Chapter 5. Opening: Opening continuity detail. Ending: Ending cliffhanger detail.'),
         }),
       }),
     ]));
+    const summaryInsert = inserts.find((insert) => insert.table === chapterSummaries);
+    expect(summaryInsert?.value.summary).not.toContain('Middle detail that should not be copied wholesale');
     expect(updates).toEqual(expect.arrayContaining([
       expect.objectContaining({
         table: chapters,
         value: expect.objectContaining({
           status: 'completed',
-          summary: expect.stringContaining('Chapter 5: Chapter content'),
+          summary: expect.stringContaining('Chapter 5. Opening: Opening continuity detail. Ending: Ending cliffhanger detail.'),
+        }),
+      }),
+    ]));
+  });
+
+  it('continues with empty canon extraction when canon extraction throws after validation', async () => {
+    mockGetArcById.mockResolvedValue(arc);
+    mockGetSagaForChapter.mockResolvedValue(saga);
+    mockGetStoryBible.mockResolvedValue(bible);
+    mockPacketGenerate.mockResolvedValue({ packet, usage });
+    mockAuditPacket.mockReturnValue({ pass: true, issues: [], requiresRegenerate: false });
+    mockBuildContext.mockResolvedValue(makeContext());
+    mockWriterWrite.mockResolvedValue({
+      title: 'Chapter 5',
+      content: 'Validated chapter content that should remain publishable.',
+      usage,
+      cost: 0,
+    });
+    mockBuildChecks.mockReturnValue([]);
+    mockRunDeterministicValidator.mockReturnValue({
+      pass: true,
+      shortCircuited: false,
+      pendingVerification: [],
+      checks: [],
+    });
+    mockLlmValidate.mockResolvedValue({ output: { pass: true, issues: [] }, usage });
+    mockCanonExtract.mockRejectedValue(new Error('extractor parse failed'));
+    mockCanonMergerSubmit.mockResolvedValue({
+      pendingCount: 0,
+      autoAppliedCount: 0,
+      autoApprovedLowImportanceCount: 0,
+      conflicts: [],
+    });
+    mockSummaryCompact.mockResolvedValue({
+      output: { summary: 'Compact summary after extractor fallback', notableChanges: [] },
+      usage,
+    });
+    const { db, updates } = makeRecordingDb();
+
+    const fakeLogger = { child: () => fakeLogger, info: () => {}, warn: () => {}, error: () => {} };
+    const { executeGenerateChapterPipeline } = await import('../../src/jobs/generate-chapter.js');
+
+    const result = await executeGenerateChapterPipeline(
+      {
+        storyId: '00000000-0000-0000-0000-000000000001',
+        chapterNumber: 5,
+        arcId: arc.id,
+        traceId: 'trace-1',
+        mode: 'full_auto',
+      } as any,
+      {
+        db: db as any,
+        provider: {} as any,
+        embeddingService: {} as any,
+        logger: fakeLogger as any,
+        mode: 'full_auto',
+      },
+    );
+
+    expect(result.status).toBe('completed');
+    expect(mockCanonMergerSubmit).toHaveBeenCalledWith(
+      expect.objectContaining({ rows: [] }),
+      expect.any(Object),
+    );
+    expect(mockSummaryCompact).toHaveBeenCalled();
+    expect(updates).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        table: chapters,
+        value: expect.objectContaining({
+          content: 'Validated chapter content that should remain publishable.',
+          status: 'completed',
+          summary: 'Compact summary after extractor fallback',
         }),
       }),
     ]));
@@ -815,7 +901,7 @@ describe('executeGenerateChapterPipeline', () => {
     ]));
   });
 
-  it('uses an empty extraction result when canon extraction fails after validation', async () => {
+  it('keeps the chapter publishable when canon extraction fails after validation', async () => {
     mockGetArcById.mockResolvedValue(arc);
     mockGetSagaForChapter.mockResolvedValue(saga);
     mockGetStoryBible.mockResolvedValue(bible);
@@ -842,7 +928,7 @@ describe('executeGenerateChapterPipeline', () => {
       output: { summary: 'Compact summary', notableChanges: [] },
       usage,
     });
-    const { db } = makeRecordingDb();
+    const { db, updates } = makeRecordingDb();
 
     const fakeLogger = { child: () => fakeLogger, info: () => {}, warn: () => {}, error: () => {} };
     const { executeGenerateChapterPipeline } = await import('../../src/jobs/generate-chapter.js');
@@ -866,12 +952,21 @@ describe('executeGenerateChapterPipeline', () => {
 
     expect(result.status).toBe('completed');
     expect(mockCanonMergerSubmit).toHaveBeenCalledWith(
-      expect.objectContaining({
-        rows: [],
-        seedsResolvedIds: [],
-      }),
-      expect.anything(),
+      expect.objectContaining({ rows: [] }),
+      expect.any(Object),
     );
+    expect(mockSummaryCompact).toHaveBeenCalled();
+    expect(updates).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        table: chapters,
+        value: expect.objectContaining({
+          title: 'Chapter 5',
+          content: 'Chapter content',
+          status: 'completed',
+          summary: 'Compact summary',
+        }),
+      }),
+    ]));
   });
 
   it('auto-fixes deterministic target word-count issues even when LLM validation passes', async () => {
@@ -883,19 +978,33 @@ describe('executeGenerateChapterPipeline', () => {
     mockBuildContext.mockResolvedValue(makeContext());
     mockWriterWrite.mockResolvedValue({ title: 'Chapter 5', content: 'Short draft', usage, cost: 0 });
     mockBuildChecks.mockReturnValue([]);
-    mockRunDeterministicValidator.mockReturnValue({
-      pass: false,
-      shortCircuited: false,
-      pendingVerification: [],
-      checks: [
-        {
-          id: 'word_count_target',
-          severity: 'medium',
-          pass: false,
-          issues: ['Chương dưới mục tiêu: 1539 từ.'],
-        },
-      ],
-    });
+    mockRunDeterministicValidator
+      .mockReturnValueOnce({
+        pass: false,
+        shortCircuited: true,
+        pendingVerification: [],
+        checks: [
+          {
+            id: 'word_count_target',
+            severity: 'high',
+            pass: false,
+            issues: ['Chương dưới mục tiêu: 1539 từ.'],
+          },
+        ],
+      })
+      .mockReturnValueOnce({
+        pass: true,
+        shortCircuited: false,
+        pendingVerification: [],
+        checks: [
+          {
+            id: 'word_count_target',
+            severity: 'high',
+            pass: true,
+            issues: [],
+          },
+        ],
+      });
     mockLlmValidate.mockResolvedValue({ output: { pass: true, issues: [] }, usage });
     mockAutoFix.mockResolvedValue({
       title: 'Chapter 5',
@@ -959,6 +1068,1297 @@ describe('executeGenerateChapterPipeline', () => {
         value: expect.objectContaining({
           content: 'Expanded draft with stronger continuity',
           status: 'completed',
+        }),
+      }),
+    ]));
+  });
+
+  it('retries deterministic auto-fix once when target word-count remains after the first fix', async () => {
+    mockGetArcById.mockResolvedValue(arc);
+    mockGetSagaForChapter.mockResolvedValue(saga);
+    mockGetStoryBible.mockResolvedValue(bible);
+    mockPacketGenerate.mockResolvedValue({ packet, usage });
+    mockAuditPacket.mockReturnValue({ pass: true, issues: [], requiresRegenerate: false });
+    mockBuildContext.mockResolvedValue(makeContext());
+    mockWriterWrite.mockResolvedValue({ title: 'Chapter 5', content: 'Short draft', usage, cost: 0 });
+    mockBuildChecks.mockReturnValue([]);
+    mockRunDeterministicValidator
+      .mockReturnValueOnce({
+        pass: false,
+        shortCircuited: true,
+        pendingVerification: [],
+        checks: [
+          {
+            id: 'word_count_target',
+            severity: 'high',
+            pass: false,
+            issues: ['Chương dưới mục tiêu: 1539 từ.'],
+          },
+        ],
+      })
+      .mockReturnValueOnce({
+        pass: false,
+        shortCircuited: false,
+        pendingVerification: [],
+        checks: [
+          {
+            id: 'word_count_target',
+            severity: 'high',
+            pass: false,
+            issues: ['Chương dưới mục tiêu: 1820 từ.'],
+          },
+        ],
+      })
+      .mockReturnValueOnce({
+        pass: true,
+        shortCircuited: false,
+        pendingVerification: [],
+        checks: [
+          {
+            id: 'word_count_target',
+            severity: 'high',
+            pass: true,
+            issues: [],
+          },
+        ],
+      });
+    mockLlmValidate.mockResolvedValue({ output: { pass: true, issues: [] }, usage });
+    mockAutoFix
+      .mockResolvedValueOnce({
+        title: 'Chapter 5',
+        content: 'Still short after first expansion',
+        usage,
+        cost: 0,
+      })
+      .mockResolvedValueOnce({
+        title: 'Chapter 5',
+        content: 'Expanded draft with enough continuity',
+        usage,
+        cost: 0,
+      });
+    mockCanonExtract.mockResolvedValue({
+      output: {
+        characterUpdates: [],
+        newCanonFacts: [],
+        threadUpdates: [],
+        newTimelineEvents: [],
+        factionUpdates: [],
+        seedsResolvedThisChapter: [],
+        turningPointsCompleted: [],
+        arcChangesCompleted: [],
+      },
+      usage,
+    });
+    mockCanonMergerSubmit.mockResolvedValue({
+      pendingCount: 0,
+      autoAppliedCount: 0,
+      autoApprovedLowImportanceCount: 0,
+      conflicts: [],
+    });
+    mockSummaryCompact.mockResolvedValue({
+      output: { summary: 'Compact summary', notableChanges: [] },
+      usage,
+    });
+    const { db, updates } = makeRecordingDb();
+
+    const fakeLogger = { child: () => fakeLogger, info: () => {}, warn: () => {}, error: () => {} };
+    const { executeGenerateChapterPipeline } = await import('../../src/jobs/generate-chapter.js');
+
+    const result = await executeGenerateChapterPipeline(
+      {
+        storyId: '00000000-0000-0000-0000-000000000001',
+        chapterNumber: 5,
+        arcId: arc.id,
+        traceId: 'trace-1',
+        mode: 'full_auto',
+      } as any,
+      {
+        db: db as any,
+        provider: {} as any,
+        embeddingService: {} as any,
+        logger: fakeLogger as any,
+        mode: 'full_auto',
+      },
+    );
+
+    expect(result.status).toBe('completed');
+    expect(mockAutoFix).toHaveBeenCalledTimes(2);
+    expect(mockRunDeterministicValidator).toHaveBeenCalledTimes(3);
+    expect(updates).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        table: chapters,
+        value: expect.objectContaining({
+          content: 'Expanded draft with enough continuity',
+          status: 'completed',
+        }),
+      }),
+    ]));
+  });
+
+  it('auto-fixes deterministic modern-register forbidden move issues when LLM validation passes', async () => {
+    mockGetArcById.mockResolvedValue(arc);
+    mockGetSagaForChapter.mockResolvedValue(saga);
+    mockGetStoryBible.mockResolvedValue(bible);
+    mockPacketGenerate.mockResolvedValue({ packet, usage });
+    mockAuditPacket.mockReturnValue({ pass: true, issues: [], requiresRegenerate: false });
+    mockBuildContext.mockResolvedValue(makeContext());
+    mockWriterWrite.mockResolvedValue({ title: 'Chapter 5', content: 'Draft with modern phrasing', usage, cost: 0 });
+    mockBuildChecks.mockReturnValue([]);
+    mockRunDeterministicValidator
+      .mockReturnValueOnce({
+        pass: false,
+        shortCircuited: true,
+        pendingVerification: [],
+        checks: [
+          {
+            id: 'forbidden_move',
+            severity: 'critical',
+            pass: false,
+            issues: ['Vi phạm thuật ngữ hiện đại không hợp bối cảnh: "chuyên nghiệp".'],
+          },
+        ],
+      })
+      .mockReturnValueOnce({
+        pass: true,
+        shortCircuited: false,
+        pendingVerification: [],
+        checks: [
+          {
+            id: 'forbidden_move',
+            severity: 'critical',
+            pass: true,
+            issues: [],
+          },
+        ],
+      });
+    mockLlmValidate.mockResolvedValue({ output: { pass: true, issues: [] }, usage });
+    mockAutoFix.mockResolvedValue({
+      title: 'Chapter 5',
+      content: 'Repaired fantasy-era phrasing',
+      usage,
+      cost: 0,
+    });
+    mockCanonExtract.mockResolvedValue({
+      output: {
+        characterUpdates: [],
+        newCanonFacts: [],
+        threadUpdates: [],
+        newTimelineEvents: [],
+        factionUpdates: [],
+        seedsResolvedThisChapter: [],
+        turningPointsCompleted: [],
+        arcChangesCompleted: [],
+      },
+      usage,
+    });
+    mockCanonMergerSubmit.mockResolvedValue({
+      pendingCount: 0,
+      autoAppliedCount: 0,
+      autoApprovedLowImportanceCount: 0,
+      conflicts: [],
+    });
+    mockSummaryCompact.mockResolvedValue({
+      output: { summary: 'Compact summary', notableChanges: [] },
+      usage,
+    });
+    const { db, updates } = makeRecordingDb();
+
+    const fakeLogger = { child: () => fakeLogger, info: () => {}, warn: () => {}, error: () => {} };
+    const { executeGenerateChapterPipeline } = await import('../../src/jobs/generate-chapter.js');
+
+    const result = await executeGenerateChapterPipeline(
+      {
+        storyId: '00000000-0000-0000-0000-000000000001',
+        chapterNumber: 5,
+        arcId: arc.id,
+        traceId: 'trace-1',
+        mode: 'full_auto',
+      } as any,
+      {
+        db: db as any,
+        provider: {} as any,
+        embeddingService: {} as any,
+        logger: fakeLogger as any,
+        mode: 'full_auto',
+      },
+    );
+
+    expect(result.status).toBe('completed');
+    expect(mockLlmValidate).not.toHaveBeenCalled();
+    expect(mockAutoFix).toHaveBeenCalledWith(expect.objectContaining({
+      chapterContent: 'Draft with modern phrasing',
+      issues: [expect.objectContaining({ code: 'forbidden_move' })],
+    }));
+    expect(updates).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        table: chapters,
+        value: expect.objectContaining({
+          content: 'Repaired fantasy-era phrasing',
+          status: 'completed',
+        }),
+      }),
+    ]));
+  });
+
+  it('fails when auto-fix output violates hard deterministic validation', async () => {
+    mockGetArcById.mockResolvedValue(arc);
+    mockGetSagaForChapter.mockResolvedValue(saga);
+    mockGetStoryBible.mockResolvedValue(bible);
+    mockPacketGenerate.mockResolvedValue({ packet, usage });
+    mockAuditPacket.mockReturnValue({ pass: true, issues: [], requiresRegenerate: false });
+    mockBuildContext.mockResolvedValue(makeContext());
+    mockWriterWrite.mockResolvedValue({ title: 'Chapter 5', content: 'Long draft', usage, cost: 0 });
+    mockBuildChecks.mockReturnValue([]);
+    mockRunDeterministicValidator
+      .mockReturnValueOnce({
+        pass: false,
+        shortCircuited: false,
+        pendingVerification: [],
+        checks: [
+          {
+            id: 'word_count_target',
+            severity: 'high',
+            pass: false,
+            issues: ['Chương vượt mục tiêu: 3176 từ.'],
+          },
+        ],
+      })
+      .mockReturnValueOnce({
+        pass: false,
+        shortCircuited: false,
+        pendingVerification: [],
+        checks: [
+          {
+            id: 'word_count',
+            severity: 'high',
+            pass: false,
+            issues: ['Chương quá ngắn: 1136 từ.'],
+          },
+        ],
+      });
+    mockLlmValidate.mockResolvedValue({ output: { pass: true, issues: [] }, usage });
+    mockAutoFix.mockResolvedValue({
+      title: 'Chapter 5',
+      content: 'Too short after fix',
+      usage,
+      cost: 0,
+    });
+    mockCanonExtract.mockResolvedValue({
+      output: {
+        characterUpdates: [],
+        newCanonFacts: [],
+        threadUpdates: [],
+        newTimelineEvents: [],
+        factionUpdates: [],
+        seedsResolvedThisChapter: [],
+        turningPointsCompleted: [],
+        arcChangesCompleted: [],
+      },
+      usage,
+    });
+    mockCanonMergerSubmit.mockResolvedValue({
+      pendingCount: 0,
+      autoAppliedCount: 0,
+      autoApprovedLowImportanceCount: 0,
+      conflicts: [],
+    });
+    mockSummaryCompact.mockResolvedValue({
+      output: { summary: 'Compact summary', notableChanges: [] },
+      usage,
+    });
+    const { db, updates } = makeRecordingDb();
+
+    const fakeLogger = { child: () => fakeLogger, info: () => {}, warn: () => {}, error: () => {} };
+    const { executeGenerateChapterPipeline } = await import('../../src/jobs/generate-chapter.js');
+
+    const result = await executeGenerateChapterPipeline(
+      {
+        storyId: '00000000-0000-0000-0000-000000000001',
+        chapterNumber: 5,
+        arcId: arc.id,
+        traceId: 'trace-1',
+        mode: 'full_auto',
+      } as any,
+      {
+        db: db as any,
+        provider: {} as any,
+        embeddingService: {} as any,
+        logger: fakeLogger as any,
+        mode: 'full_auto',
+      },
+    );
+
+    expect(result.status).toBe('failed');
+    expect(mockRunDeterministicValidator).toHaveBeenCalledTimes(2);
+    expect(updates).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        table: chapters,
+        value: expect.objectContaining({
+          content: 'Too short after fix',
+          status: 'failed',
+        }),
+      }),
+    ]));
+  });
+
+  it('fails completed prose when explicit character death is missing from canon extraction', async () => {
+    mockGetArcById.mockResolvedValue(arc);
+    mockGetSagaForChapter.mockResolvedValue(saga);
+    mockGetStoryBible.mockResolvedValue(bible);
+    mockPacketGenerate.mockResolvedValue({ packet, usage });
+    mockAuditPacket.mockReturnValue({ pass: true, issues: [], requiresRegenerate: false });
+    mockBuildContext.mockResolvedValue({
+      ...makeContext(),
+      warm: {
+        ...makeContext().warm,
+        activeCharacters: [
+          {
+            id: '00000000-0000-0000-0000-0000000000d1',
+            name: 'Vân Yên',
+            status: 'alive',
+            currentRealm: null,
+            bloodlines: [],
+            shortTraits: [],
+          },
+        ],
+      },
+    });
+    mockWriterWrite.mockResolvedValue({
+      title: 'Chapter 65',
+      content: 'Lộ Nhàn ôm Vân Yên. Vân Yên đã chết rồi. Không mạch đập.',
+      usage,
+      cost: 0,
+    });
+    mockBuildChecks.mockReturnValue([]);
+    mockRunDeterministicValidator.mockReturnValue({
+      pass: true,
+      shortCircuited: false,
+      pendingVerification: [],
+      checks: [],
+    });
+    mockLlmValidate.mockResolvedValue({ output: { pass: true, issues: [] }, usage });
+    mockCanonExtract.mockResolvedValue({
+      output: {
+        characterUpdates: [],
+        newCanonFacts: [],
+        threadUpdates: [],
+        newTimelineEvents: [],
+        factionUpdates: [],
+        seedsResolvedThisChapter: [],
+        turningPointsCompleted: [],
+        arcChangesCompleted: [],
+      },
+      usage,
+    });
+    mockCanonMergerSubmit.mockResolvedValue({
+      pendingCount: 0,
+      autoAppliedCount: 0,
+      autoApprovedLowImportanceCount: 0,
+      conflicts: [],
+    });
+    mockSummaryCompact.mockResolvedValue({
+      output: { summary: 'Should not summarize', notableChanges: [] },
+      usage,
+    });
+    const { db, updates } = makeRecordingDb();
+
+    const fakeLogger = { child: () => fakeLogger, info: () => {}, warn: () => {}, error: () => {} };
+    const { executeGenerateChapterPipeline } = await import('../../src/jobs/generate-chapter.js');
+
+    const result = await executeGenerateChapterPipeline(
+      {
+        storyId: '00000000-0000-0000-0000-000000000001',
+        chapterNumber: 65,
+        arcId: arc.id,
+        traceId: 'trace-1',
+        mode: 'full_auto',
+      } as any,
+      {
+        db: db as any,
+        provider: {} as any,
+        embeddingService: {} as any,
+        logger: fakeLogger as any,
+        mode: 'full_auto',
+      },
+    );
+
+    expect(result.status).toBe('failed');
+    expect(mockCanonMergerSubmit).not.toHaveBeenCalled();
+    expect(mockSummaryCompact).not.toHaveBeenCalled();
+    expect(updates).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        table: chapters,
+        value: expect.objectContaining({
+          title: 'Chapter 65',
+          content: expect.stringContaining('Vân Yên đã chết rồi'),
+          status: 'failed',
+        }),
+      }),
+    ]));
+  });
+
+  it('does not treat non-death lifeless imagery as a missed character death', async () => {
+    mockGetArcById.mockResolvedValue(arc);
+    mockGetSagaForChapter.mockResolvedValue(saga);
+    mockGetStoryBible.mockResolvedValue(bible);
+    mockPacketGenerate.mockResolvedValue({ packet, usage });
+    mockAuditPacket.mockReturnValue({ pass: true, issues: [], requiresRegenerate: false });
+    mockBuildContext.mockResolvedValue({
+      ...makeContext(),
+      warm: {
+        ...makeContext().warm,
+        activeCharacters: [
+          {
+            id: '00000000-0000-0000-0000-0000000000d1',
+            name: 'Vân Yên',
+            status: 'alive',
+            currentRealm: null,
+            bloodlines: [],
+            shortTraits: [],
+          },
+        ],
+      },
+    });
+    mockWriterWrite.mockResolvedValue({
+      title: 'Chapter 65',
+      content: 'Lộ Nhàn nhìn lên trời vô hồn.\n\nVân Yên chạy đến, quỳ xuống bên cạnh hắn.',
+      usage,
+      cost: 0,
+    });
+    mockBuildChecks.mockReturnValue([]);
+    mockRunDeterministicValidator.mockReturnValue({
+      pass: true,
+      shortCircuited: false,
+      pendingVerification: [],
+      checks: [],
+    });
+    mockLlmValidate.mockResolvedValue({ output: { pass: true, issues: [] }, usage });
+    mockCanonExtract.mockResolvedValue({
+      output: {
+        characterUpdates: [],
+        newCanonFacts: [],
+        threadUpdates: [],
+        newTimelineEvents: [],
+        factionUpdates: [],
+        seedsResolvedThisChapter: [],
+        turningPointsCompleted: [],
+        arcChangesCompleted: [],
+      },
+      usage,
+    });
+    mockCanonMergerSubmit.mockResolvedValue({
+      pendingCount: 0,
+      autoAppliedCount: 0,
+      autoApprovedLowImportanceCount: 0,
+      conflicts: [],
+    });
+    mockSummaryCompact.mockResolvedValue({
+      output: { summary: 'Compact summary', notableChanges: [] },
+      usage,
+    });
+    const { db } = makeRecordingDb();
+
+    const fakeLogger = { child: () => fakeLogger, info: () => {}, warn: () => {}, error: () => {} };
+    const { executeGenerateChapterPipeline } = await import('../../src/jobs/generate-chapter.js');
+
+    const result = await executeGenerateChapterPipeline(
+      {
+        storyId: '00000000-0000-0000-0000-000000000001',
+        chapterNumber: 65,
+        arcId: arc.id,
+        traceId: 'trace-1',
+        mode: 'full_auto',
+      } as any,
+      {
+        db: db as any,
+        provider: {} as any,
+        embeddingService: { embed: vi.fn().mockResolvedValue({ vector: [0.1] }) } as any,
+        logger: fakeLogger as any,
+        mode: 'full_auto',
+      },
+    );
+
+    expect(result.status).toBe('completed');
+    expect(mockCanonMergerSubmit).toHaveBeenCalled();
+    expect(mockSummaryCompact).toHaveBeenCalled();
+  });
+
+  it('allows prior death references for characters already marked missing', async () => {
+    mockGetArcById.mockResolvedValue(arc);
+    mockGetSagaForChapter.mockResolvedValue(saga);
+    mockGetStoryBible.mockResolvedValue(bible);
+    mockGetActiveCharacters.mockResolvedValue([
+      {
+        id: '00000000-0000-0000-0000-0000000000d1',
+        name: 'Vân Yên',
+        status: 'missing',
+        currentRealm: null,
+        bloodlines: [],
+        shortTraits: [],
+      },
+    ]);
+    mockPacketGenerate.mockResolvedValue({ packet, usage });
+    mockAuditPacket.mockReturnValue({ pass: true, issues: [], requiresRegenerate: false });
+    mockBuildContext.mockResolvedValue({
+      ...makeContext(),
+      warm: {
+        ...makeContext().warm,
+        activeCharacters: [
+          {
+            id: '00000000-0000-0000-0000-0000000000d1',
+            name: 'Vân Yên',
+            status: 'missing',
+            currentRealm: null,
+            bloodlines: [],
+            shortTraits: [],
+          },
+        ],
+      },
+    });
+    mockWriterWrite.mockResolvedValue({
+      title: 'Chapter 72',
+      content: 'Lộ Nhàn siết chặt bút. Vân Yên, ngay cả khi chết, nàng vẫn để lại phong ấn bảo vệ hắn.',
+      usage,
+      cost: 0,
+    });
+    mockBuildChecks.mockReturnValue([]);
+    mockRunDeterministicValidator.mockReturnValue({
+      pass: true,
+      shortCircuited: false,
+      pendingVerification: [],
+      checks: [],
+    });
+    mockLlmValidate.mockResolvedValue({ output: { pass: true, issues: [] }, usage });
+    mockCanonExtract.mockResolvedValue({
+      output: {
+        characterUpdates: [],
+        newCanonFacts: [],
+        threadUpdates: [],
+        newTimelineEvents: [],
+        factionUpdates: [],
+        seedsResolvedThisChapter: [],
+        turningPointsCompleted: [],
+        arcChangesCompleted: [],
+      },
+      usage,
+    });
+    mockCanonMergerSubmit.mockResolvedValue({
+      pendingCount: 0,
+      autoAppliedCount: 0,
+      autoApprovedLowImportanceCount: 0,
+      conflicts: [],
+    });
+    mockSummaryCompact.mockResolvedValue({
+      output: { summary: 'Compact summary', notableChanges: [] },
+      usage,
+    });
+    const { db } = makeRecordingDb();
+
+    const fakeLogger = { child: () => fakeLogger, info: () => {}, warn: () => {}, error: () => {} };
+    const { executeGenerateChapterPipeline } = await import('../../src/jobs/generate-chapter.js');
+
+    const result = await executeGenerateChapterPipeline(
+      {
+        storyId: '00000000-0000-0000-0000-000000000001',
+        chapterNumber: 72,
+        arcId: arc.id,
+        traceId: 'trace-1',
+        mode: 'full_auto',
+      } as any,
+      {
+        db: db as any,
+        provider: {} as any,
+        embeddingService: { embed: vi.fn().mockResolvedValue({ vector: [0.1] }) } as any,
+        logger: fakeLogger as any,
+        mode: 'full_auto',
+      },
+    );
+
+    expect(result.status).toBe('completed');
+    expect(mockCanonMergerSubmit).toHaveBeenCalled();
+    expect(mockSummaryCompact).toHaveBeenCalled();
+  });
+
+  it('fails when a missing character clearly returns alive without a character update', async () => {
+    mockGetArcById.mockResolvedValue(arc);
+    mockGetSagaForChapter.mockResolvedValue(saga);
+    mockGetStoryBible.mockResolvedValue(bible);
+    mockGetActiveCharacters.mockResolvedValue([
+      {
+        id: '00000000-0000-0000-0000-0000000000d1',
+        name: 'Vân Yên',
+        status: 'missing',
+        currentRealm: null,
+        bloodlines: [],
+        shortTraits: [],
+      },
+    ]);
+    mockPacketGenerate.mockResolvedValue({ packet, usage });
+    mockAuditPacket.mockReturnValue({ pass: true, issues: [], requiresRegenerate: false });
+    mockBuildContext.mockResolvedValue({
+      ...makeContext(),
+      warm: {
+        ...makeContext().warm,
+        activeCharacters: [
+          {
+            id: '00000000-0000-0000-0000-0000000000d1',
+            name: 'Vân Yên',
+            status: 'missing',
+            currentRealm: null,
+            bloodlines: [],
+            shortTraits: [],
+          },
+        ],
+      },
+    });
+    mockWriterWrite.mockResolvedValue({
+      title: 'Chapter 72',
+      content: 'Lộ Nhàn nhìn qua vết nứt. Đúng rồi. Vân Yên thật. Nàng vẫn còn sống.',
+      usage,
+      cost: 0,
+    });
+    mockBuildChecks.mockReturnValue([]);
+    mockRunDeterministicValidator.mockReturnValue({
+      pass: true,
+      shortCircuited: false,
+      pendingVerification: [],
+      checks: [],
+    });
+    mockLlmValidate.mockResolvedValue({ output: { pass: true, issues: [] }, usage });
+    mockCanonExtract.mockResolvedValue({
+      output: {
+        characterUpdates: [],
+        newCanonFacts: [],
+        threadUpdates: [],
+        newTimelineEvents: [],
+        factionUpdates: [],
+        seedsResolvedThisChapter: [],
+        turningPointsCompleted: [],
+        arcChangesCompleted: [],
+      },
+      usage,
+    });
+    mockCanonMergerSubmit.mockResolvedValue({
+      pendingCount: 0,
+      autoAppliedCount: 0,
+      autoApprovedLowImportanceCount: 0,
+      conflicts: [],
+    });
+    mockSummaryCompact.mockResolvedValue({
+      output: { summary: 'Should not summarize', notableChanges: [] },
+      usage,
+    });
+    const { db } = makeRecordingDb();
+
+    const fakeLogger = { child: () => fakeLogger, info: () => {}, warn: () => {}, error: () => {} };
+    const { executeGenerateChapterPipeline } = await import('../../src/jobs/generate-chapter.js');
+
+    const result = await executeGenerateChapterPipeline(
+      {
+        storyId: '00000000-0000-0000-0000-000000000001',
+        chapterNumber: 72,
+        arcId: arc.id,
+        traceId: 'trace-1',
+        mode: 'full_auto',
+      } as any,
+      {
+        db: db as any,
+        provider: {} as any,
+        embeddingService: {} as any,
+        logger: fakeLogger as any,
+        mode: 'full_auto',
+      },
+    );
+
+    expect(result.status).toBe('failed');
+    expect(mockCanonMergerSubmit).not.toHaveBeenCalled();
+    expect(mockSummaryCompact).not.toHaveBeenCalled();
+  });
+
+  it('does not treat real-character habit descriptions as a missing character return', async () => {
+    mockGetArcById.mockResolvedValue(arc);
+    mockGetSagaForChapter.mockResolvedValue(saga);
+    mockGetStoryBible.mockResolvedValue(bible);
+    mockGetActiveCharacters.mockResolvedValue([
+      {
+        id: '00000000-0000-0000-0000-0000000000d1',
+        name: 'Vân Yên',
+        status: 'missing',
+        currentRealm: null,
+        bloodlines: [],
+        shortTraits: [],
+      },
+    ]);
+    mockPacketGenerate.mockResolvedValue({ packet, usage });
+    mockAuditPacket.mockReturnValue({ pass: true, issues: [], requiresRegenerate: false });
+    mockBuildContext.mockResolvedValue({
+      ...makeContext(),
+      warm: {
+        ...makeContext().warm,
+        activeCharacters: [
+          {
+            id: '00000000-0000-0000-0000-0000000000d1',
+            name: 'Vân Yên',
+            status: 'missing',
+            currentRealm: null,
+            bloodlines: [],
+            shortTraits: [],
+          },
+        ],
+      },
+    });
+    mockWriterWrite.mockResolvedValue({
+      title: 'Chapter 72',
+      content: 'Lộ Nhàn nhận ra ảo ảnh. Vân Yên thật không bao giờ có mùi nhựa cây tím.',
+      usage,
+      cost: 0,
+    });
+    mockBuildChecks.mockReturnValue([]);
+    mockRunDeterministicValidator.mockReturnValue({
+      pass: true,
+      shortCircuited: false,
+      pendingVerification: [],
+      checks: [],
+    });
+    mockLlmValidate.mockResolvedValue({ output: { pass: true, issues: [] }, usage });
+    mockCanonExtract.mockResolvedValue({
+      output: {
+        characterUpdates: [],
+        newCanonFacts: [],
+        threadUpdates: [],
+        newTimelineEvents: [],
+        factionUpdates: [],
+        seedsResolvedThisChapter: [],
+        turningPointsCompleted: [],
+        arcChangesCompleted: [],
+      },
+      usage,
+    });
+    mockCanonMergerSubmit.mockResolvedValue({
+      pendingCount: 0,
+      autoAppliedCount: 0,
+      autoApprovedLowImportanceCount: 0,
+      conflicts: [],
+    });
+    mockSummaryCompact.mockResolvedValue({
+      output: { summary: 'Compact summary', notableChanges: [] },
+      usage,
+    });
+    const { db } = makeRecordingDb();
+
+    const fakeLogger = { child: () => fakeLogger, info: () => {}, warn: () => {}, error: () => {} };
+    const { executeGenerateChapterPipeline } = await import('../../src/jobs/generate-chapter.js');
+
+    const result = await executeGenerateChapterPipeline(
+      {
+        storyId: '00000000-0000-0000-0000-000000000001',
+        chapterNumber: 72,
+        arcId: arc.id,
+        traceId: 'trace-1',
+        mode: 'full_auto',
+      } as any,
+      {
+        db: db as any,
+        provider: {} as any,
+        embeddingService: { embed: vi.fn().mockResolvedValue({ vector: [0.1] }) } as any,
+        logger: fakeLogger as any,
+        mode: 'full_auto',
+      },
+    );
+
+    expect(result.status).toBe('completed');
+    expect(mockCanonMergerSubmit).toHaveBeenCalled();
+    expect(mockSummaryCompact).toHaveBeenCalled();
+  });
+
+  it('does not treat distant death wording in the same paragraph as a character death', async () => {
+    mockGetArcById.mockResolvedValue(arc);
+    mockGetSagaForChapter.mockResolvedValue(saga);
+    mockGetStoryBible.mockResolvedValue(bible);
+    mockGetActiveCharacters.mockResolvedValue([
+      {
+        id: '00000000-0000-0000-0000-0000000000d2',
+        name: 'Thực thể mắt đỏ',
+        status: 'alive',
+        currentRealm: null,
+        bloodlines: [],
+        shortTraits: [],
+      },
+    ]);
+    mockPacketGenerate.mockResolvedValue({ packet, usage });
+    mockAuditPacket.mockReturnValue({ pass: true, issues: [], requiresRegenerate: false });
+    mockBuildContext.mockResolvedValue(makeContext());
+    mockWriterWrite.mockResolvedValue({
+      title: 'Chapter 70',
+      content: 'Lộ Nhàn chạm vào cây mực và thấy ký ức về Thực thể mắt đỏ. Nó từng là người của thế giới đầu tiên, nơi vô số người đã chết vì bản đồ bị xóa sổ, nhưng thực thể vẫn còn tồn tại.',
+      usage,
+      cost: 0,
+    });
+    mockBuildChecks.mockReturnValue([]);
+    mockRunDeterministicValidator.mockReturnValue({
+      pass: true,
+      shortCircuited: false,
+      pendingVerification: [],
+      checks: [],
+    });
+    mockLlmValidate.mockResolvedValue({ output: { pass: true, issues: [] }, usage });
+    mockCanonExtract.mockResolvedValue({
+      output: {
+        characterUpdates: [],
+        newCanonFacts: [],
+        threadUpdates: [],
+        newTimelineEvents: [],
+        factionUpdates: [],
+        seedsResolvedThisChapter: [],
+        turningPointsCompleted: [],
+        arcChangesCompleted: [],
+      },
+      usage,
+    });
+    mockCanonMergerSubmit.mockResolvedValue({
+      pendingCount: 0,
+      autoAppliedCount: 0,
+      autoApprovedLowImportanceCount: 0,
+      conflicts: [],
+    });
+    mockSummaryCompact.mockResolvedValue({
+      output: { summary: 'Compact summary', notableChanges: [] },
+      usage,
+    });
+    const { db } = makeRecordingDb();
+
+    const fakeLogger = { child: () => fakeLogger, info: () => {}, warn: () => {}, error: () => {} };
+    const { executeGenerateChapterPipeline } = await import('../../src/jobs/generate-chapter.js');
+
+    const result = await executeGenerateChapterPipeline(
+      {
+        storyId: '00000000-0000-0000-0000-000000000001',
+        chapterNumber: 70,
+        arcId: arc.id,
+        traceId: 'trace-1',
+        mode: 'full_auto',
+      } as any,
+      {
+        db: db as any,
+        provider: {} as any,
+        embeddingService: { embed: vi.fn().mockResolvedValue({ vector: [0.1] }) } as any,
+        logger: fakeLogger as any,
+        mode: 'full_auto',
+      },
+    );
+
+    expect(result.status).toBe('completed');
+    expect(mockCanonMergerSubmit).toHaveBeenCalled();
+    expect(mockSummaryCompact).toHaveBeenCalled();
+  });
+
+  it('does not treat another character first-person death line as the protagonist death when he wakes later', async () => {
+    mockGetArcById.mockResolvedValue(arc);
+    mockGetSagaForChapter.mockResolvedValue(saga);
+    mockGetStoryBible.mockResolvedValue(bible);
+    mockGetActiveCharacters.mockResolvedValue([
+      {
+        id: '00000000-0000-0000-0000-0000000000a1',
+        name: 'Lộ Nhàn',
+        status: 'alive',
+        currentRealm: null,
+        bloodlines: [],
+        shortTraits: [],
+      },
+      {
+        id: '00000000-0000-0000-0000-0000000000d1',
+        name: 'Vân Yên',
+        status: 'alive',
+        currentRealm: null,
+        bloodlines: [],
+        shortTraits: [],
+      },
+    ]);
+    mockPacketGenerate.mockResolvedValue({ packet, usage });
+    mockAuditPacket.mockReturnValue({ pass: true, issues: [], requiresRegenerate: false });
+    mockBuildContext.mockResolvedValue({
+      ...makeContext(),
+      warm: {
+        ...makeContext().warm,
+        activeCharacters: [
+          {
+            id: '00000000-0000-0000-0000-0000000000a1',
+            name: 'Lộ Nhàn',
+            status: 'alive',
+            currentRealm: null,
+            bloodlines: [],
+            shortTraits: [],
+          },
+          {
+            id: '00000000-0000-0000-0000-0000000000d1',
+            name: 'Vân Yên',
+            status: 'alive',
+            currentRealm: null,
+            bloodlines: [],
+            shortTraits: [],
+          },
+        ],
+      },
+    });
+    mockWriterWrite.mockResolvedValue({
+      title: 'Chapter 80',
+      content: [
+        'Lộ Nhàn gầm lên nhưng Vân Yên lắc đầu.',
+        'Vân Yên nói: "Ta chỉ là tàn ảnh. Ta đã chết rồi."',
+        'Lộ Nhàn mở cánh cổng tím và bị kéo vào ánh sáng.',
+        'Ở một nơi xa xôi, Lộ Nhàn mở mắt.',
+      ].join('\n\n'),
+      usage,
+      cost: 0,
+    });
+    mockBuildChecks.mockReturnValue([]);
+    mockRunDeterministicValidator.mockReturnValue({
+      pass: true,
+      shortCircuited: false,
+      pendingVerification: [],
+      checks: [],
+    });
+    mockLlmValidate.mockResolvedValue({ output: { pass: true, issues: [] }, usage });
+    mockCanonExtract.mockResolvedValue({
+      output: {
+        characterUpdates: [
+          { action: 'update', name: 'Vân Yên', fields: { status: 'missing' } },
+        ],
+        newCanonFacts: [],
+        threadUpdates: [],
+        newTimelineEvents: [],
+        factionUpdates: [],
+        seedsResolvedThisChapter: [],
+        turningPointsCompleted: [],
+        arcChangesCompleted: [],
+      },
+      usage,
+    });
+    mockCanonMergerSubmit.mockResolvedValue({
+      pendingCount: 0,
+      autoAppliedCount: 0,
+      autoApprovedLowImportanceCount: 0,
+      conflicts: [],
+    });
+    mockSummaryCompact.mockResolvedValue({
+      output: { summary: 'Compact summary', notableChanges: [] },
+      usage,
+    });
+    const { db } = makeRecordingDb();
+
+    const fakeLogger = { child: () => fakeLogger, info: () => {}, warn: () => {}, error: () => {} };
+    const { executeGenerateChapterPipeline } = await import('../../src/jobs/generate-chapter.js');
+
+    const result = await executeGenerateChapterPipeline(
+      {
+        storyId: '00000000-0000-0000-0000-000000000001',
+        chapterNumber: 80,
+        arcId: arc.id,
+        traceId: 'trace-1',
+        mode: 'full_auto',
+      } as any,
+      {
+        db: db as any,
+        provider: {} as any,
+        embeddingService: { embed: vi.fn().mockResolvedValue({ vector: [0.1] }) } as any,
+        logger: fakeLogger as any,
+        mode: 'full_auto',
+      },
+    );
+
+    expect(result.status).toBe('completed');
+    expect(mockCanonMergerSubmit).toHaveBeenCalled();
+    expect(mockSummaryCompact).toHaveBeenCalled();
+  });
+
+  it('does not treat a speaker attribution after sacrifice dialogue as that speaker death', async () => {
+    mockGetArcById.mockResolvedValue(arc);
+    mockGetSagaForChapter.mockResolvedValue(saga);
+    mockGetStoryBible.mockResolvedValue(bible);
+    mockGetActiveCharacters.mockResolvedValue([
+      {
+        id: '00000000-0000-0000-0000-0000000000k1',
+        name: 'Kẻ Ngoại Lai',
+        status: 'alive',
+        currentRealm: null,
+        bloodlines: [],
+        shortTraits: [],
+      },
+      {
+        id: '00000000-0000-0000-0000-0000000000d1',
+        name: 'Vân Yên',
+        status: 'alive',
+        currentRealm: null,
+        bloodlines: [],
+        shortTraits: [],
+      },
+    ]);
+    mockPacketGenerate.mockResolvedValue({ packet, usage });
+    mockAuditPacket.mockReturnValue({ pass: true, issues: [], requiresRegenerate: false });
+    mockBuildContext.mockResolvedValue({
+      ...makeContext(),
+      warm: {
+        ...makeContext().warm,
+        activeCharacters: [
+          {
+            id: '00000000-0000-0000-0000-0000000000k1',
+            name: 'Kẻ Ngoại Lai',
+            status: 'alive',
+            currentRealm: null,
+            bloodlines: [],
+            shortTraits: [],
+          },
+          {
+            id: '00000000-0000-0000-0000-0000000000d1',
+            name: 'Vân Yên',
+            status: 'alive',
+            currentRealm: null,
+            bloodlines: [],
+            shortTraits: [],
+          },
+        ],
+      },
+    });
+    mockWriterWrite.mockResolvedValue({
+      title: 'Chapter 80',
+      content: 'Hắn không trả lời. “Nàng đã hy sinh vì ngươi,” Kẻ Ngoại Lai nói. Hắn giơ tay ra và tiếp tục tấn công.',
+      usage,
+      cost: 0,
+    });
+    mockBuildChecks.mockReturnValue([]);
+    mockRunDeterministicValidator.mockReturnValue({
+      pass: true,
+      shortCircuited: false,
+      pendingVerification: [],
+      checks: [],
+    });
+    mockLlmValidate.mockResolvedValue({ output: { pass: true, issues: [] }, usage });
+    mockCanonExtract.mockResolvedValue({
+      output: {
+        characterUpdates: [
+          { action: 'update', name: 'Vân Yên', fields: { status: 'missing' } },
+        ],
+        newCanonFacts: [],
+        threadUpdates: [],
+        newTimelineEvents: [],
+        factionUpdates: [],
+        seedsResolvedThisChapter: [],
+        turningPointsCompleted: [],
+        arcChangesCompleted: [],
+      },
+      usage,
+    });
+    mockCanonMergerSubmit.mockResolvedValue({
+      pendingCount: 0,
+      autoAppliedCount: 0,
+      autoApprovedLowImportanceCount: 0,
+      conflicts: [],
+    });
+    mockSummaryCompact.mockResolvedValue({
+      output: { summary: 'Compact summary', notableChanges: [] },
+      usage,
+    });
+    const { db } = makeRecordingDb();
+
+    const fakeLogger = { child: () => fakeLogger, info: () => {}, warn: () => {}, error: () => {} };
+    const { executeGenerateChapterPipeline } = await import('../../src/jobs/generate-chapter.js');
+
+    const result = await executeGenerateChapterPipeline(
+      {
+        storyId: '00000000-0000-0000-0000-000000000001',
+        chapterNumber: 80,
+        arcId: arc.id,
+        traceId: 'trace-1',
+        mode: 'full_auto',
+      } as any,
+      {
+        db: db as any,
+        provider: {} as any,
+        embeddingService: { embed: vi.fn().mockResolvedValue({ vector: [0.1] }) } as any,
+        logger: fakeLogger as any,
+        mode: 'full_auto',
+      },
+    );
+
+    expect(result.status).toBe('completed');
+    expect(mockCanonMergerSubmit).toHaveBeenCalled();
+    expect(mockSummaryCompact).toHaveBeenCalled();
+  });
+
+  it('fails apparent death when active characters were compacted out and no status update is extracted', async () => {
+    mockGetArcById.mockResolvedValue(arc);
+    mockGetSagaForChapter.mockResolvedValue(saga);
+    mockGetStoryBible.mockResolvedValue(bible);
+    mockGetActiveCharacters.mockResolvedValue([
+      {
+        id: '00000000-0000-0000-0000-0000000000d1',
+        name: 'Vân Yên',
+        status: 'alive',
+        currentRealm: null,
+        bloodlines: [],
+        shortTraits: [],
+      },
+    ]);
+    mockPacketGenerate.mockResolvedValue({ packet, usage });
+    mockAuditPacket.mockReturnValue({ pass: true, issues: [], requiresRegenerate: false });
+    mockBuildContext.mockResolvedValue(makeContext());
+    mockWriterWrite.mockResolvedValue({
+      title: 'Chapter 69',
+      content: 'Vân Yên lao ra chắn đòn. Vân Yên hy sinh tan biến trong mực đen.',
+      usage,
+      cost: 0,
+    });
+    mockBuildChecks.mockReturnValue([]);
+    mockRunDeterministicValidator.mockReturnValue({
+      pass: true,
+      shortCircuited: false,
+      pendingVerification: [],
+      checks: [],
+    });
+    mockLlmValidate.mockResolvedValue({ output: { pass: true, issues: [] }, usage });
+    mockCanonExtract.mockResolvedValue({
+      output: {
+        characterUpdates: [],
+        newCanonFacts: [
+          { fact: 'Vân Yên hy sinh che chắn đòn tấn công cho Lộ Nhàn.', importance: 'high' },
+        ],
+        threadUpdates: [],
+        newTimelineEvents: [],
+        factionUpdates: [],
+        seedsResolvedThisChapter: [],
+        turningPointsCompleted: [],
+        arcChangesCompleted: [],
+      },
+      usage,
+    });
+    mockCanonMergerSubmit.mockResolvedValue({
+      pendingCount: 0,
+      autoAppliedCount: 0,
+      autoApprovedLowImportanceCount: 0,
+      conflicts: [],
+    });
+    mockSummaryCompact.mockResolvedValue({
+      output: { summary: 'Should not summarize', notableChanges: [] },
+      usage,
+    });
+    const { db } = makeRecordingDb();
+
+    const fakeLogger = { child: () => fakeLogger, info: () => {}, warn: () => {}, error: () => {} };
+    const { executeGenerateChapterPipeline } = await import('../../src/jobs/generate-chapter.js');
+
+    const result = await executeGenerateChapterPipeline(
+      {
+        storyId: '00000000-0000-0000-0000-000000000001',
+        chapterNumber: 69,
+        arcId: arc.id,
+        traceId: 'trace-1',
+        mode: 'full_auto',
+      } as any,
+      {
+        db: db as any,
+        provider: {} as any,
+        embeddingService: {} as any,
+        logger: fakeLogger as any,
+        mode: 'full_auto',
+      },
+    );
+
+    expect(result.status).toBe('failed');
+    expect(mockCanonMergerSubmit).not.toHaveBeenCalled();
+    expect(mockSummaryCompact).not.toHaveBeenCalled();
+  });
+
+  it('fails completed prose when an explicit character identity reveal is missing from canon extraction', async () => {
+    mockGetArcById.mockResolvedValue(arc);
+    mockGetSagaForChapter.mockResolvedValue(saga);
+    mockGetStoryBible.mockResolvedValue(bible);
+    mockPacketGenerate.mockResolvedValue({ packet, usage });
+    mockAuditPacket.mockReturnValue({ pass: true, issues: [], requiresRegenerate: false });
+    mockBuildContext.mockResolvedValue({
+      ...makeContext(),
+      warm: {
+        ...makeContext().warm,
+        activeCharacters: [
+          {
+            id: '00000000-0000-0000-0000-0000000000d1',
+            name: 'Vân Yên',
+            status: 'alive',
+            currentRealm: null,
+            bloodlines: [],
+            shortTraits: [],
+          },
+        ],
+      },
+    });
+    mockWriterWrite.mockResolvedValue({
+      title: 'Chapter 66',
+      content: '"Tên ta không phải Vân Yên," nàng nói. "Tên ta là Mặc Linh. Và ta là kẻ phản bội thực sự."',
+      usage,
+      cost: 0,
+    });
+    mockBuildChecks.mockReturnValue([]);
+    mockRunDeterministicValidator.mockReturnValue({
+      pass: true,
+      shortCircuited: false,
+      pendingVerification: [],
+      checks: [],
+    });
+    mockLlmValidate.mockResolvedValue({ output: { pass: true, issues: [] }, usage });
+    mockCanonExtract.mockResolvedValue({
+      output: {
+        characterUpdates: [],
+        newCanonFacts: [],
+        threadUpdates: [],
+        newTimelineEvents: [],
+        factionUpdates: [],
+        seedsResolvedThisChapter: [],
+        turningPointsCompleted: [],
+        arcChangesCompleted: [],
+      },
+      usage,
+    });
+    mockCanonMergerSubmit.mockResolvedValue({
+      pendingCount: 0,
+      autoAppliedCount: 0,
+      autoApprovedLowImportanceCount: 0,
+      conflicts: [],
+    });
+    mockSummaryCompact.mockResolvedValue({
+      output: { summary: 'Should not summarize', notableChanges: [] },
+      usage,
+    });
+    const { db, updates } = makeRecordingDb();
+
+    const fakeLogger = { child: () => fakeLogger, info: () => {}, warn: () => {}, error: () => {} };
+    const { executeGenerateChapterPipeline } = await import('../../src/jobs/generate-chapter.js');
+
+    const result = await executeGenerateChapterPipeline(
+      {
+        storyId: '00000000-0000-0000-0000-000000000001',
+        chapterNumber: 66,
+        arcId: arc.id,
+        traceId: 'trace-1',
+        mode: 'full_auto',
+      } as any,
+      {
+        db: db as any,
+        provider: {} as any,
+        embeddingService: {} as any,
+        logger: fakeLogger as any,
+        mode: 'full_auto',
+      },
+    );
+
+    expect(result.status).toBe('failed');
+    expect(mockCanonMergerSubmit).not.toHaveBeenCalled();
+    expect(mockSummaryCompact).not.toHaveBeenCalled();
+    expect(updates).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        table: chapters,
+        value: expect.objectContaining({
+          title: 'Chapter 66',
+          content: expect.stringContaining('Tên ta không phải Vân Yên'),
+          status: 'failed',
         }),
       }),
     ]));

@@ -27,6 +27,12 @@ describe('parseTitleAndContent', () => {
     expect(result.content).toBe('Nội dung');
   });
 
+  it('normalizes English chapter title artifacts', () => {
+    const result = parseTitleAndContent('TITLE: CHAPTER 23: ỐC ĐẢO TRONG SA MẠC\n\nNội dung');
+    expect(result.title).toBe('ỐC ĐẢO TRONG SA MẠC');
+    expect(result.content).toBe('Nội dung');
+  });
+
   it('normalizes nested TITLE prefix artifacts', () => {
     const result = parseTitleAndContent('TITLE: TITLE: Bàn Tay Đen\n\nNội dung');
     expect(result.title).toBe('Bàn Tay Đen');
@@ -36,6 +42,12 @@ describe('parseTitleAndContent', () => {
   it('removes generated end-of-chapter footer markers', () => {
     const result = parseTitleAndContent('TITLE: Chương 6\n\nNội dung\n\n*Hết chương 6*');
     expect(result.title).toBe('Chương 6');
+    expect(result.content).toBe('Nội dung');
+  });
+
+  it('removes bold uppercase generated end-of-chapter footer markers', () => {
+    const result = parseTitleAndContent('TITLE: Bàn Tay Từ Tinh Hà\n\nNội dung\n\n**HẾT CHƯƠNG 30**');
+    expect(result.title).toBe('Bàn Tay Từ Tinh Hà');
     expect(result.content).toBe('Nội dung');
   });
 
