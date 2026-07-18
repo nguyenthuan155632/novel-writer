@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ChapterPacketSchema } from '../../src/schemas/packet.ts';
+import { CHAPTER_PACKET_JSON_SCHEMA, ChapterPacketSchema } from '../../src/schemas/packet.ts';
 
 describe('ChapterPacketSchema', () => {
   it('accepts minimal valid packet', () => {
@@ -58,5 +58,10 @@ describe('ChapterPacketSchema', () => {
       seedsAutoEnforced: ['seed-id-1', 'seed-id-2'],
     });
     expect(out2.seedsAutoEnforced).toEqual(['seed-id-1', 'seed-id-2']);
+  });
+
+  it('keeps entryState optional in the provider response schema', () => {
+    expect(CHAPTER_PACKET_JSON_SCHEMA.required).not.toContain('entryState');
+    expect(CHAPTER_PACKET_JSON_SCHEMA.properties).toHaveProperty('entryState');
   });
 });

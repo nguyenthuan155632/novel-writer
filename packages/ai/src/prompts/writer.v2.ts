@@ -35,6 +35,9 @@ TITLE: <tiêu đề>
 - KHÔNG assume tone là nghiêm túc/epic nếu tone được set là humorous/soft.
 - MỌI thông tin về thế giới, nhân vật, hệ thống sức mạnh phải đến TỪ context được cung cấp.
 - KHÔNG tái diễn hoặc giải quyết lại sự kiện/conflict đã hoàn tất trong RECENT SUMMARIES, CANON FACTS, hoặc completed arc changes; chương mới phải phát triển hậu quả, biến chứng, hoặc mục tiêu kế tiếp từ các sự kiện đó.
+- Từ chương 3, chương phải làm thay đổi ít nhất một trạng thái cụ thể: mục tiêu, quan hệ, thông tin nhân vật biết, nguồn lực, vị trí, cam kết, trở ngại, hoặc hậu quả. Tin đồn lặp lại, một người lạ bị đuổi, hoặc nhân vật nghe lại chuyện cũ không đủ để tính là tiến triển.
+- Dùng RECENT SUMMARIES và chapter_tail_bridge để nối tiếp đúng điểm chương trước dừng lại. Không mở chương bằng cảnh nhân vật tỉnh dậy, tắm rửa, soi dung mạo, mua đồ, hoặc than phiền về thói quen nếu hai chương gần nhất đã dùng nhịp đó. Thói quen chỉ được xuất hiện như một beat ngắn khi nó trực tiếp làm thay đổi trạng thái; không dùng cùng một thói quen để vừa mở đầu vừa kết thúc chương.
+- Khi context có chapter_tail_bridge hoặc entry_state, cảnh mở đầu PHẢI tiếp nối trực tiếp thời điểm, địa điểm, hành động hoặc hệ quả đó. Không tự nhảy sang buổi sáng/ngày mới, không cho nhân vật thức dậy hay mở mắt để khởi động lại chương, trừ khi CHAPTER PLAN có "TIME_SKIP:" nêu rõ lý do và hệ quả của bước nhảy thời gian.
 - Không bắt buộc cliffhanger. Tôn trọng chapterPurpose và endingMode trong packet: resolved, quiet_transition, emotional_aftertaste, comic_beat, open_question đều hợp lệ nếu phù hợp mạch truyện.
 - CHAPTER PLAN / PACKET là ranh giới cụ thể của chương này. Không tự thêm nhân vật, cuộc gặp, reveal, seed payoff, turning point, hoặc manh mối lớn chỉ vì chúng xuất hiện trong SAGA/ARC SUMMARY hay FUTURE SEED REFERENCE.
 - Nếu turning point/sự kiện được ghi cho chương tương lai, chỉ foreshadow bằng đời sống/không khí rất nhẹ khi packet yêu cầu; KHÔNG đưa sự kiện đó xảy ra sớm.
@@ -100,6 +103,9 @@ TITLE: <tiêu đề>
 - KHÔNG assume tone là nghiêm túc/epic nếu tone được set là humorous/soft.
 - MỌI thông tin về thế giới, nhân vật, hệ thống sức mạnh phải đến TỪ context được cung cấp.
 - KHÔNG tái diễn hoặc giải quyết lại sự kiện/conflict đã hoàn tất trong RECENT SUMMARIES, CANON FACTS, hoặc completed arc changes; chương mới phải phát triển hậu quả, biến chứng, hoặc mục tiêu kế tiếp từ các sự kiện đó.
+- Từ chương 3, chương phải làm thay đổi ít nhất một trạng thái cụ thể: mục tiêu, quan hệ, thông tin nhân vật biết, nguồn lực, vị trí, cam kết, trở ngại, hoặc hậu quả. Tin đồn lặp lại, một người lạ bị đuổi, hoặc nhân vật nghe lại chuyện cũ không đủ để tính là tiến triển.
+- Dùng RECENT SUMMARIES và chapter_tail_bridge để nối tiếp đúng điểm chương trước dừng lại. Không mở chương bằng cảnh nhân vật tỉnh dậy, tắm rửa, soi dung mạo, mua đồ, hoặc than phiền về thói quen nếu hai chương gần nhất đã dùng nhịp đó. Thói quen chỉ được xuất hiện như một beat ngắn khi nó trực tiếp làm thay đổi trạng thái; không dùng cùng một thói quen để vừa mở đầu vừa kết thúc chương.
+- Khi context có chapter_tail_bridge hoặc entry_state, cảnh mở đầu PHẢI tiếp nối trực tiếp thời điểm, địa điểm, hành động hoặc hệ quả đó. Không tự nhảy sang buổi sáng/ngày mới, không cho nhân vật thức dậy hay mở mắt để khởi động lại chương, trừ khi CHAPTER PLAN có "TIME_SKIP:" nêu rõ lý do và hệ quả của bước nhảy thời gian.
 - Không bắt buộc cliffhanger. Tôn trọng chapterPurpose và endingMode trong packet: resolved, quiet_transition, emotional_aftertaste, comic_beat, open_question đều hợp lệ nếu phù hợp mạch truyện.
 - CHAPTER PLAN / PACKET là ranh giới cụ thể của chương này. Không tự thêm nhân vật, cuộc gặp, reveal, seed payoff, turning point, hoặc manh mối lớn chỉ vì chúng xuất hiện trong SAGA/ARC SUMMARY hay FUTURE SEED REFERENCE.
 - Nếu turning point/sự kiện được ghi cho chương tương lai, chỉ foreshadow bằng đời sống/không khí rất nhẹ khi packet yêu cầu; KHÔNG đưa sự kiện đó xảy ra sớm.

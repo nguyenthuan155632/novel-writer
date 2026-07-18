@@ -1,3 +1,4 @@
+import { ZodError } from "zod";
 import { getDb } from "@novel/db";
 import { sagas, plantedSeeds, arcs } from "@novel/db/schema";
 import { eq, and } from "drizzle-orm";
@@ -90,6 +91,34 @@ function normalizeArcPlannerOutput(
   return root;
 }
 
+/**
+ * Verifies every turning point (index 0..count-1) is covered by exactly one
+ * arc. Duplicate coverage is already rejected by the schema refinement; this
+ * catches missing or out-of-range turning points. Throws so the plan loop can
+ * re-prompt the model.
+ */
+function assertTurningPointsCovered(
+  output: ArcPlannerOutput,
+  count: number,
+): void {
+  const covered = output.arcs.flatMap((a) => a.coveredTurningPoints);
+  const coveredSet = new Set(covered);
+  const missing: number[] = [];
+  for (let i = 0; i < count; i++) {
+    if (!coveredSet.has(i)) missing.push(i);
+  }
+  const outOfRange = [...coveredSet].filter((i) => i >= count).sort((a, b) => a - b);
+  if (missing.length === 0 && outOfRange.length === 0) return;
+  const parts: string[] = [];
+  if (missing.length > 0) {
+    parts.push(`turning points chưa được phân bổ: [${missing.join(", ")}]`);
+  }
+  if (outOfRange.length > 0) {
+    parts.push(`turning point index không tồn tại: [${outOfRange.join(", ")}]`);
+  }
+  throw new Error(parts.join("; "));
+}
+
 export class ArcPlannerAgent {
   constructor(private readonly deps: ArcPlannerDeps) {}
 
@@ -139,48 +168,92 @@ export class ArcPlannerAgent {
       storyOptions: input.storyOptions,
     } as Record<string, unknown>);
 
-    const response = await withCompletionRetryRaw(
-      "arc_planner",
-      async () =>
-        this.deps.provider.complete({
-          model: this.deps.model ?? MODEL_CONFIG.routes.arc_planner,
-          messages: [
-            { role: "system", content: built.system },
-            { role: "user", content: built.user },
-          ],
-          responseSchema: ARC_PLANNER_JSON_SCHEMA,
-          temperature: 0.7,
-          metadata: {
-            agentRole: arcPlannerPromptV2.agentRole,
-            promptVersion: arcPlannerPromptV2.version,
-            storyId: input.storyId,
-          },
-        }),
-      3,
-    );
+    const baseMessages = [
+      { role: "system" as const, content: built.system },
+      { role: "user" as const, content: built.user },
+    ];
 
-    let parsed: ArcPlannerOutput;
-    try {
-      parsed = ArcPlannerOutputSchema.parse(
-        normalizeArcPlannerOutput(
-          JSON.parse(response.content),
-          saga.startChapter ?? 1,
-          saga.endChapter ?? saga.startChapter ?? 1,
-        ),
+    // The model occasionally drops or duplicates a turning point across arcs.
+    // withCompletionRetryRaw only retries transient model errors, so re-prompt
+    // with the validation error before giving up.
+    const turningPointCount = saga.expectedTurningPoints?.length ?? 0;
+    const maxValidationRetries = 2;
+    let messages: { role: "system" | "user" | "assistant"; content: string }[] =
+      baseMessages;
+    let parsed: ArcPlannerOutput | undefined;
+    let lastResponse: Awaited<
+      ReturnType<typeof this.deps.provider.complete>
+    > | undefined;
+
+    for (let attempt = 0; attempt <= maxValidationRetries; attempt++) {
+      const response = await withCompletionRetryRaw(
+        "arc_planner",
+        async () =>
+          this.deps.provider.complete({
+            model: this.deps.model ?? MODEL_CONFIG.routes.arc_planner,
+            messages,
+            responseSchema: ARC_PLANNER_JSON_SCHEMA,
+            temperature: 0.7,
+            metadata: {
+              agentRole: arcPlannerPromptV2.agentRole,
+              promptVersion: arcPlannerPromptV2.version,
+              storyId: input.storyId,
+            },
+          }),
+        3,
       );
-    } catch (err) {
-      log.error(
-        { err, raw: response.content.slice(0, 500) },
-        "arc planner parse failed",
-      );
-      throw err;
+      lastResponse = response;
+
+      try {
+        const candidate = ArcPlannerOutputSchema.parse(
+          normalizeArcPlannerOutput(
+            JSON.parse(response.content),
+            saga.startChapter ?? 1,
+            saga.endChapter ?? saga.startChapter ?? 1,
+          ),
+        );
+        assertTurningPointsCovered(candidate, turningPointCount);
+        parsed = candidate;
+        break;
+      } catch (err) {
+        if (attempt >= maxValidationRetries) {
+          log.error(
+            { err, raw: response.content.slice(0, 500) },
+            "arc planner parse failed",
+          );
+          throw err;
+        }
+        const detail =
+          err instanceof ZodError
+            ? JSON.stringify(err.issues)
+            : err instanceof Error
+              ? err.message
+              : `${err}`;
+        log.info({ attempt, detail }, "arc planner re-prompt after validation");
+        messages = [
+          ...baseMessages,
+          { role: "assistant", content: response.content },
+          {
+            role: "user",
+            content: [
+              `Kết quả trước không hợp lệ: ${detail}`,
+              `Có đúng ${turningPointCount} turning points (index 0..${Math.max(0, turningPointCount - 1)}). Mỗi turning point phải thuộc đúng 1 arc và TẤT CẢ phải được phân bổ hết — không thiếu, không trùng. Một arc thuần phát triển/đệm có thể để coveredTurningPoints rỗng [].`,
+              "Hãy trả lại DUY NHẤT 1 JSON object hợp lệ theo schema. Không markdown fence, không giải thích.",
+            ].join("\n\n"),
+          },
+        ];
+      }
+    }
+
+    if (!parsed || !lastResponse) {
+      throw new Error("arc_planner: exhausted validation retries");
     }
 
     log.info({ arcCount: parsed.arcs.length }, "plan ok");
     return {
       output: parsed,
       promptVersion: arcPlannerPromptV2.version,
-      usage: response.usage,
+      usage: lastResponse.usage,
     };
   }
 

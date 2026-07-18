@@ -61,6 +61,42 @@ describe('packetGeneratorPromptV2', () => {
     expect(built.user).toContain('không được tự biến thành biến cố chính');
   });
 
+  it('requires new state and varied scene patterns after the baseline chapters', () => {
+    const built = packetGeneratorPromptV2.build({
+      bibleCompact: 'b', arcSummary: 'a',
+      recentChapterSummaries: [
+        { chapterNumber: 3, summary: 'Nhân vật vừa xử lý một thương nhân rồi trở về nghỉ.' },
+        { chapterNumber: 4, summary: 'Nhân vật lại nghe tin đồn cũ rồi đi ngủ.' },
+      ],
+      activeCharacters: [], openThreads: [], duePlantedSeeds: [],
+      overdueThreads: [], forbiddenRules: '', chapterNumber: 5, arcGoals: 'g',
+      genreDef: findGenre('huyen_huyen'),
+      personalityDef: findPersonality('humorous_slick'),
+      storyOptions: {},
+    });
+
+    expect(built.user).toContain('TỪ CHƯƠNG 3');
+    expect(built.user).toContain('thay đổi trạng thái cụ thể và mới');
+    expect(built.user).toContain('CHỐNG LẶP NHỊP');
+    expect(built.user).toContain('không được vừa mở đầu vừa kết thúc chương');
+  });
+
+  it('requires later packets to continue the prior chapter instead of resetting to morning', () => {
+    const built = packetGeneratorPromptV2.build({
+      bibleCompact: 'b', arcSummary: 'a', recentChapterSummaries: [],
+      activeCharacters: [], openThreads: [], duePlantedSeeds: [],
+      overdueThreads: [], forbiddenRules: '', chapterNumber: 2, arcGoals: 'g',
+      prevChapterTailContent: 'Quân Thiên Miện rời khỏi trà quán khi trời vừa sẩm tối.',
+      genreDef: findGenre('huyen_huyen'),
+      personalityDef: findPersonality('cunning_pragmatic'),
+      storyOptions: {},
+    });
+
+    expect(built.user).toContain('NỐI CHƯƠNG BẮT BUỘC');
+    expect(built.user).toContain('requiredEvents[0]');
+    expect(built.user).toContain('TIME_SKIP: ');
+  });
+
   it('no critical must_include_seeds block when none provided', () => {
     const built = packetGeneratorPromptV2.build({
       bibleCompact: 'b', arcSummary: 'a', recentChapterSummaries: [],

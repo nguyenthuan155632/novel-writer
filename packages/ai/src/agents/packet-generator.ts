@@ -158,6 +158,33 @@ function hasLengthOnlyIssues(err: unknown): err is ZodError {
   return err instanceof ZodError && err.issues.every(issue => issue.code === 'too_big');
 }
 
+function fillMissingEntryState(
+  packet: ChapterPacket,
+  input: PacketGeneratorV2PromptInput,
+): ChapterPacket {
+  if (packet.chapterNumber <= 1 || packet.entryState) return packet;
+
+  const povName =
+    packet.charactersPresent[0] ??
+    input.activeCharacters.find((character) => character.status !== 'dead')?.name ??
+    'Nhân vật chính';
+  const activeKnowledge = input.prevChapterTailContent
+    ? [String(truncateAtBoundary(input.prevChapterTailContent, 180))]
+    : [];
+
+  return {
+    ...packet,
+    entryState: {
+      timestamp: 'tiếp nối chương trước',
+      povCharacter: {
+        name: povName,
+        immediateGoal: String(truncateAtBoundary(packet.goal, 160)),
+        activeKnowledge,
+      },
+    },
+  };
+}
+
 export class PacketGenerator {
   constructor(private readonly deps: PacketGeneratorDeps) {}
 
@@ -273,6 +300,7 @@ export class PacketGenerator {
       }
     }
 
+    parsed = fillMissingEntryState(parsed, input);
     parsed = linkInlineSeedIds(parsed, ctx.mustIncludeSeeds ?? []);
 
     // §1.9 — compute seedsAutoEnforced server-side (LLMs don't reliably echo IDs)

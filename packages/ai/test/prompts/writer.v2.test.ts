@@ -66,6 +66,31 @@ describe('writerPromptV2', () => {
     expect(built.system).toContain('phát triển hậu quả, biến chứng, hoặc mục tiêu kế tiếp');
   });
 
+  it('requires post-baseline chapters to progress and vary routine openings', () => {
+    const built = writerPromptV2.build({
+      serializedContext: 'CTX',
+      genreDef: findGenre('tien_hiep'),
+      chapterTailBridge: 'Nhân vật vừa rời khỏi cuộc gặp trong tâm trạng cảnh giác.',
+    } as unknown as Record<string, unknown>);
+
+    expect(built.system).toContain('Từ chương 3');
+    expect(built.system).toContain('thay đổi ít nhất một trạng thái cụ thể');
+    expect(built.system).toContain('Không mở chương bằng cảnh nhân vật tỉnh dậy, tắm rửa');
+    expect(built.system).toContain('không dùng cùng một thói quen để vừa mở đầu vừa kết thúc chương');
+  });
+
+  it('requires a later chapter to continue its tail unless a justified time skip is planned', () => {
+    const built = writerPromptV2.build({
+      serializedContext: 'CTX',
+      genreDef: findGenre('tien_hiep'),
+      chapterTailBridge: 'Quân Thiên Miện vừa rời khỏi trà quán khi trời sẩm tối.',
+    } as unknown as Record<string, unknown>);
+
+    expect(built.system).toContain('chapter_tail_bridge hoặc entry_state');
+    expect(built.system).toContain('Không tự nhảy sang buổi sáng/ngày mới');
+    expect(built.system).toContain('CHAPTER PLAN có "TIME_SKIP:"');
+  });
+
   it('guards comedic voice against modern consumer language', () => {
     const built = writerPromptV2.build({
       serializedContext: 'CTX',

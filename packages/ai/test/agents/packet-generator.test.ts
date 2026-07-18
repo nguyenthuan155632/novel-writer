@@ -175,8 +175,86 @@ describe('PacketGenerator', () => {
 
     expect(r.packet.chapterNumber).toBe(7);
     expect(r.packet.charactersPresent).toEqual(['Lam Da', 'Moc Linh Nhi']);
-    expect(r.packet.entryState).toBeUndefined();
+    expect(r.packet.entryState?.povCharacter.name).toBe('Lam Da');
+    expect(r.packet.entryState?.povCharacter.immediateGoal).toBe('protect Lam Da');
     expect(provider.getCalls()).toHaveLength(1);
+  });
+
+  it('fills missing entry state after chapter one from continuity context', async () => {
+    const missingEntryState = JSON.stringify({
+      chapterNumber: 3,
+      goal: 'Lam Da follows the merchant back to the tea house',
+      requiredEvents: [{ description: 'Lam Da keeps talking with the merchant outside the tea house.' }],
+      charactersPresent: ['Lam Da'],
+      conflict: 'the merchant avoids naming who threatened him',
+      forbiddenMoves: [],
+    });
+
+    const provider = new MockProvider({
+      responder: { kind: 'fixed', content: missingEntryState },
+    });
+    const gen = new PacketGenerator({ provider, logger: silentLogger });
+    const r = await gen.generate({
+      bibleCompact: 'b',
+      arcSummary: 'a',
+      recentChapterSummaries: [],
+      activeCharacters: [],
+      openThreads: [],
+      duePlantedSeeds: [],
+      overdueThreads: [],
+      prevChapterTailContent: 'Lam Da stood at the tea-house door while the merchant lowered his voice.',
+      forbiddenRules: '',
+      chapterNumber: 3,
+      arcGoals: 'g',
+      genreDef: { slug: 'tien_hiep', viLabel: 'Tiên hiệp', viDescription: '', family: 'cultivation', allowedTropes: [], discouragedTropes: [], toneGuidance: '', worldbuildingGuidance: '', examplePremises: [] } as any,
+      personalityDef: { slug: 'tram_on', viLabel: '', viDescription: '', voiceHints: '', decisionStyle: '', dialogueStyle: '', conflictResponse: '', driftSignals: [] } as any,
+      storyOptions: {} as any,
+    }, { traceId: 't', storyId: 's' });
+
+    expect(r.packet.entryState).toEqual(expect.objectContaining({
+      timestamp: 'tiếp nối chương trước',
+      povCharacter: expect.objectContaining({
+        name: 'Lam Da',
+        immediateGoal: 'Lam Da follows the merchant back to the tea house',
+        activeKnowledge: [expect.stringContaining('tea-house door')],
+      }),
+    }));
+  });
+
+  it('preserves a structured entry state for the next chapter boundary', async () => {
+    const packetWithEntryState = JSON.stringify({
+      chapterNumber: 2,
+      goal: 'Lam Da follows up on the merchant meeting',
+      requiredEvents: [{ description: 'Lam Da remains at the tea house to examine the merchant ledger.' }],
+      charactersPresent: ['Lam Da'],
+      conflict: 'the ledger contains a price discrepancy',
+      forbiddenMoves: [],
+      entryState: {
+        locationId: 'tea-house',
+        timestamp: 'late afternoon',
+        povCharacter: {
+          name: 'Lam Da',
+          emotionalState: 'alert',
+          immediateGoal: 'verify the ledger discrepancy',
+          activeKnowledge: ['the merchant changed the price'],
+        },
+      },
+    });
+    const provider = new MockProvider({
+      responder: { kind: 'fixed', content: packetWithEntryState },
+    });
+    const gen = new PacketGenerator({ provider, logger: silentLogger });
+    const r = await gen.generate({
+      bibleCompact: 'b', arcSummary: 'a', recentChapterSummaries: [],
+      activeCharacters: [], openThreads: [], duePlantedSeeds: [], overdueThreads: [],
+      forbiddenRules: '', chapterNumber: 2, arcGoals: 'g',
+      genreDef: { slug: 'tien_hiep', viLabel: 'Tiên hiệp', viDescription: '', family: 'cultivation', allowedTropes: [], discouragedTropes: [], toneGuidance: '', worldbuildingGuidance: '', examplePremises: [] } as any,
+      personalityDef: { slug: 'tram_on', viLabel: '', viDescription: '', voiceHints: '', decisionStyle: '', dialogueStyle: '', conflictResponse: '', driftSignals: [] } as any,
+      storyOptions: {} as any,
+    }, { traceId: 't', storyId: 's' });
+
+    expect(r.packet.entryState?.locationId).toBe('tea-house');
+    expect(r.packet.entryState?.povCharacter.immediateGoal).toBe('verify the ledger discrepancy');
   });
 
   it('defaults missing charactersPresent to an empty list without calling repair', async () => {

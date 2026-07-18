@@ -8,7 +8,9 @@ export const MANDATORY_REGEN_CODES = new Set([
   "locked_fact",
   "dead_character",
   "future_turning_point",
+  "missing_entry_state",
   "purpose_ending_mismatch",
+  "repeated_day_reset",
   "realm_jump_excess",
 ]);
 
@@ -102,6 +104,15 @@ export function auditPacket(input: AuditInput, ctx: AuditCtx): AuditResult {
     });
   }
 
+  if (input.packet.chapterNumber > 1 && !input.packet.entryState) {
+    issues.push({
+      code: "missing_entry_state",
+      severity: "high",
+      message:
+        "Packet từ chương 2 thiếu entryState. Phải nêu thời điểm, địa điểm và mục tiêu tức thời để nối trực tiếp từ chương trước.",
+    });
+  }
+
   // --- Purpose/ending semantic consistency ---
   const chapterPurpose = normalizeVietnameseForMatch(input.packet.chapterPurpose ?? "");
   const endingMode = normalizeVietnameseForMatch(input.packet.endingMode ?? "");
@@ -114,6 +125,17 @@ export function auditPacket(input: AuditInput, ctx: AuditCtx): AuditResult {
       severity: "high",
       message:
         "Packet khai báo slice/quiet nhưng lại đưa cảnh rình rập, tự điều tra ban đêm, bóng người biến mất, hoặc địa điểm nguy hiểm vào requiredEvents.",
+    });
+  }
+
+  // A chapter boundary should continue the prior scene/state by default. Reopening
+  // with another morning routine makes serialized fiction read like disconnected episodes.
+  if (hasUnjustifiedDayReset(input.packet)) {
+    issues.push({
+      code: "repeated_day_reset",
+      severity: "high",
+      message:
+        "Packet mở chương mới bằng một buổi sáng/thức dậy mà không có TIME_SKIP: nêu rõ lý do và hệ quả. Từ chương 2, phải nối tiếp entryState hoặc đoạn cuối chương trước.",
     });
   }
 
@@ -351,4 +373,18 @@ function hasActiveInvestigationEscalation(packet: ChapterPacket): boolean {
     );
 
   return activeInvestigation && threatOrSecretLocation;
+}
+
+function hasUnjustifiedDayReset(packet: ChapterPacket): boolean {
+  if (packet.chapterNumber <= 1) return false;
+
+  const opening = normalizeVietnameseForMatch(
+    packet.requiredEvents[0]?.description ?? "",
+  );
+  const startsNewDay =
+    /\b(thuc day|tinh day|mo mat|buoi sang|binh minh|sang som|ngay moi|mot ngay moi)\b/u.test(
+      opening,
+    );
+  const hasTimeSkip = /\btime skip\s*:/u.test(packet.notes ?? "");
+  return startsNewDay && !hasTimeSkip;
 }

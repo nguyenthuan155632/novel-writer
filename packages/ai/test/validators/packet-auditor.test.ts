@@ -10,6 +10,11 @@ const basePacket = {
   conflict: "fight bandits in forest",
   cliffhanger: "mysterious figure appears",
   forbiddenMoves: [],
+  entryState: {
+    locationId: "forest-edge",
+    timestamp: "late afternoon",
+    povCharacter: { name: "Lam Trach", immediateGoal: "reach the village safely", activeKnowledge: [] },
+  },
 };
 
 const aliveChar = {
@@ -59,6 +64,59 @@ describe("auditPacket", () => {
     );
     expect(r.pass).toBe(true);
     expect(r.issues.find((i) => i.code === "missing_cliffhanger")).toBeUndefined();
+  });
+
+  it("requires an entry state after the first chapter", () => {
+    const r = auditPacket(
+      {
+        packet: { ...basePacket, chapterNumber: 2, entryState: undefined } as any,
+        characters: [aliveChar],
+        forbiddenRules: "",
+        duePlantedSeeds: [],
+      },
+      { genreFamily: "cultivation" },
+    );
+
+    expect(r.issues.some((i) => i.code === "missing_entry_state")).toBe(true);
+    expect(r.requiresRegenerate).toBe(true);
+  });
+
+  it("requires regeneration when a later chapter resets to a new morning without justification", () => {
+    const r = auditPacket(
+      {
+        packet: {
+          ...basePacket,
+          chapterNumber: 2,
+          requiredEvents: [{ description: "Quân Thiên Miện thức dậy vào buổi sáng và bắt đầu một ngày mới." }],
+        } as any,
+        characters: [aliveChar],
+        forbiddenRules: "",
+        duePlantedSeeds: [],
+      },
+      { genreFamily: "cultivation" },
+    );
+
+    expect(r.issues.some((i) => i.code === "repeated_day_reset")).toBe(true);
+    expect(r.requiresRegenerate).toBe(true);
+  });
+
+  it("allows a later-day opening when the packet explicitly justifies the time skip", () => {
+    const r = auditPacket(
+      {
+        packet: {
+          ...basePacket,
+          chapterNumber: 2,
+          notes: "TIME_SKIP: Qua đêm để tin tức phong tỏa thương hội lan tới Đế Đô, buộc hắn đổi kế hoạch.",
+          requiredEvents: [{ description: "Sáng hôm sau, tin phong tỏa thương hội buộc Quân Thiên Miện thay đổi cuộc hẹn đã định." }],
+        } as any,
+        characters: [aliveChar],
+        forbiddenRules: "",
+        duePlantedSeeds: [],
+      },
+      { genreFamily: "cultivation" },
+    );
+
+    expect(r.issues.some((i) => i.code === "repeated_day_reset")).toBe(false);
   });
 
   it("flags unresolved due seed at last-window-chapter", () => {

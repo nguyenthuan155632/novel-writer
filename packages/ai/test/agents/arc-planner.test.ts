@@ -10,6 +10,8 @@ const silentLogger: Logger = {
   info: () => {},
 };
 
+// Saga (mocked below) has 2 turning points, so the third arc is a pure
+// development arc with an empty coveredTurningPoints.
 const VALID_OUTPUT = JSON.stringify({
   arcs: Array.from({ length: 3 }, (_, i) => ({
     index: i,
@@ -18,7 +20,7 @@ const VALID_OUTPUT = JSON.stringify({
     startChapter: i * 33 + 1,
     endChapter: (i + 1) * 33,
     expectedChanges: ["change happens here enough text"],
-    coveredTurningPoints: [i],
+    coveredTurningPoints: i < 2 ? [i] : [],
   })),
 });
 
@@ -133,7 +135,7 @@ describe("ArcPlannerAgent.plan (mocked db)", () => {
             title: `Arc ${i}`,
             premise: "p ".repeat(30).trim(),
             expectedChanges: ["change happens here enough text"],
-            coveredTurningPoints: [i],
+            coveredTurningPoints: i < 2 ? [i] : [],
           })),
         }),
       },
@@ -164,6 +166,57 @@ describe("ArcPlannerAgent.plan (mocked db)", () => {
       [34, 66],
       [67, 100],
     ]);
+  });
+
+  it("re-prompts when a turning point is left unallocated", async () => {
+    selectCallCount = 0;
+    // Saga has 2 turning points but this output only covers index 0 —
+    // turning point 1 is dropped, so coverage validation must reject it.
+    const invalidOutput = JSON.stringify({
+      arcs: Array.from({ length: 3 }, (_, i) => ({
+        index: i,
+        title: `Arc ${i}`,
+        premise: "p ".repeat(30).trim(),
+        startChapter: i * 33 + 1,
+        endChapter: (i + 1) * 33,
+        expectedChanges: ["change happens here enough text"],
+        coveredTurningPoints: i === 0 ? [0] : [],
+      })),
+    });
+    let call = 0;
+    const provider = new MockProvider({
+      responder: {
+        kind: "fn",
+        fn: () => ({
+          content: call++ === 0 ? invalidOutput : VALID_OUTPUT,
+          finishReason: "stop",
+          usage: { inputTokens: 1, outputTokens: 1, cachedInputTokens: 0 },
+          raw: {},
+        }),
+      },
+    });
+    const agent = new ArcPlannerAgent({ provider, logger: silentLogger });
+
+    const r = await agent.plan({
+      storyId: "s",
+      sagaId: "sa",
+      currentState: "state",
+      genreDef: {
+        slug: "tien_hiep",
+        viLabel: "Tiên hiệp",
+        viDescription: "",
+        family: "cultivation",
+        allowedTropes: [],
+        discouragedTropes: [],
+        toneGuidance: "",
+        worldbuildingGuidance: "",
+        examplePremises: [],
+      } as any,
+      storyOptions: {} as any,
+    });
+
+    expect(call).toBe(2);
+    expect(r.output.arcs).toHaveLength(3);
   });
 
   it("normalizes common arc title aliases", async () => {

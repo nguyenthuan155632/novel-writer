@@ -68,5 +68,26 @@ export const CHAPTER_PACKET_JSON_SCHEMA: JsonSchema = {
     forbiddenMoves: { type: 'array', items: { type: 'string' } },
     toneHints: { type: 'array', items: { type: 'string' } },
     notes: { type: 'string' },
+    entryState: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['povCharacter'],
+      properties: {
+        locationId: { type: 'string' },
+        timestamp: { type: 'string' },
+        povCharacter: {
+          type: 'object',
+          additionalProperties: false,
+          required: ['name'],
+          properties: {
+            name: { type: 'string' },
+            physicalCondition: { type: 'string' },
+            emotionalState: { type: 'string' },
+            immediateGoal: { type: 'string' },
+            activeKnowledge: { type: 'array', items: { type: 'string' } },
+          },
+        },
+      },
+    },
   },
 };

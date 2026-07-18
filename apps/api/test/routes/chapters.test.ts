@@ -7,6 +7,7 @@ import {
   canonFacts,
   chapters,
   openThreads,
+  pendingCanonUpdates,
   sagas,
   stories,
   storyBibles,
@@ -116,6 +117,69 @@ describe('chapters routes', () => {
     const storyId = '00000000-0000-0000-0000-000000000000';
     const r = await app.inject({ method: 'GET', url: `/api/stories/${storyId}/chapters/1` });
     expect(r.statusCode).toBe(404);
+  });
+
+  it('does not auto-complete packet-audit pauses with no written content', async () => {
+    const storyId = await createPlannedStory();
+    await createChapter(storyId, 3, {
+      title: null,
+      content: null,
+      status: 'paused_pending_updates',
+      wordCount: 0,
+      validationStatus: 'pending',
+      packetAuditStatus: 'failed',
+    });
+
+    const r = await app.inject({
+      method: 'GET',
+      url: `/api/stories/${storyId}/chapters/3`,
+    });
+
+    expect(r.statusCode).toBe(200);
+    expect(JSON.parse(r.body).chapter).toEqual(expect.objectContaining({
+      status: 'paused_pending_updates',
+      packetAuditStatus: 'failed',
+      content: null,
+      wordCount: 0,
+    }));
+
+    const [row] = await getDb(TEST_DB)
+      .select({ status: chapters.status })
+      .from(chapters)
+      .where(eq(chapters.storyId, storyId))
+      .limit(1);
+    expect(row?.status).toBe('paused_pending_updates');
+
+    await getDb(TEST_DB).delete(stories).where(eq(stories.id, storyId));
+  });
+
+  it('auto-completes written canon-review pauses once no pending updates remain', async () => {
+    const storyId = await createPlannedStory();
+    await createChapter(storyId, 3, {
+      status: 'paused_pending_updates',
+      validationStatus: 'passed',
+      packetAuditStatus: 'passed',
+      content: 'Finished chapter content.',
+      wordCount: 100,
+    });
+
+    const r = await app.inject({
+      method: 'GET',
+      url: `/api/stories/${storyId}/chapters/3`,
+    });
+
+    expect(r.statusCode).toBe(200);
+    expect(JSON.parse(r.body).chapter.status).toBe('completed');
+
+    const [row] = await getDb(TEST_DB)
+      .select({ status: chapters.status })
+      .from(chapters)
+      .where(eq(chapters.storyId, storyId))
+      .limit(1);
+    expect(row?.status).toBe('completed');
+
+    await getDb(TEST_DB).delete(pendingCanonUpdates).where(eq(pendingCanonUpdates.storyId, storyId));
+    await getDb(TEST_DB).delete(stories).where(eq(stories.id, storyId));
   });
 
   it('POST /api/stories/:storyId/chapters/generate enqueues job', async () => {

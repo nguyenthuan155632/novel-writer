@@ -124,7 +124,7 @@ const plugin: FastifyPluginCallback = (app, _opts, done) => {
         .limit(1);
       if (!row) return reply.code(404).send({ error: "chapter_not_found" });
 
-      // Safeguard: auto-complete if paused_pending_updates but nothing left to review
+      // Safeguard: auto-complete only written chapters whose canon review queue is empty.
       if (row.status === "paused_pending_updates") {
         const [pendingRow] = await db
           .select({ pending: count() })
@@ -135,7 +135,11 @@ const plugin: FastifyPluginCallback = (app, _opts, done) => {
               eq(pendingCanonUpdates.resolution, "pending"),
             ),
           );
-        if (!pendingRow || pendingRow.pending === 0) {
+        if (
+          row.content &&
+          row.packetAuditStatus === "passed" &&
+          (!pendingRow || pendingRow.pending === 0)
+        ) {
           await db
             .update(chapters)
             .set({ status: "completed", updatedAt: new Date() })

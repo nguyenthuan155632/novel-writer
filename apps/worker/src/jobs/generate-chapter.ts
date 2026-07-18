@@ -1325,6 +1325,9 @@ Trạng thái hiện tại: ${currentRealms || "(chưa xác định)"}`;
           chapterPurpose: packetResult.packet.chapterPurpose,
           endingMode: packetResult.packet.endingMode,
           forbiddenMoves: packetResult.packet.forbiddenMoves,
+          contextNotes: packetResult.packet.notes,
+          entryState: packetResult.packet.entryState,
+          activeLocationKey: packetResult.packet.entryState?.locationId,
           highStakes: packetHighStakes,
         });
         await db
@@ -1357,6 +1360,9 @@ Trạng thái hiện tại: ${currentRealms || "(chưa xác định)"}`;
       chapterPurpose: packetResult.packet.chapterPurpose,
       endingMode: packetResult.packet.endingMode,
       forbiddenMoves: packetResult.packet.forbiddenMoves,
+      contextNotes: packetResult.packet.notes,
+      entryState: packetResult.packet.entryState,
+      activeLocationKey: packetResult.packet.entryState?.locationId,
       highStakes: packetHighStakes,
     });
 

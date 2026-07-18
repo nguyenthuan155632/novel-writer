@@ -45,7 +45,7 @@ export default async function ChaptersPage({ params }: { params: Promise<{ id: s
               <strong>Ch. {ch.chapterNumber}</strong>
               <span className="status-pill">{ch.status}</span>
             </div>
-            {ch.title && <p>{ch.title}</p>}
+            {ch.title && <p style={{ textTransform: 'capitalize' }}>{ch.title.toLowerCase()}</p>}
             <p className="muted" style={{ marginTop: 6 }}>{ch.wordCount} words</p>
           </Link>
         ))}

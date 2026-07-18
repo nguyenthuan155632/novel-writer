@@ -10,7 +10,13 @@ export const ArcSchema = z
     endChapter: z.number().int().positive(),
     expectedChanges: z.array(z.string().min(10).max(200)).min(1).max(8),
     seedsToResolveInArc: z.array(z.string().min(3).max(120)).optional(),
-    coveredTurningPoints: z.array(z.number().int().nonnegative()).min(1).max(4),
+    // May be empty: an arc can be pure development/breathing with no turning
+    // point. The real invariant (all TPs allocated exactly once) is enforced
+    // by the duplicate refinement below plus a coverage check in the agent.
+    coveredTurningPoints: z
+      .array(z.number().int().nonnegative())
+      .max(4)
+      .default([]),
   })
   .refine((a) => a.endChapter > a.startChapter, {
     message: "endChapter must be greater than startChapter",
@@ -68,7 +74,7 @@ export const ARC_PLANNER_JSON_SCHEMA: JsonSchema = {
           coveredTurningPoints: {
             type: "array",
             items: { type: "integer", minimum: 0 },
-            minItems: 1,
+            minItems: 0,
             maxItems: 4,
           },
         },

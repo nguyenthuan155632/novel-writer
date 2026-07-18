@@ -1,6 +1,6 @@
 import { getDb } from "@novel/db";
-import { batches } from "@novel/db/schema";
-import { eq } from "drizzle-orm";
+import { batches, chapters } from "@novel/db/schema";
+import { and, eq } from "drizzle-orm";
 import { createLogger } from "@novel/core/logger";
 import type { LlmProviderId, ModelRoutes } from "@novel/core";
 
@@ -136,11 +136,39 @@ export async function runGenerateBatchJob(
       return { status: "failed", completed };
     }
 
-    // Chapter succeeded — now it's safe to count it and persist cost
-    completed++;
-    totalCostUsd += result.totalCostUsd;
-
     if (result.status === "paused_pending_updates") {
+      const [chapter] = await db
+        .select({
+          content: chapters.content,
+          packetAuditStatus: chapters.packetAuditStatus,
+        })
+        .from(chapters)
+        .where(
+          and(
+            eq(chapters.storyId, storyId),
+            eq(chapters.chapterNumber, chapterNumber),
+          ),
+        )
+        .limit(1);
+      const pausedBeforeWriting =
+        !chapter?.content || chapter.packetAuditStatus === "failed";
+      if (pausedBeforeWriting) {
+        totalCostUsd += result.totalCostUsd;
+        await db
+          .update(batches)
+          .set({
+            status: "paused",
+            pausedReason: `chapter_${chapterNumber}_packet_audit_failed`,
+            completedChapters: completed,
+            checkpointChapter: chapterNumber - 1,
+            totalCostUsd: totalCostUsd.toFixed(6),
+          })
+          .where(eq(batches.id, batchId));
+        return { status: "paused", completed };
+      }
+
+      completed++;
+      totalCostUsd += result.totalCostUsd;
       // Chapter was written but canon needs review — stop immediately, no retry needed
       await db
         .update(batches)
@@ -154,6 +182,10 @@ export async function runGenerateBatchJob(
         .where(eq(batches.id, batchId));
       return { status: "paused", completed };
     }
+
+    // Chapter succeeded — now it's safe to count it and persist cost
+    completed++;
+    totalCostUsd += result.totalCostUsd;
 
     await db
       .update(batches)

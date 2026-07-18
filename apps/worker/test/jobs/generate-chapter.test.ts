@@ -59,6 +59,14 @@ const packet = {
   conflict: 'The gate refuses him',
   cliffhanger: 'The archive opens from inside',
   forbiddenMoves: [],
+  notes: 'Continue directly from the courtyard argument.',
+  entryState: {
+    locationId: 'archive-gate',
+    povCharacter: {
+      name: 'Lam Trach',
+      immediateGoal: 'enter the archive',
+    },
+  },
   seedsAutoEnforced: [],
 };
 
@@ -531,10 +539,13 @@ describe('executeGenerateChapterPipeline', () => {
         table: chapterPackets,
         value: expect.objectContaining({
           chapterNumber: 5,
-          goal: packet.goal,
-          conflict: packet.conflict,
-          charactersInScene: packet.charactersPresent,
-        }),
+            goal: packet.goal,
+            conflict: packet.conflict,
+            charactersInScene: packet.charactersPresent,
+            contextNotes: packet.notes,
+            entryState: packet.entryState,
+            activeLocationKey: packet.entryState.locationId,
+          }),
       }),
     ]));
     expect(updates).toEqual(expect.arrayContaining([
